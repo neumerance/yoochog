@@ -3,20 +3,35 @@
     <div>
       <h1 class="text-xl font-semibold text-slate-900">Player</h1>
       <p class="text-sm text-slate-500 mt-1">
-        Two-column playlist layout preview — placeholders only (no video, queue sync, or sign-in).
+        Two-column playlist layout preview — embedded player in the primary column; queue sync and sign-in are
+        not wired yet.
       </p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:min-h-[70vh]">
       <section
-        class="lg:col-span-8 rounded-lg border border-slate-200 bg-white shadow-sm min-h-[40vh] flex items-center justify-center p-6"
+        class="lg:col-span-8 rounded-lg border border-slate-200 bg-white shadow-sm min-h-[40vh] flex flex-col p-4"
       >
-        <div class="text-center text-slate-500 max-w-lg">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Primary area</p>
-          <p class="text-lg font-medium text-slate-800">Video player placeholder</p>
-          <p class="text-sm mt-2 text-slate-600">
-            The main viewing experience will live here. This region is intentionally empty — no iframe or embed.
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Primary area</div>
+        <div class="w-full aspect-video min-h-[240px] relative bg-black rounded-md overflow-hidden">
+          <div
+            ref="playerContainer"
+            class="absolute inset-0 h-full w-full min-h-0 min-w-0"
+            aria-label="YouTube video player"
+          />
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <p class="text-xs text-slate-500">
+            Sample video until an app-managed queue is available.
           </p>
+          <button
+            v-if="!audioSessionUnlocked"
+            type="button"
+            class="text-xs font-medium text-sky-700 hover:text-sky-800 underline underline-offset-2"
+            @click="audioSessionUnlocked = true"
+          >
+            Enable sound (once per session)
+          </button>
         </div>
       </section>
 
@@ -41,3 +56,20 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+
+import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
+import { SAMPLE_YOUTUBE_VIDEO_ID } from '@/constants/sampleVideo'
+
+const playerContainer = ref<HTMLElement | null>(null)
+/** After one tap, queue-driven `loadVideoById` stays unmuted via the composable (no per-song controls). */
+const audioSessionUnlocked = ref(false)
+
+useYoutubePlayer(playerContainer, {
+  videoId: SAMPLE_YOUTUBE_VIDEO_ID,
+  autoplay: true,
+  audioSessionUnlocked,
+})
+</script>
