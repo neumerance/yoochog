@@ -26,4 +26,13 @@ describe('buildGuestJoinUrl', () => {
     })
     expect(href).toBe('https://example.com/yoochog/join/a%2Fb%20c')
   })
+
+  it('guest join QR payload matches canonical GitHub Pages guest URL (issue #21)', () => {
+    const sessionId = 'test-session-id'
+    const href = buildGuestJoinUrl(sessionId, {
+      origin: 'https://neumerance.github.io',
+      baseUrl: '/yoochog/',
+    })
+    expect(href).toBe('https://neumerance.github.io/yoochog/join/test-session-id')
+  })
 })
