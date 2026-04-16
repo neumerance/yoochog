@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@layer base {
+  body {
+    @apply min-h-screen antialiased text-slate-900 bg-slate-50;
+  }
+}
+
+@layer components {
+  nav[aria-label='Primary'] a.router-link-exact-active {
+    @apply font-semibold text-slate-900 underline decoration-2 underline-offset-4;
+  }
+}
