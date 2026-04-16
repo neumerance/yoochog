@@ -1,29 +1,30 @@
 <template>
-  <div
-    v-if="sessionId.trim()"
-    class="shrink-0 rounded border border-slate-200 bg-slate-50/90 p-1.5 text-slate-800"
-  >
-    <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+  <div v-if="sessionId.trim()" class="shrink-0 p-3 text-indigo-950 sm:p-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div class="min-w-0 flex-1">
-        <h2 class="text-[11px] font-semibold leading-tight text-slate-800">Guests join here</h2>
-        <p class="mt-0.5 text-[10px] leading-tight text-slate-600">
-          Scan with the phone camera or a QR app to open the join page.
+        <h2 class="text-lg font-semibold leading-snug text-indigo-950 sm:text-xl">Join in from your phone</h2>
+        <p class="mt-2 text-base leading-relaxed text-indigo-900/90">
+          Scan with a phone camera or QR app—opens this sing-along in the browser, no signup.
         </p>
       </div>
       <div class="flex shrink-0 justify-center sm:justify-end">
         <img
           v-if="qrDataUrl"
           :src="qrDataUrl"
-          width="112"
-          height="112"
-          class="h-[112px] w-[112px] max-w-full bg-white"
-          alt="QR code to join this sing-along session"
+          width="192"
+          height="192"
+          class="h-48 w-48 max-w-full rounded-md bg-white"
+          alt="QR code to join this sing-along from a phone"
         />
-        <p v-else-if="qrError" class="max-w-[112px] text-center text-[10px] leading-tight text-red-700">
+        <p v-else-if="qrError" class="max-w-[12rem] text-center text-base leading-snug text-red-700">
           {{ qrError }}
         </p>
-        <p v-else class="flex h-[112px] w-[112px] items-center justify-center text-[10px] text-slate-500" aria-live="polite">
-          Preparing…
+        <p
+          v-else
+          class="flex h-48 w-48 items-center justify-center text-base text-slate-500"
+          aria-live="polite"
+        >
+          Preparing QR…
         </p>
       </div>
     </div>
@@ -62,13 +63,13 @@ watch(
     qrError.value = null
     try {
       qrDataUrl.value = await QRCode.toDataURL(url, {
-        width: 112,
-        margin: 1,
+        width: 192,
+        margin: 2,
         errorCorrectionLevel: 'M',
       })
     } catch {
       qrDataUrl.value = null
-      qrError.value = 'QR failed - refresh.'
+      qrError.value = 'QR failed - refresh the page.'
     }
   },
   { immediate: true },

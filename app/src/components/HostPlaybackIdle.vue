@@ -1,9 +1,9 @@
 <template>
   <div
-    class="flex h-full w-full flex-col items-center justify-center gap-2 bg-slate-900/95 p-4 text-center text-slate-100"
+    class="flex h-full w-full flex-col items-center justify-center gap-4 bg-slate-900/95 p-6 text-center text-slate-100 sm:gap-5 sm:p-8"
   >
-    <p class="text-lg font-semibold tracking-tight">{{ title }}</p>
-    <p class="text-sm text-slate-300 max-w-sm">{{ subtitle }}</p>
+    <p class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ title }}</p>
+    <p class="max-w-lg text-lg leading-relaxed text-slate-300 sm:text-xl">{{ subtitle }}</p>
   </div>
 </template>
 
