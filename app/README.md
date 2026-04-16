@@ -1,6 +1,42 @@
-# app
+# Yoochog (Vue app)
 
-This template should help get you started developing with Vue 3 in Vite.
+Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 and Vite.
+
+## GitHub Pages (project site)
+
+This repo is published as a **project** site, not the account root. The URL shape is:
+
+`https://<github-username>.github.io/<repository-name>/`
+
+For this repository the path segment is **`yoochog`**. Example:
+
+**https://neumerance.github.io/yoochog/**
+
+Production builds set Vite’s [`base`](https://vite.dev/config/shared-options.html#base) to `/yoochog/` so scripts, styles, and assets resolve under that prefix. Vue Router uses `import.meta.env.BASE_URL`, so it stays aligned with the build.
+
+## Verify the subpath locally
+
+You do not need GitHub Pages live to confirm asset URLs:
+
+```sh
+cd app
+npm install
+npm run build
+```
+
+Inspect `dist/index.html`: bundle and favicon links should start with `/yoochog/`. For example:
+
+```sh
+rg '/yoochog/' dist/index.html
+```
+
+Then serve the production bundle (also uses `/yoochog/`):
+
+```sh
+npm run preview
+```
+
+Open the URL Vite prints (paths are under `/yoochog/`). `npm run dev` still serves the app at `/` with HMR.
 
 ## Recommended IDE Setup
 
@@ -17,7 +53,7 @@ This template should help get you started developing with Vue 3 in Vite.
 
 ## Type Support for `.vue` Imports in TS
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` in editors. Use [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) so the TypeScript service understands `.vue` types.
 
 ## Customize configuration
 
