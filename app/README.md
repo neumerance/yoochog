@@ -6,6 +6,8 @@ Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 
 
 CI deploys the production build from `master`; see the root doc **[docs/github-pages.md](../docs/github-pages.md)** for the workflow, one-time GitHub settings, and permissions.
 
+- Production **`npm run build`** also emits **`dist/404.html`** (a copy of `index.html`) so GitHub Pages serves the Vue app shell for deep links and refreshes. See **Deep links / SPA routing** in that doc for behavior and tradeoffs versus hash-based routing.
+
 This repo is published as a **project** site, not the account root. The URL shape is:
 
 `https://<github-username>.github.io/<repository-name>/`
