@@ -49,11 +49,11 @@ Use the same pattern in tests and previews, with the dev server origin and path 
 
 ## Future configuration (placeholders)
 
-Reserved **environment variable names** for possible future WebRTC-related configuration. These follow Vite’s `VITE_*` convention and are **unused until implemented**. List **names only** — no values here and none committed to the repo.
+Reserved **environment variable names** for WebRTC-related configuration. These follow Vite’s `VITE_*` convention. List **names only** here — no values here and none committed to the repository.
 
 | Area | Placeholder names (examples) |
 |------|------------------------------|
-| **Signaling** (WebRTC signaling / WebSocket service URL) | `VITE_SIGNALING_URL` |
+| **Signaling** | `VITE_SIGNALING_URL` (local WebSocket relay) **or** `VITE_PUBNUB_PUBLISH_KEY` + `VITE_PUBNUB_SUBSCRIBE_KEY` (PubNub channel per party). See [`app/README.md`](app/README.md) and [ADR 0001](docs/adr/0001-webrtc-signaling.md). |
 | **TURN** (TURN/STUN / ICE server configuration) | `VITE_TURN_URLS` and/or additional `VITE_TURN_*` names as needed |
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.

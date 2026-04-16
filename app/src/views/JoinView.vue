@@ -2,16 +2,39 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
+import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
+import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
+import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
+
 const route = useRoute()
-const sessionId = computed(() => String(route.params.sessionId ?? ''))
+const sessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
+
+const {
+  status: handshakeStatus,
+  statusLabel,
+  error: handshakeError,
+  isSignalingConfigured,
+} = useGuestPartyHandshake(sessionId)
 </script>
 
 <template>
-  <section class="max-w-2xl mx-auto px-4 py-10">
-    <h1 class="text-2xl font-bold text-slate-900 mb-3">Join</h1>
-    <p class="text-slate-600 leading-relaxed">
+  <section class="mx-auto max-w-2xl px-4 py-10">
+    <h1 class="mb-3 text-2xl font-bold text-slate-900">Join</h1>
+    <p class="leading-relaxed text-slate-600">
       Placeholder for the guest experience. Session id from the URL:
       <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm text-slate-800">{{ sessionId }}</code>
     </p>
+
+    <div
+      class="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800"
+      aria-live="polite"
+    >
+      <HandshakeStatusStrip
+        :status="handshakeStatus"
+        :status-label="statusLabel"
+        :error="handshakeError"
+        :is-signaling-configured="isSignalingConfigured"
+      />
+    </div>
   </section>
 </template>

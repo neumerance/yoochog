@@ -12,6 +12,10 @@ node_modules
 dist
 dist-ssr
 coverage
+
+# Local env files (secrets). Copy `.env.example` → `.env.local` and fill in values.
+.env.local
+.env.*.local
 *.local
 
 # Editor directories and files
