@@ -4,6 +4,8 @@ Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 
 
 ## GitHub Pages (project site)
 
+CI deploys the production build from `master`; see the root doc **[docs/github-pages.md](../docs/github-pages.md)** for the workflow, one-time GitHub settings, and permissions.
+
 This repo is published as a **project** site, not the account root. The URL shape is:
 
 `https://<github-username>.github.io/<repository-name>/`
