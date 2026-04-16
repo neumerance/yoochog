@@ -75,6 +75,28 @@ npm install
 npm run dev
 ```
 
+### Signaling (real-time handshake, dev)
+
+Epic 4 uses a **separate** WebSocket signaling service (not GitHub Pages). This repo includes a small **dev relay** under [`signaling-dev/`](../signaling-dev/) (see `server.mjs` and `package.json`) that matches the client’s JSON envelope (`join`, `signal`, room id `yoochog:party:<sessionId>` per [ADR 0001](../docs/adr/0001-webrtc-signaling.md)).
+
+1. In one terminal, start the relay (default port **8787**):
+
+   ```sh
+   cd signaling-dev
+   npm install
+   npm start
+   ```
+
+2. In **`app/`**, create **`.env.local`** (not committed) with the **name-only** placeholder:
+
+   ```sh
+   VITE_SIGNALING_URL=http://localhost:8787
+   ```
+
+3. Run **`npm run dev`** in **`app/`**, open **Host** at `/player` and **Guest** at `/join/<sessionId>` using the **same** opaque party id as the host (QR / join link). You should see **“Establishing handshake”** then **Connected** when the WebRTC peer connection reaches `connected`.
+
+**Manual check:** Two browser tabs (or profiles) with the same `VITE_SIGNALING_URL` and matching session id; DevTools → Network shows an open WebSocket to the signaling URL.
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh

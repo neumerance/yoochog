@@ -46,6 +46,20 @@
 
         <GuestJoinQrPanel :session-id="hostSessionId" class="shrink-0 px-2 pt-2 sm:px-3 sm:pt-3" />
 
+        <div
+          class="shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 sm:px-4"
+          aria-live="polite"
+        >
+          <template v-if="isSignalingConfigured">
+            <p v-if="handshakeStatusLabel">{{ handshakeStatusLabel }}</p>
+            <p v-if="handshakeError" class="mt-1 text-red-800">{{ handshakeError }}</p>
+          </template>
+          <p v-else class="text-slate-600">
+            Real-time link is off until you set <code class="rounded bg-slate-200 px-1">VITE_SIGNALING_URL</code> (see
+            app README).
+          </p>
+        </div>
+
         <div class="flex min-h-0 flex-1 flex-col p-3 text-base text-slate-700">
           <div class="shrink-0 space-y-2 pb-3">
             <h2 class="text-sm font-bold uppercase tracking-wide text-black sm:text-base">
@@ -96,6 +110,7 @@ import { computed, ref, watch } from 'vue'
 
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
+import { useHostPartyHandshake } from '@/composables/useHostPartyHandshake'
 import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
 import { DEMO_HOST_QUEUE_IDS } from '@/constants/sampleVideo'
@@ -103,6 +118,8 @@ import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
 
 const { hostSessionId } = useHostSessionId()
+const { statusLabel: handshakeStatusLabel, error: handshakeError, isSignalingConfigured } =
+  useHostPartyHandshake(hostSessionId)
 
 const queue = createHostVideoQueue()
 const queueTick = ref(0)
