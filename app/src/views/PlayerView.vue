@@ -22,6 +22,7 @@
             Start Singing
           </button>
         </div>
+        <GuestJoinQrPanel :session-id="hostSessionId" />
       </section>
 
       <aside
@@ -110,6 +111,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
 import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
