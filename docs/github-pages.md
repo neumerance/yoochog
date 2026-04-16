@@ -48,6 +48,27 @@ For this project, production builds use Vite `base` `/yoochog/` and the router f
 
 **https://neumerance.github.io/yoochog/**
 
+## Deep links / SPA routing
+
+GitHub Pages only serves **static files**. There is no server that rewrites `/yoochog/player` to `index.html`, so a **direct open** or **refresh** on an in-app path can return GitHub’s “page not found” response even though the Vue app would know how to render that route if the shell had loaded first.
+
+### What this repo does
+
+After each production build, the pipeline copies the built **`index.html`** to **`404.html`** in `app/dist/`. GitHub Pages serves that file for requests that do not match a real path, so the browser still receives the **same app shell** as the home page. [Vue Router](https://router.vuejs.org/) (history mode with `createWebHistory` and `BASE_URL` `/yoochog/`) then reads the URL and shows `/player`, `/client`, and so on.
+
+See [Creating a custom 404 page for your GitHub Pages site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site).
+
+### Tradeoffs: `404.html` vs hash routing
+
+| | **`404.html` (same as `index.html`)** — **this repo** | **`createWebHashHistory()`** (not used here) |
+|--|--|--|
+| **URLs** | Clean paths like `/yoochog/player` | Fragment-based: `yoochog/#/player` (less pretty; share links look different) |
+| **Hosting** | Relies on Pages’ custom 404 behavior for “missing” paths | Single `index.html` for all routes; no 404 copy needed on static hosts |
+| **Bookmarks / sharing** | Unchanged from current history-mode URLs | Would change URL shape; old bookmarks would need communication or redirects if you ever switched |
+| **Elsewhere** | If you move off Pages to a host that supports SPA fallback (e.g. nginx `try_files`), you configure that there instead of duplicating HTML | Same hash URLs work anywhere without server rewrites |
+
+**This project** keeps **HTML5 history** and the **404.html** post-build step so deep links and refreshes work on GitHub Pages without changing the public URL format.
+
 ## References
 
 - [Configuring a publishing source for GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-github-pages-site) (including **GitHub Actions** as source)
