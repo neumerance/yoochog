@@ -39,6 +39,14 @@ Example public URL (project site):
 
 For the workflow, one-time GitHub **Settings** (Pages source, permissions), and how SPA routing / `404.html` work on Pages, see **[`docs/github-pages.md`](docs/github-pages.md)**.
 
+### Join URL (guests)
+
+Canonical production guest URL:
+
+**`https://neumerance.github.io/yoochog/join/<sessionId>`**
+
+Use the same pattern in tests and previews, with the dev server origin and path `/join/<sessionId>`. Any QR or share UI must produce this exact shape (see **`buildGuestJoinUrl`** in [`app/src/lib/join-url/buildGuestJoinUrl.ts`](app/src/lib/join-url/buildGuestJoinUrl.ts)); details and GitHub Pages behavior are in [`docs/github-pages.md`](docs/github-pages.md).
+
 ## Future configuration (placeholders)
 
 Reserved **environment variable names** for possible future WebRTC-related configuration. These follow Vite’s `VITE_*` convention and are **unused until implemented**. List **names only** — no values here and none committed to the repo.

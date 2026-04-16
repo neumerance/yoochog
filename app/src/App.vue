@@ -23,9 +23,9 @@ import { RouterLink, RouterView } from 'vue-router'
         </RouterLink>
         <RouterLink
           class="text-slate-600 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-sm"
-          to="/client"
+          to="/join/demo"
         >
-          Client
+          Join
         </RouterLink>
       </nav>
     </header>

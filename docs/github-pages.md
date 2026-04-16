@@ -54,7 +54,19 @@ GitHub Pages only serves **static files**. There is no server that rewrites `/yo
 
 ### What this repo does
 
-After each production build, the pipeline copies the built **`index.html`** to **`404.html`** in `app/dist/`. GitHub Pages serves that file for requests that do not match a real path, so the browser still receives the **same app shell** as the home page. [Vue Router](https://router.vuejs.org/) (history mode with `createWebHistory` and `BASE_URL` `/yoochog/`) then reads the URL and shows `/player`, `/client`, and so on.
+After each production build, the pipeline copies the built **`index.html`** to **`404.html`** in `app/dist/`. GitHub Pages serves that file for requests that do not match a real path, so the browser still receives the **same app shell** as the home page. [Vue Router](https://router.vuejs.org/) (history mode with `createWebHistory` and `BASE_URL` `/yoochog/`) then reads the URL and shows `/player`, `/join/<sessionId>`, and so on.
+
+### Join URLs (canonical)
+
+Guest entry uses a **single canonical** path shape (history mode, no hash):
+
+`https://neumerance.github.io/yoochog/join/<sessionId>`
+
+- **`<sessionId>`** is the opaque party id (same id the host tab stores for sharing; UUID-shaped today).
+- **QR codes and copy-link features** must encode **exactly** this URL: same scheme, host, `/yoochog/` prefix, and path. Implementations should build the string with the shared helper [`buildGuestJoinUrl`](../app/src/lib/join-url/buildGuestJoinUrl.ts) so docs and product stay aligned.
+- Local dev uses base `/`, so the same route looks like `http://localhost:5173/join/<sessionId>`.
+
+The legacy **`/client`** route redirects to the home page; update bookmarks to `/join/<sessionId>` when sharing a party.
 
 See [Creating a custom 404 page for your GitHub Pages site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site).
 
