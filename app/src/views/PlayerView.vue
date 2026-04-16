@@ -43,6 +43,13 @@
         </div>
 
         <div class="flex-1 flex flex-col min-h-0 p-2 text-sm text-slate-600">
+          <p
+            v-if="showHostSessionDebug"
+            class="shrink-0 mb-2 text-xs font-mono text-slate-400 break-all"
+            aria-hidden="true"
+          >
+            Host session: {{ hostSessionId }}
+          </p>
           <p class="text-slate-500 shrink-0">
             {{ queueLength }} song(s) in the queue
             <span v-if="idleVariant === 'ended'" class="block text-xs text-slate-400 mt-1">
@@ -104,10 +111,14 @@
 import { computed, ref, watch } from 'vue'
 
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
+import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
 import { DEMO_HOST_QUEUE_IDS } from '@/constants/sampleVideo'
 import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
+
+const { hostSessionId } = useHostSessionId()
+const showHostSessionDebug = import.meta.env.DEV
 
 const queue = createHostVideoQueue()
 const queueTick = ref(0)

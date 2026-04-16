@@ -50,6 +50,10 @@ Reserved **environment variable names** for possible future WebRTC-related confi
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.
 
+## Host session ids (threat model)
+
+The host experience stores a **random, unguessable** id per browser tab (UUID-style via `crypto.randomUUID()`, persisted in `sessionStorage`) so casual guessing or drive-by URL typing is unlikely to join the wrong party. That is **not** a full multi-tenant security, compliance, or anti-abuse boundary—there are no server-issued secrets in this repo, and join flows remain **client-side** until later epics add real membership and controls.
+
 ## More documentation
 
 - [`app/README.md`](app/README.md) — Vue app details and subpath verification
