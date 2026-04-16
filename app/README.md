@@ -108,6 +108,12 @@ VITE_PUBNUB_SUBSCRIBE_KEY=your-subscribe-key
 
 Use keys from the PubNub admin portal (dev app). Production should use **Access Manager** / token auth instead of long-lived publish keys in clients; this wiring is suitable for **development and demos**.
 
+**If the browser console shows `403` on `pndsn.com` subscribe or publish:** PubNub is rejecting the request. Common fixes:
+
+1. Use **Publish Key** and **Subscribe Key** from the **same keyset** (same app in the Admin portal)—do not mix keys from different apps.
+2. For **local development**, turn **Access Manager** **off** on that keyset (when PAM is on with no grants, clients get 403). Alternatively keep PAM on and configure grants for your channels.
+3. Confirm the keyset is **active** and **Pub/Sub** is allowed for the client.
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh

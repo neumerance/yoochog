@@ -1,10 +1,10 @@
 import PubNub from 'pubnub'
 
 import type { PartySignalingTransport } from './PartySignalingTransport'
-
-type PubNubPublishMessage = Parameters<InstanceType<typeof PubNub>['publish']>[0]['message']
 import type { PeerInfo, SignalPayload, SignalingRole } from './protocol'
 import { isServerToClientMessage } from './protocol'
+
+type PubNubPublishMessage = Parameters<InstanceType<typeof PubNub>['publish']>[0]['message']
 
 export type PubNubSignalingClientOptions = {
   publishKey: string
@@ -19,6 +19,22 @@ function toPubNubUserId(clientId: string): string {
 /** PubNub `Payload` typing is stricter than our JSON envelope; round-trip for publish. */
 function toPubNubMessage(message: unknown): PubNubPublishMessage {
   return JSON.parse(JSON.stringify(message)) as PubNubPublishMessage
+}
+
+const PUBNUB_403_HINT =
+  'PubNub returned 403 (forbidden). Use Publish + Subscribe keys from the same keyset in the PubNub Admin Portal. For local dev, disable Access Manager on that keyset, or grant subscribe/publish to your channels.'
+
+/** PubNub may attach `errorData.status` at runtime; typings omit it on `StatusEvent`. */
+function httpStatusFromPubNubStatus(statusEvent: PubNub.StatusEvent): number | undefined {
+  const o = statusEvent as unknown as Record<string, unknown>
+  const ed = o.errorData
+  if (ed && typeof ed === 'object' && ed !== null && 'status' in ed) {
+    const s = (ed as { status: unknown }).status
+    if (typeof s === 'number') {
+      return s
+    }
+  }
+  return undefined
 }
 
 type YoochogPeerMessage = {
@@ -57,6 +73,13 @@ export class PubNubSignalingClient implements PartySignalingTransport {
 
   constructor(private readonly options: PubNubSignalingClientOptions) {}
 
+  private clearJoinFallbackTimer(): void {
+    if (this.joinFallbackTimer !== null) {
+      globalThis.clearTimeout(this.joinFallbackTimer)
+      this.joinFallbackTimer = null
+    }
+  }
+
   subscribePeerJoined(handler: (peer: PeerInfo) => void): () => void {
     this.peerJoinedListeners.add(handler)
     return () => {
@@ -91,14 +114,17 @@ export class PubNubSignalingClient implements PartySignalingTransport {
 
       this.pubnub!.addListener({
         status: (statusEvent) => {
+          const httpStatus = httpStatusFromPubNubStatus(statusEvent)
+          const forbidden =
+            statusEvent.category === PubNub.CATEGORIES.PNAccessDeniedCategory || httpStatus === 403
+          if (forbidden && this.pendingJoin) {
+            this.clearJoinFallbackTimer()
+            this.pendingJoin.reject(new Error(PUBNUB_403_HINT))
+            this.pendingJoin = null
+            return
+          }
           if (statusEvent.category === PubNub.CATEGORIES.PNSubscriptionChangedCategory) {
             this.finishJoinHandshake()
-          }
-          if (statusEvent.category === PubNub.CATEGORIES.PNConnectionErrorCategory) {
-            if (this.pendingJoin) {
-              this.pendingJoin.reject(new Error('PubNub connection failed.'))
-              this.pendingJoin = null
-            }
           }
         },
         message: (evt) => {
@@ -118,10 +144,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
   }
 
   private finishJoinHandshake(): void {
-    if (this.joinFallbackTimer !== null) {
-      globalThis.clearTimeout(this.joinFallbackTimer)
-      this.joinFallbackTimer = null
-    }
+    this.clearJoinFallbackTimer()
     if (!this.pendingJoin) {
       return
     }
@@ -143,7 +166,11 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       clientId: this.clientId,
       role: this.role,
     }
-    void this.pubnub.publish({ channel: this.room, message: toPubNubMessage(msg) })
+    void this.pubnub
+      .publish({ channel: this.room, message: toPubNubMessage(msg) })
+      .catch(() => {
+        /* 403 etc. — user should fix keyset / Access Manager; avoid unhandled rejection noise */
+      })
   }
 
   /** Guest may subscribe after the host announced; periodically ask the host to re-announce. */
@@ -158,7 +185,9 @@ export class PubNubSignalingClient implements PartySignalingTransport {
         room: this.room,
         clientId: this.clientId,
       }
-      void this.pubnub.publish({ channel: this.room, message: toPubNubMessage(msg) })
+      void this.pubnub
+        .publish({ channel: this.room, message: toPubNubMessage(msg) })
+        .catch(() => {})
     }
     publish()
     this.requestHostInterval = globalThis.setInterval(publish, 1500)
@@ -248,14 +277,13 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       to,
       payload,
     }
-    void this.pubnub.publish({ channel: this.room, message: toPubNubMessage(msg) })
+    void this.pubnub
+      .publish({ channel: this.room, message: toPubNubMessage(msg) })
+      .catch(() => {})
   }
 
   close(): void {
-    if (this.joinFallbackTimer !== null) {
-      globalThis.clearTimeout(this.joinFallbackTimer)
-      this.joinFallbackTimer = null
-    }
+    this.clearJoinFallbackTimer()
     this.stopRequestHostLoop()
     try {
       this.pubnub?.unsubscribeAll()
