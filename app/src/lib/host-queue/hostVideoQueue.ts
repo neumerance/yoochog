@@ -18,6 +18,14 @@
  * - **hasNext:** `true` only when there is a current item and a later item exists in the list.
  */
 
+/** Read-only view of queue order and current position for UI (e.g. ordered list + highlight). */
+export interface HostVideoQueueSnapshot {
+  /** All video IDs in playback order (index `0` … `length - 1`). */
+  ids: readonly string[]
+  /** Index of the current item, or `null` when the queue is empty or has no current position. */
+  currentIndex: number | null
+}
+
 export interface HostVideoQueue {
   /** Appends copies of `ids` to the end in order. No-op if `ids` is empty. */
   append: (ids: readonly string[]) => void
@@ -45,6 +53,11 @@ export interface HostVideoQueue {
    * @returns `true` if the index moved; `false` if empty, no current, or already at the first.
    */
   stepBack: () => boolean
+  /**
+   * Returns a read-only snapshot: ordered IDs and current index for list rendering.
+   * Duplicate IDs appear as separate rows; use row index (not id alone) as the key.
+   */
+  getSnapshot: () => HostVideoQueueSnapshot
 }
 
 /**
@@ -118,6 +131,13 @@ export function createHostVideoQueue(): HostVideoQueue {
       }
       currentIndex--
       return true
+    },
+
+    getSnapshot() {
+      return {
+        ids: Object.freeze(ids.slice()),
+        currentIndex,
+      }
     },
   }
 }

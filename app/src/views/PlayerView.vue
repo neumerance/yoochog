@@ -12,13 +12,6 @@
             aria-label="YouTube video player"
           />
           <HostPlaybackIdle v-if="idleVariant" :variant="idleVariant" class="absolute inset-0 z-10" />
-          <div
-            v-if="skipMessage"
-            class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 max-w-[90%] rounded-md bg-amber-50/95 border border-amber-200 px-3 py-2 text-sm text-amber-900 text-center shadow"
-            role="status"
-          >
-            {{ skipMessage }}
-          </div>
         </div>
         <div v-if="activeVideoId && !audioSessionUnlocked" class="mt-2 shrink-0 flex justify-center">
           <button
@@ -34,9 +27,24 @@
       <aside
         class="lg:col-span-4 flex flex-col min-h-0 rounded-md border border-slate-200 bg-slate-50 overflow-hidden lg:min-h-[min(85vh,100%)]"
       >
-        <div class="flex-1 p-2 text-sm text-slate-600 border-b border-dashed border-slate-200 min-h-0 space-y-2">
-          <p class="text-slate-500">
-            {{ queueSummary.length }} song(s) in the queue
+        <div
+          v-if="embedSetupError || skipMessage"
+          class="shrink-0 p-3 text-sm border-b border-red-200 bg-red-50 text-red-950"
+          role="alert"
+        >
+          <p v-if="embedSetupError" class="font-medium leading-snug">{{ embedSetupError }}</p>
+          <p
+            v-if="skipMessage"
+            class="leading-snug"
+            :class="embedSetupError ? 'mt-2 pt-2 border-t border-red-200/80' : ''"
+          >
+            {{ skipMessage }}
+          </p>
+        </div>
+
+        <div class="flex-1 flex flex-col min-h-0 p-2 text-sm text-slate-600">
+          <p class="text-slate-500 shrink-0">
+            {{ queueLength }} song(s) in the queue
             <span v-if="idleVariant === 'ended'" class="block text-xs text-slate-400 mt-1">
               Playback finished — end of the list.
             </span>
@@ -44,11 +52,44 @@
               Queue is empty.
             </span>
           </p>
-          <p v-if="queueSummary.current" class="text-xs font-mono text-slate-700 break-all">
-            Now: {{ queueSummary.current }}
-          </p>
+
+          <div class="shrink-0 mt-3 space-y-1 border-b border-dashed border-slate-200 pb-3">
+            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Now playing</h2>
+            <p v-if="nowPlayingId" class="font-mono text-sm text-slate-800 break-all">{{ nowPlayingId }}</p>
+            <p v-else class="text-sm text-slate-400">Nothing queued</p>
+            <p v-if="nowPlayingId" class="text-xs text-slate-400">Title unavailable</p>
+          </div>
+
+          <ol
+            class="mt-3 flex-1 min-h-0 overflow-y-auto rounded border border-slate-200 bg-white divide-y divide-slate-100"
+            aria-label="Playback queue"
+          >
+            <li
+              v-for="(rowId, index) in queueSnapshot.ids"
+              :key="`${index}-${rowId}`"
+              :aria-current="index === queueSnapshot.currentIndex ? 'true' : undefined"
+              class="flex items-start justify-between gap-2 px-2.5 py-2 text-xs"
+              :class="
+                index === queueSnapshot.currentIndex
+                  ? 'bg-indigo-50 ring-2 ring-inset ring-indigo-400 text-slate-900'
+                  : 'text-slate-700'
+              "
+            >
+              <span class="font-mono break-all min-w-0">
+                <span class="text-slate-400 select-none mr-1.5 tabular-nums">{{ index + 1 }}.</span>
+                {{ rowId }}
+              </span>
+              <span
+                v-if="index === queueSnapshot.currentIndex"
+                class="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+              >
+                Playing
+              </span>
+            </li>
+          </ol>
         </div>
-        <div class="mt-auto p-2 bg-white border-t border-slate-200 space-y-1.5">
+
+        <div class="shrink-0 p-2 bg-white border-t border-slate-200 space-y-1.5">
           <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Queue</h2>
           <p class="text-sm text-slate-600">
             Order matches playback after the first “Start Singing” tap.
@@ -79,20 +120,35 @@ queue.append([...DEMO_HOST_QUEUE_IDS])
 
 const idleVariant = ref<'empty' | 'ended' | null>(null)
 const skipMessage = ref<string | null>(null)
+const embedSetupError = ref<string | null>(null)
 
 const activeVideoId = computed(() => {
   queueTick.value
   return queue.currentVideoId()
 })
 
-const queueSummary = computed(() => {
+const queueLength = computed(() => {
   queueTick.value
-  return { length: queue.length, current: queue.currentVideoId() }
+  return queue.length
+})
+
+const queueSnapshot = computed(() => {
+  queueTick.value
+  return queue.getSnapshot()
+})
+
+const nowPlayingId = computed(() => {
+  const s = queueSnapshot.value
+  if (s.ids.length === 0 || s.currentIndex === null) {
+    return null
+  }
+  return s.ids[s.currentIndex] ?? null
 })
 
 watch(
   () => queueTick.value,
   () => {
+    embedSetupError.value = null
     if (queue.isEmpty()) {
       idleVariant.value = 'empty'
     } else if (idleVariant.value === 'empty') {
@@ -114,9 +170,14 @@ const { player, isReady } = useYoutubePlayer(playerContainer, {
   onEnded: handlePlaybackEnded,
   onPlaying: () => {
     skipMessage.value = null
+    embedSetupError.value = null
   },
   onError: () => {
     handlePlaybackError()
+  },
+  onSetupError: () => {
+    embedSetupError.value =
+      'Could not load the YouTube player. Check your connection and try refreshing the page.'
   },
 })
 

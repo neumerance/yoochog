@@ -92,4 +92,66 @@ describe('createHostVideoQueue', () => {
     expect(q.advance()).toBe(true)
     expect(q.currentVideoId()).toBe('same')
   })
+
+  describe('getSnapshot', () => {
+    it('returns empty ids and null currentIndex when queue is empty', () => {
+      const q = createHostVideoQueue()
+      expect(q.getSnapshot()).toEqual({ ids: [], currentIndex: null })
+    })
+
+    it('reflects append order and current index', () => {
+      const q = createHostVideoQueue()
+      q.append(['a', 'b', 'c'])
+      expect(q.getSnapshot()).toEqual({
+        ids: ['a', 'b', 'c'],
+        currentIndex: 0,
+      })
+    })
+
+    it('updates currentIndex after advance', () => {
+      const q = createHostVideoQueue()
+      q.append(['a', 'b'])
+      q.advance()
+      expect(q.getSnapshot()).toEqual({
+        ids: ['a', 'b'],
+        currentIndex: 1,
+      })
+    })
+
+    it('matches replace and clear', () => {
+      const q = createHostVideoQueue()
+      q.append(['a', 'b'])
+      q.replace(['x', 'y', 'z'])
+      expect(q.getSnapshot()).toEqual({
+        ids: ['x', 'y', 'z'],
+        currentIndex: 0,
+      })
+      q.clear()
+      expect(q.getSnapshot()).toEqual({ ids: [], currentIndex: null })
+    })
+
+    it('lists duplicate ids as distinct rows with stable indices', () => {
+      const q = createHostVideoQueue()
+      q.append(['same', 'same'])
+      expect(q.getSnapshot()).toEqual({
+        ids: ['same', 'same'],
+        currentIndex: 0,
+      })
+      q.advance()
+      expect(q.getSnapshot()).toEqual({
+        ids: ['same', 'same'],
+        currentIndex: 1,
+      })
+    })
+
+    it('returns a fresh ids array each call (read-only snapshot)', () => {
+      const q = createHostVideoQueue()
+      q.append(['a'])
+      const s1 = q.getSnapshot()
+      const s2 = q.getSnapshot()
+      expect(s1.ids).toEqual(['a'])
+      expect(s2.ids).toEqual(['a'])
+      expect(s1.ids).not.toBe(s2.ids)
+    })
+  })
 })

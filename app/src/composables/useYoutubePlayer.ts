@@ -44,6 +44,11 @@ export interface UseYoutubePlayerOptions {
   onPlaying?: () => void
   /** IFrame API error code (`event.data`). */
   onError?: (errorCode: number) => void
+  /**
+   * When the iframe API script fails to load, `YT.Player` is missing after load, or player
+   * construction throws. Distinct from {@link onError} (playback/embed restrictions after load).
+   */
+  onSetupError?: (error: unknown) => void
   /** Merged with defaults; `origin` is always `window.location.origin` when in browser. */
   playerVars?: YT.PlayerVars
 }
@@ -129,7 +134,14 @@ export function useYoutubePlayer(
       return
     }
 
-    await loadYouTubeIframeApi()
+    try {
+      await loadYouTubeIframeApi()
+    } catch (err) {
+      if (!cancelled) {
+        options.onSetupError?.(err)
+      }
+      return
+    }
     if (cancelled || !containerRef.value) {
       return
     }
@@ -142,58 +154,65 @@ export function useYoutubePlayer(
     const width = Math.max(1, Math.floor(rect.width))
     const height = Math.max(1, Math.floor(rect.height))
 
-    lastSyncKey = { id, seq }
-
-    const instance = new window.YT.Player(el2, {
-      width,
-      height,
-      videoId: id,
-      playerVars: {
-        enablejsapi: 1,
-        ...(autoplayEnabled
-          ? {
-              // Numeric literals — do not use `YT.AutoPlay` etc.; runtime `window.YT` has no
-              // enums (those are TypeScript-only from @types/youtube).
-              autoplay: 1,
-              mute: 1,
-              playsinline: 1,
+    let instance: YT.Player
+    try {
+      instance = new window.YT.Player(el2, {
+        width,
+        height,
+        videoId: id,
+        playerVars: {
+          enablejsapi: 1,
+          ...(autoplayEnabled
+            ? {
+                // Numeric literals — do not use `YT.AutoPlay` etc.; runtime `window.YT` has no
+                // enums (those are TypeScript-only from @types/youtube).
+                autoplay: 1,
+                mute: 1,
+                playsinline: 1,
+              }
+            : {}),
+          ...options.playerVars,
+          origin,
+        },
+        events: {
+          onError: (event) => {
+            if (import.meta.env.DEV) {
+              console.warn('[useYoutubePlayer] YouTube player error', event.data)
             }
-          : {}),
-        ...options.playerVars,
-        origin,
-      },
-      events: {
-        onError: (event) => {
-          if (import.meta.env.DEV) {
-            console.warn('[useYoutubePlayer] YouTube player error', event.data)
-          }
-          options.onError?.(event.data)
+            options.onError?.(event.data)
+          },
+          onReady: (event) => {
+            if (cancelled) {
+              return
+            }
+            isReady.value = true
+            applySessionAudio(event.target)
+            options.onReady?.(event.target)
+          },
+          onStateChange: (event) => {
+            if (cancelled) {
+              return
+            }
+            if (event.data === 0 /* YT.PlayerState.ENDED */) {
+              options.onEnded?.()
+              return
+            }
+            if (event.data !== 1 /* YT.PlayerState.PLAYING */) {
+              return
+            }
+            options.onPlaying?.()
+            applySessionAudio(event.target)
+          },
         },
-        onReady: (event) => {
-          if (cancelled) {
-            return
-          }
-          isReady.value = true
-          applySessionAudio(event.target)
-          options.onReady?.(event.target)
-        },
-        onStateChange: (event) => {
-          if (cancelled) {
-            return
-          }
-          if (event.data === 0 /* YT.PlayerState.ENDED */) {
-            options.onEnded?.()
-            return
-          }
-          if (event.data !== 1 /* YT.PlayerState.PLAYING */) {
-            return
-          }
-          options.onPlaying?.()
-          applySessionAudio(event.target)
-        },
-      },
-    })
+      })
+    } catch (err) {
+      if (!cancelled) {
+        options.onSetupError?.(err)
+      }
+      return
+    }
 
+    lastSyncKey = { id, seq }
     player.value = instance
   }
 
