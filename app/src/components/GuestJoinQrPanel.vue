@@ -1,24 +1,31 @@
 <template>
   <div
     v-if="sessionId.trim()"
-    class="mt-3 shrink-0 rounded-md border border-slate-200 bg-slate-50/80 p-3 text-slate-800"
+    class="shrink-0 rounded border border-slate-200 bg-slate-50/90 p-1.5 text-slate-800"
   >
-    <h2 class="text-sm font-semibold text-slate-800">Invite guests on their phone</h2>
-    <p class="mt-1 text-xs text-slate-600 leading-snug">
-      Scan this code with your phone's camera or a QR app. It opens the join page for this sing-along
-      session.
-    </p>
-    <div class="mt-3 flex justify-center">
-      <img
-        v-if="qrDataUrl"
-        :src="qrDataUrl"
-        width="200"
-        height="200"
-        class="h-[200px] w-[200px] max-w-full bg-white"
-        alt="QR code to join this sing-along session"
-      />
-      <p v-else-if="qrError" class="text-xs text-red-700 text-center">{{ qrError }}</p>
-      <p v-else class="text-xs text-slate-500" aria-live="polite">Preparing QR code…</p>
+    <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-[11px] font-semibold leading-tight text-slate-800">Guests join here</h2>
+        <p class="mt-0.5 text-[10px] leading-tight text-slate-600">
+          Scan with the phone camera or a QR app to open the join page.
+        </p>
+      </div>
+      <div class="flex shrink-0 justify-center sm:justify-end">
+        <img
+          v-if="qrDataUrl"
+          :src="qrDataUrl"
+          width="112"
+          height="112"
+          class="h-[112px] w-[112px] max-w-full bg-white"
+          alt="QR code to join this sing-along session"
+        />
+        <p v-else-if="qrError" class="max-w-[112px] text-center text-[10px] leading-tight text-red-700">
+          {{ qrError }}
+        </p>
+        <p v-else class="flex h-[112px] w-[112px] items-center justify-center text-[10px] text-slate-500" aria-live="polite">
+          Preparing…
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -55,13 +62,13 @@ watch(
     qrError.value = null
     try {
       qrDataUrl.value = await QRCode.toDataURL(url, {
-        width: 200,
-        margin: 2,
+        width: 112,
+        margin: 1,
         errorCorrectionLevel: 'M',
       })
     } catch {
       qrDataUrl.value = null
-      qrError.value = 'Could not create the QR code. Try refreshing the page.'
+      qrError.value = 'QR failed - refresh.'
     }
   },
   { immediate: true },
