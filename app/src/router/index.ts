@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import ClientView from '../views/ClientView.vue'
+import JoinView from '../views/JoinView.vue'
 import PlayerView from '../views/PlayerView.vue'
 
 const router = createRouter({
@@ -17,9 +17,18 @@ const router = createRouter({
       component: PlayerView,
     },
     {
+      path: '/join/:sessionId',
+      name: 'join',
+      component: JoinView,
+    },
+    {
       path: '/client',
       name: 'client',
-      component: ClientView,
+      redirect: () => ({
+        path: '/',
+        query: { migrated: 'client' },
+        replace: true,
+      }),
     },
   ],
 })
