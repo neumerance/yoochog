@@ -12,7 +12,16 @@ import {
 import { loadYouTubeIframeApi } from '@/lib/youtube/loadIframeApi'
 
 export interface UseYoutubePlayerOptions {
-  videoId: MaybeRefOrGetter<string>
+  /**
+   * Current YouTube video id, or `undefined` when nothing should load (queue empty).
+   * When this becomes falsy, the player is destroyed.
+   */
+  videoId: MaybeRefOrGetter<string | undefined>
+  /**
+   * Bumps whenever the queue advances even if `videoId` repeats (duplicate ids in queue).
+   * Omit to only react to `videoId` changes.
+   */
+  playbackSequence?: MaybeRefOrGetter<number>
   /**
    * When true, requests autoplay via IFrame API (`autoplay: 1`).
    * Also sets `mute: 1` by default so playback can start under typical browser autoplay policies;
@@ -29,6 +38,12 @@ export interface UseYoutubePlayerOptions {
   /** 0–100, applied when `audioSessionUnlocked` is true. Default 100. */
   sessionVolume?: MaybeRefOrGetter<number>
   onReady?: (player: YT.Player) => void
+  /** Fires once per natural completion (`YT.PlayerState.ENDED` / `0`). */
+  onEnded?: () => void
+  /** Fires when playback enters PLAYING (`1`) — useful to clear transient error UI. */
+  onPlaying?: () => void
+  /** IFrame API error code (`event.data`). */
+  onError?: (errorCode: number) => void
   /** Merged with defaults; `origin` is always `window.location.origin` when in browser. */
   playerVars?: YT.PlayerVars
 }
@@ -42,6 +57,9 @@ export function useYoutubePlayer(
 
   let cancelled = false
   let resizeObserver: ResizeObserver | null = null
+  let stopWatch: (() => void) | null = null
+
+  let lastSyncKey = { id: undefined as string | undefined, seq: -1 }
 
   const applySessionAudio = (p: YT.Player) => {
     if (!toValue(options.audioSessionUnlocked)) {
@@ -57,15 +75,57 @@ export function useYoutubePlayer(
     }
   }
 
-  const buildPlayer = async () => {
+  const destroyPlayer = () => {
+    const current = player.value
+    player.value = null
+    isReady.value = false
+    lastSyncKey = { id: undefined, seq: -1 }
+    if (current) {
+      try {
+        current.destroy()
+      } catch {
+        // Player may already be torn down by the host.
+      }
+    }
+  }
+
+  const syncFromVideoId = async () => {
     await nextTick()
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => resolve())
       })
     })
+    if (cancelled) {
+      return
+    }
+
     const el = containerRef.value
+    const id = toValue(options.videoId)
+    const seq = toValue(options.playbackSequence ?? 0)
+
+    if (!id) {
+      destroyPlayer()
+      return
+    }
+
     if (!el) {
+      return
+    }
+
+    if (player.value) {
+      if (id === lastSyncKey.id && seq === lastSyncKey.seq) {
+        return
+      }
+      lastSyncKey = { id, seq }
+      try {
+        player.value.loadVideoById({ videoId: id })
+        if (toValue(options.audioSessionUnlocked)) {
+          player.value.playVideo()
+        }
+      } catch {
+        // Player may be torn down mid-call.
+      }
       return
     }
 
@@ -74,15 +134,17 @@ export function useYoutubePlayer(
       return
     }
 
-    const id = toValue(options.videoId)
+    const el2 = containerRef.value
     const origin = window.location.origin
     const autoplayEnabled = Boolean(toValue(options.autoplay))
 
-    const rect = el.getBoundingClientRect()
+    const rect = el2.getBoundingClientRect()
     const width = Math.max(1, Math.floor(rect.width))
     const height = Math.max(1, Math.floor(rect.height))
 
-    const instance = new window.YT.Player(el, {
+    lastSyncKey = { id, seq }
+
+    const instance = new window.YT.Player(el2, {
       width,
       height,
       videoId: id,
@@ -105,6 +167,7 @@ export function useYoutubePlayer(
           if (import.meta.env.DEV) {
             console.warn('[useYoutubePlayer] YouTube player error', event.data)
           }
+          options.onError?.(event.data)
         },
         onReady: (event) => {
           if (cancelled) {
@@ -115,28 +178,23 @@ export function useYoutubePlayer(
           options.onReady?.(event.target)
         },
         onStateChange: (event) => {
-          if (cancelled || event.data !== 1 /* YT.PlayerState.PLAYING */) {
+          if (cancelled) {
             return
           }
+          if (event.data === 0 /* YT.PlayerState.ENDED */) {
+            options.onEnded?.()
+            return
+          }
+          if (event.data !== 1 /* YT.PlayerState.PLAYING */) {
+            return
+          }
+          options.onPlaying?.()
           applySessionAudio(event.target)
         },
       },
     })
 
     player.value = instance
-  }
-
-  const destroyPlayer = () => {
-    const current = player.value
-    player.value = null
-    isReady.value = false
-    if (current) {
-      try {
-        current.destroy()
-      } catch {
-        // Player may already be torn down by the host.
-      }
-    }
   }
 
   watch(
@@ -151,7 +209,15 @@ export function useYoutubePlayer(
   )
 
   onMounted(() => {
-    void buildPlayer()
+    stopWatch = watch(
+      () =>
+        [toValue(options.videoId), toValue(options.playbackSequence ?? 0)] as [string | undefined, number],
+      () => {
+        void syncFromVideoId()
+      },
+      { immediate: true },
+    )
+
     const el = containerRef.value
     if (typeof ResizeObserver === 'undefined' || !el) {
       return
@@ -175,6 +241,8 @@ export function useYoutubePlayer(
 
   onBeforeUnmount(() => {
     cancelled = true
+    stopWatch?.()
+    stopWatch = null
     resizeObserver?.disconnect()
     resizeObserver = null
     destroyPlayer()
