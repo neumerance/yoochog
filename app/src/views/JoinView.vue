@@ -2,13 +2,19 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
+import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
 
 const route = useRoute()
 const sessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
 
-const { statusLabel, error: handshakeError, isSignalingConfigured } = useGuestPartyHandshake(sessionId)
+const {
+  status: handshakeStatus,
+  statusLabel,
+  error: handshakeError,
+  isSignalingConfigured,
+} = useGuestPartyHandshake(sessionId)
 </script>
 
 <template>
@@ -23,14 +29,12 @@ const { statusLabel, error: handshakeError, isSignalingConfigured } = useGuestPa
       class="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800"
       aria-live="polite"
     >
-      <template v-if="isSignalingConfigured">
-        <p v-if="statusLabel">{{ statusLabel }}</p>
-        <p v-if="handshakeError" class="mt-1 text-red-800">{{ handshakeError }}</p>
-      </template>
-      <p v-else class="text-slate-600">
-        Real-time link is off until you set PubNub keys or
-        <code class="rounded bg-slate-200 px-1">VITE_SIGNALING_URL</code> (see app README).
-      </p>
+      <HandshakeStatusStrip
+        :status="handshakeStatus"
+        :status-label="statusLabel"
+        :error="handshakeError"
+        :is-signaling-configured="isSignalingConfigured"
+      />
     </div>
   </section>
 </template>
