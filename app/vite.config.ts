@@ -6,7 +6,12 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
-export default defineConfig({
+// GitHub Pages project site: https://<user>.github.io/yoochog/ — production + preview use this base; dev stays `/`.
+export default defineConfig((env) => ({
+  base:
+    env.command === 'build' || env.isPreview === true
+      ? '/yoochog/'
+      : '/',
   plugins: [
     vue(),
     vueDevTools(),
@@ -17,4 +22,4 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
-})
+}))
