@@ -28,8 +28,8 @@ const { statusLabel, error: handshakeError, isSignalingConfigured } = useGuestPa
         <p v-if="handshakeError" class="mt-1 text-red-800">{{ handshakeError }}</p>
       </template>
       <p v-else class="text-slate-600">
-        Real-time link is off until you set <code class="rounded bg-slate-200 px-1">VITE_SIGNALING_URL</code> (see app
-        README).
+        Real-time link is off until you set PubNub keys or
+        <code class="rounded bg-slate-200 px-1">VITE_SIGNALING_URL</code> (see app README).
       </p>
     </div>
   </section>

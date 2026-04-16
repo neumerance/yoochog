@@ -1,5 +1,6 @@
-import { SignalingClient } from '@/lib/signaling/SignalingClient'
+import type { PartySignalingTransport } from '@/lib/signaling/PartySignalingTransport'
 import type { SignalPayload } from '@/lib/signaling/protocol'
+import { createSignalingTransport } from '@/lib/signaling/signalingFactory'
 import { signalingRoomId } from '@/lib/signaling/roomId'
 import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import { DEFAULT_DEV_ICE_SERVERS } from '@/lib/webrtc/defaultIceServers'
@@ -11,7 +12,7 @@ export type PartyHandshakeCallbacks = {
   onError: (message: string) => void
 }
 
-async function findHostPeerId(signaling: SignalingClient, signal: AbortSignal): Promise<string> {
+async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortSignal): Promise<string> {
   const fromJoined = signaling.joinedPeers.find((p) => p.role === 'host')?.clientId
   if (fromJoined) {
     return fromJoined
@@ -45,13 +46,16 @@ async function findHostPeerId(signaling: SignalingClient, signal: AbortSignal): 
  */
 export function runHostPartyHandshake(
   options: {
-    signalingBaseUrl: string
     sessionId: string
     signal: AbortSignal
   } & PartyHandshakeCallbacks,
 ): { dispose: () => void } {
-  const signaling = new SignalingClient({ signalingBaseUrl: options.signalingBaseUrl })
   const clientId = crypto.randomUUID()
+  const signaling = createSignalingTransport({
+    signalingBaseUrl: import.meta.env.VITE_SIGNALING_URL,
+    pubnubPublishKey: import.meta.env.VITE_PUBNUB_PUBLISH_KEY,
+    pubnubSubscribeKey: import.meta.env.VITE_PUBNUB_SUBSCRIBE_KEY,
+  })
   const room = signalingRoomId(options.sessionId)
   const pcs = new Map<string, RTCPeerConnection>()
   const unsubscribes: Array<() => void> = []
@@ -159,13 +163,16 @@ export function runHostPartyHandshake(
  */
 export function runGuestPartyHandshake(
   options: {
-    signalingBaseUrl: string
     sessionId: string
     signal: AbortSignal
   } & PartyHandshakeCallbacks,
 ): { dispose: () => void } {
-  const signaling = new SignalingClient({ signalingBaseUrl: options.signalingBaseUrl })
   const clientId = crypto.randomUUID()
+  const signaling = createSignalingTransport({
+    signalingBaseUrl: import.meta.env.VITE_SIGNALING_URL,
+    pubnubPublishKey: import.meta.env.VITE_PUBNUB_PUBLISH_KEY,
+    pubnubSubscribeKey: import.meta.env.VITE_PUBNUB_SUBSCRIBE_KEY,
+  })
   const room = signalingRoomId(options.sessionId)
   let pc: RTCPeerConnection | null = null
   const preSignal: Array<{ from: string; payload: SignalPayload }> = []

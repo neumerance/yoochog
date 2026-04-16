@@ -12,7 +12,10 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const error = ref<string | null>(null)
   let dispose: (() => void) | null = null
 
-  const base = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
+  const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
+  const pub = import.meta.env.VITE_PUBNUB_PUBLISH_KEY?.trim() ?? ''
+  const sub = import.meta.env.VITE_PUBNUB_SUBSCRIBE_KEY?.trim() ?? ''
+  const hasSignaling = !!(wsUrl || (pub && sub))
 
   watch(
     () => sessionId.value,
@@ -21,7 +24,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       dispose = null
       error.value = null
 
-      if (!base) {
+      if (!hasSignaling) {
         status.value = 'missing_config'
         return
       }
@@ -33,7 +36,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       status.value = 'idle'
       const ac = new AbortController()
       const r = runGuestPartyHandshake({
-        signalingBaseUrl: base,
         sessionId: id,
         signal: ac.signal,
         onStatus: (s) => {
@@ -61,6 +63,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     status,
     error,
     statusLabel,
-    isSignalingConfigured: computed(() => base.length > 0),
+    isSignalingConfigured: computed(() => hasSignaling),
   }
 }

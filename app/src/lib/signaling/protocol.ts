@@ -1,6 +1,8 @@
 /** Role in the dev signaling relay (one host tab + guest tabs per party room). */
 export type SignalingRole = 'host' | 'guest'
 
+export type PeerInfo = { clientId: string; role: SignalingRole }
+
 export type SignalPayload =
   | { kind: 'offer'; sdp: string }
   | { kind: 'answer'; sdp: string }

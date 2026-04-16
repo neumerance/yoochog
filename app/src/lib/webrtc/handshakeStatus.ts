@@ -11,7 +11,7 @@ export function handshakeStatusLabel(state: HandshakeUiState): string {
     case 'idle':
       return ''
     case 'missing_config':
-      return 'Signaling is not configured. Add VITE_SIGNALING_URL (see app README).'
+      return 'Signaling is not configured. Add PubNub keys or VITE_SIGNALING_URL (see app README).'
     case 'connecting_signaling':
       return 'Connecting to signaling…'
     case 'establishing_handshake':

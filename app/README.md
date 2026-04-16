@@ -97,6 +97,17 @@ Epic 4 uses a **separate** WebSocket signaling service (not GitHub Pages). This 
 
 **Manual check:** Two browser tabs (or profiles) with the same `VITE_SIGNALING_URL` and matching session id; DevTools → Network shows an open WebSocket to the signaling URL.
 
+### Signaling via PubNub (hosted)
+
+The app can use **[PubNub](https://www.pubnub.com/)** pub/sub on **one channel per party** (same string as ADR 0001: `yoochog:party:<sessionId>`). If both keys are set in **`.env.local`**, they take priority over `VITE_SIGNALING_URL`.
+
+```sh
+VITE_PUBNUB_PUBLISH_KEY=your-publish-key
+VITE_PUBNUB_SUBSCRIBE_KEY=your-subscribe-key
+```
+
+Use keys from the PubNub admin portal (dev app). Production should use **Access Manager** / token auth instead of long-lived publish keys in clients; this wiring is suitable for **development and demos**.
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh

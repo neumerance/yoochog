@@ -1,24 +1,26 @@
+import type { PartySignalingTransport } from './PartySignalingTransport'
 import {
   isServerToClientMessage,
   type JoinClientMessage,
+  type PeerInfo,
   type SignalClientMessage,
   type SignalingRole,
   type SignalPayload,
 } from './protocol'
 import { websocketUrlFromSignalingBase } from './websocketUrl'
 
+export type { PeerInfo } from './protocol'
+
 export type SignalingClientOptions = {
   /** Base URL from `VITE_SIGNALING_URL` (http/https/ws/wss). */
   signalingBaseUrl: string
 }
 
-export type PeerInfo = { clientId: string; role: SignalingRole }
-
 /**
  * WebSocket client for the yoochog dev signaling relay (`signaling-dev/`).
  * Wire format matches `signaling-dev/server.mjs`.
  */
-export class SignalingClient {
+export class SignalingClient implements PartySignalingTransport {
   private ws: WebSocket | null = null
   private clientId: string | null = null
   private room: string | null = null

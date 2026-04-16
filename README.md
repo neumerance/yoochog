@@ -53,7 +53,7 @@ Reserved **environment variable names** for WebRTC-related configuration. These 
 
 | Area | Placeholder names (examples) |
 |------|------------------------------|
-| **Signaling** (WebRTC signaling / WebSocket service URL) | `VITE_SIGNALING_URL` — **used** when you enable local signaling (see [`app/README.md`](app/README.md) — Signaling (dev) and [ADR 0001](docs/adr/0001-webrtc-signaling.md)) |
+| **Signaling** | `VITE_SIGNALING_URL` (local WebSocket relay) **or** `VITE_PUBNUB_PUBLISH_KEY` + `VITE_PUBNUB_SUBSCRIBE_KEY` (PubNub channel per party). See [`app/README.md`](app/README.md) and [ADR 0001](docs/adr/0001-webrtc-signaling.md). |
 | **TURN** (TURN/STUN / ICE server configuration) | `VITE_TURN_URLS` and/or additional `VITE_TURN_*` names as needed |
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.

@@ -5,14 +5,17 @@ import { runHostPartyHandshake } from '@/lib/webrtc/partyHandshake'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 
 /**
- * Starts host ↔ guest WebRTC signaling + handshake when `VITE_SIGNALING_URL` is set.
+ * Starts host ↔ guest WebRTC signaling + handshake when PubNub keys or `VITE_SIGNALING_URL` is set.
  */
 export function useHostPartyHandshake(hostSessionId: Ref<string>) {
   const status = ref<HandshakeUiState>('idle')
   const error = ref<string | null>(null)
   let dispose: (() => void) | null = null
 
-  const base = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
+  const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
+  const pub = import.meta.env.VITE_PUBNUB_PUBLISH_KEY?.trim() ?? ''
+  const sub = import.meta.env.VITE_PUBNUB_SUBSCRIBE_KEY?.trim() ?? ''
+  const hasSignaling = !!(wsUrl || (pub && sub))
 
   watch(
     () => hostSessionId.value,
@@ -21,7 +24,7 @@ export function useHostPartyHandshake(hostSessionId: Ref<string>) {
       dispose = null
       error.value = null
 
-      if (!base) {
+      if (!hasSignaling) {
         status.value = 'missing_config'
         return
       }
@@ -33,7 +36,6 @@ export function useHostPartyHandshake(hostSessionId: Ref<string>) {
       status.value = 'idle'
       const ac = new AbortController()
       const r = runHostPartyHandshake({
-        signalingBaseUrl: base,
         sessionId: id,
         signal: ac.signal,
         onStatus: (s) => {
@@ -61,6 +63,6 @@ export function useHostPartyHandshake(hostSessionId: Ref<string>) {
     status,
     error,
     statusLabel,
-    isSignalingConfigured: computed(() => base.length > 0),
+    isSignalingConfigured: computed(() => hasSignaling),
   }
 }
