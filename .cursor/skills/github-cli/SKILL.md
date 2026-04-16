@@ -8,7 +8,7 @@ user-invocable: false
 
 ## When to use this skill
 
-- **Specs and plans tied to GitHub Issues** (`/refine_spec`, `/create_spec`, `/create_plan`, research): read this file first, then run `gh` from the shell.
+- **Specs and plans tied to GitHub Issues** (`/refine_spec`, `/create_spec`, `/create_plan`, `/implement_plan`, research): read this file first, then run `gh` from the shell. For `/implement_plan`, pair with **`github-issue-integration`** (issue thread, labels, plan discovery).
 - **Opening a PR with yoochog conventions** (branch names, template): read `.cursor/skills/create-pull-request/SKILL.md` (it embeds `gh` for PRs).
 
 ## Preconditions

@@ -115,5 +115,46 @@ Show this even when exiting early.
 |----------------|---------------------|------------|-------------------------|
 | `refine_spec`  | default integration | yes        | not behind origin branch |
 | `create_spec`  | default integration | yes        | not behind origin branch |
+| `implement_plan` | **feature** branch (not default) | **dirty OK** | warn if behind `origin/<DEFAULT_BRANCH>` |
 
 **Reasoning:** Spec work may reference the repo layout; running on a stale or dirty branch produces misleading assumptions.
+
+## Variant: `implement_plan` (implementation on a feature branch)
+
+Use this instead of rows 1–3 when the active command is **`/implement_plan`** (or equivalent).
+
+### Preconditions
+
+- `git rev-parse --is-inside-work-tree` — if not a repo, stop.
+- Resolve `DEFAULT_BRANCH` as in “Resolve default branch” above.
+
+### 1. Branch must not be default integration
+
+```bash
+git branch --show-current
+```
+
+- If current branch equals `DEFAULT_BRANCH` (or `main`/`master` when that is the integration branch): **stop** or **AskQuestion** — implementation must not commit directly on the integration branch. Offer: create/switch to a feature branch per [create-pull-request](../create-pull-request/SKILL.md) naming (`{github-login}/{issue-number}-{slug}` when an issue exists).
+
+### 2. Uncommitted changes
+
+**Allowed** for `implement_plan` (work may be committed during the command). Still print a short `git status --porcelain` summary so the user sees what will ship.
+
+### 3. Behind origin
+
+If `origin` exists and `git rev-list --count HEAD.."origin/$DEFAULT_BRANCH"` is **> 0**: **warn** that the branch is behind integration; recommend merge/rebase per team policy. Use **AskQuestion** only if the workflow cannot safely proceed otherwise.
+
+### 4. Success banner (implement_plan)
+
+```
+Environment checks passed (implement_plan)
+
+Current branch: [branch]  (must not be [DEFAULT_BRANCH])
+Latest commit: [hash] [subject]
+Working tree: [clean | N uncommitted paths]
+Remote: [in sync | N behind origin/DEFAULT_BRANCH | no origin]
+
+Proceeding with implement_plan...
+```
+
+End with the same “Context management tip” block as section 5.

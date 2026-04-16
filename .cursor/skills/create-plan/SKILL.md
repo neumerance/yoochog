@@ -88,3 +88,5 @@ If `gh` is unavailable: **halt** GitHub-specific steps; deliver the plan in chat
 ## yoochog note
 
 This repository may be minimal early on. If there is little code, the plan should focus on scaffolding, first vertical slice, and criteria for introducing `CLAUDE.md` / OpenAPI / tests as they appear.
+
+After a plan is reviewed and labeled (e.g. `Has Plan`), execution is driven by **`/implement_plan`** — see `.cursor/commands/implement_plan.md` or `.claude/commands/implement_plan.md` and the **`implement-plan`** / **`github-issue-integration`** skills.

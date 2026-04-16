@@ -2,6 +2,8 @@
 
 **Skills:** resolve `github-cli` (and any other named skill) from `.cursor/skills/<name>/SKILL.md` first, then `.claude/skills/<name>/SKILL.md`. All `SKILL.md` files under either tree are valid for agents.
 
+**Issue-backed implementation:** `/implement_plan` requires **`github-issue-integration`** (plus `github-cli` and `environment-checks` with the `implement_plan` variant). There is no `linear-integration` skill in this repo; do not reference Linear MCP for yoochog workflows.
+
 **Commands:** workflow slash-commands and related docs may live under `.cursor/commands/` (Cursor) or `.claude/commands/` (Claude); use whichever path exists for the tool you are in.
 
 Use with **`gh`** per the resolved `github-cli/SKILL.md` path above.
