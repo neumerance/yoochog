@@ -53,6 +53,8 @@ export type GuestPartyHandshakeHandle = {
   dispose: () => void
   /** Sends a UTF-8 string on the host-created party channel when open. */
   sendPartyRaw: (raw: string) => void
+  /** This guest’s signaling `clientId` for the current connection (matches host roster / session admin). */
+  localPartyPeerId: string
 }
 
 async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortSignal): Promise<string> {
@@ -515,5 +517,5 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
     }
   })()
 
-  return { dispose, sendPartyRaw }
+  return { dispose, sendPartyRaw, localPartyPeerId: clientId }
 }

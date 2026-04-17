@@ -95,6 +95,14 @@ export interface HostVideoQueue {
    */
   stepBack: () => boolean
   /**
+   * Removes the row at `index` without advancing like `advance()`.
+   * - Non-current row: that row is dropped; current index is adjusted if the removal was before current.
+   * - Current row: same as deleting the now-playing row — if another row follows, it becomes current at
+   *   index `0`; if it was the last row, the queue becomes idle.
+   * @returns `false` if the queue is empty, there is no current item, or `index` is out of range.
+   */
+  removeAt: (index: number) => boolean
+  /**
    * Returns a read-only snapshot: ordered IDs and current index for list rendering.
    * Duplicate IDs may appear as separate rows in legacy data; use row index (not id alone) as the key.
    */
@@ -229,6 +237,30 @@ export function createHostVideoQueue(): HostVideoQueue {
         return false
       }
       currentIndex--
+      return true
+    },
+
+    removeAt(index: number) {
+      if (items.length === 0 || currentIndex === null) {
+        return false
+      }
+      if (!Number.isInteger(index) || index < 0 || index >= items.length) {
+        return false
+      }
+      const ci = currentIndex
+      if (index !== ci) {
+        items.splice(index, 1)
+        if (index < ci) {
+          currentIndex = ci - 1
+        }
+        return true
+      }
+      items.splice(index, 1)
+      if (items.length === 0) {
+        currentIndex = null
+        return true
+      }
+      currentIndex = 0
       return true
     },
 

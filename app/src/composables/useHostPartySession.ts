@@ -2,8 +2,11 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { HostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
-import { resolveEndCurrentPlaybackRequest } from '@/lib/host-queue/guestEndPlaybackPolicy'
 import { resolveGuestEnqueueRequest } from '@/lib/host-queue/guestEnqueuePolicy'
+import {
+  resolveSessionAdminEndPlaybackRequest,
+  resolveSessionAdminRemoveRowRequest,
+} from '@/lib/host-queue/sessionAdminPolicy'
 import {
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
@@ -26,6 +29,8 @@ export function useHostPartySession(
 ) {
   const status = ref<HandshakeUiState>('idle')
   const error = ref<string | null>(null)
+  /** Guest signaling peer ids in party-channel open order (first = session admin). */
+  const joinedGuestOrder = ref<string[]>([])
   let dispose: (() => void) | null = null
 
   const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
@@ -36,11 +41,16 @@ export function useHostPartySession(
   let broadcastParty: ((raw: string) => void) | null = null
   let sendPartyToGuest: ((guestId: string, raw: string) => void) | null = null
 
+  function sessionAdminPeerId(): string | null {
+    const order = joinedGuestOrder.value
+    return order.length > 0 ? order[0]! : null
+  }
+
   function pushSnapshotToEveryone() {
     if (!broadcastParty) {
       return
     }
-    const msg = queueSnapshotToMessage(queue.getSnapshot())
+    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminPeerId())
     broadcastParty(serializePartyMessage(msg))
   }
 
@@ -48,7 +58,7 @@ export function useHostPartySession(
     if (!sendPartyToGuest) {
       return
     }
-    const msg = queueSnapshotToMessage(queue.getSnapshot())
+    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminPeerId())
     sendPartyToGuest(guestId, serializePartyMessage(msg))
   }
 
@@ -84,16 +94,33 @@ export function useHostPartySession(
       return
     }
     if (msg?.type === 'end_current_playback_request') {
-      const resolution = resolveEndCurrentPlaybackRequest({
+      const resolution = resolveSessionAdminEndPlaybackRequest({
         snapshot: queue.getSnapshot(),
-        parsedRequesterGuestId: msg.requesterGuestId,
+        sessionAdminPeerId: sessionAdminPeerId(),
         peerGuestId: guestId,
+        parsedRequesterGuestId: msg.requesterGuestId,
       })
       if (!resolution.ok) {
         sendReject(guestId, resolution.reason)
         return
       }
       onGuestEndedCurrentPlayback?.()
+      return
+    }
+    if (msg?.type === 'remove_queue_row_request') {
+      const resolution = resolveSessionAdminRemoveRowRequest({
+        snapshot: queue.getSnapshot(),
+        sessionAdminPeerId: sessionAdminPeerId(),
+        peerGuestId: guestId,
+        rowIndex: msg.rowIndex,
+        parsedRequesterGuestId: msg.requesterGuestId,
+      })
+      if (!resolution.ok) {
+        sendReject(guestId, resolution.reason)
+        return
+      }
+      queue.removeAt(msg.rowIndex)
+      bumpQueue()
       return
     }
     if (
@@ -128,6 +155,7 @@ export function useHostPartySession(
       dispose = null
       broadcastParty = null
       sendPartyToGuest = null
+      joinedGuestOrder.value = []
       error.value = null
 
       if (!hasSignaling) {
@@ -151,7 +179,14 @@ export function useHostPartySession(
           error.value = m
         },
         onPartyChannelOpen: (guestId) => {
+          if (!joinedGuestOrder.value.includes(guestId)) {
+            joinedGuestOrder.value = [...joinedGuestOrder.value, guestId]
+          }
           pushSnapshotToGuest(guestId)
+        },
+        onGuestConnectionLost: (guestId) => {
+          joinedGuestOrder.value = joinedGuestOrder.value.filter((x) => x !== guestId)
+          pushSnapshotToEveryone()
         },
         onPartyMessage: (guestId, raw) => {
           handleGuestRaw(guestId, raw)
