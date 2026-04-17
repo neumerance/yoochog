@@ -23,17 +23,17 @@
   <div v-else class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
     <div
       v-if="showMigrationNotice"
-      class="mb-2 shrink-0 rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-base leading-relaxed text-amber-950"
+      class="mb-2 shrink-0 rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-base leading-relaxed text-amber-950 xl:text-[1.8rem] xl:leading-relaxed"
       role="status"
     >
       <p class="mb-4">
         Guest access has moved to
         <strong>Join</strong>
-        links (<code class="rounded bg-amber-100 px-1 py-0.5 text-sm">/join/…</code>).
+        links (<code class="rounded bg-amber-100 px-1 py-0.5 text-sm xl:text-[1.575rem]">/join/…</code>).
       </p>
       <button
         type="button"
-        class="inline-flex min-h-11 min-w-[8rem] items-center justify-center rounded-md border border-amber-300 bg-amber-100/80 px-4 text-base font-semibold text-amber-950 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+        class="inline-flex min-h-11 min-w-[8rem] items-center justify-center rounded-md border border-amber-300 bg-amber-100/80 px-4 text-base font-semibold text-amber-950 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 xl:min-h-[3.15rem] xl:px-6 xl:text-[1.8rem]"
         @click="dismissMigrationNotice"
       >
         Dismiss
@@ -59,7 +59,7 @@
         <div v-if="activeVideoId && !audioSessionUnlocked" class="flex shrink-0 justify-center">
           <button
             type="button"
-            class="min-h-[52px] rounded-full bg-red-600 px-8 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-red-700 active:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 sm:min-h-[56px] sm:text-xl"
+            class="min-h-[52px] rounded-full bg-red-600 px-8 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-red-700 active:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 sm:min-h-[56px] sm:text-xl xl:min-h-[5.04rem] xl:px-12 xl:py-4 xl:text-[2.25rem]"
             @click="startSinging"
           >
             Start Singing
@@ -72,7 +72,7 @@
       >
         <div
           v-if="embedSetupError || skipMessage"
-          class="shrink-0 border-b border-red-200 bg-red-50 p-3 text-base leading-snug text-red-950"
+          class="shrink-0 border-b border-red-200 bg-red-50 p-3 text-base leading-snug text-red-950 xl:p-4 xl:text-[1.8rem] xl:leading-snug"
           role="alert"
         >
           <p v-if="embedSetupError" class="font-semibold">{{ embedSetupError }}</p>
@@ -88,10 +88,11 @@
         <GuestJoinQrPanel :session-id="hostSessionId" class="shrink-0 px-2 pt-2 sm:px-3 sm:pt-3" />
 
         <div
-          class="shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 sm:px-4"
+          class="shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 sm:px-4 xl:px-5 xl:py-3 xl:text-[1.575rem]"
           aria-live="polite"
         >
           <HandshakeStatusStrip
+            class="xl:[&_svg]:h-6 xl:[&_svg]:w-6"
             :status="handshakeStatus"
             :status-label="handshakeStatusLabel"
             :error="handshakeError"
@@ -99,8 +100,8 @@
           />
         </div>
 
-        <div class="flex min-h-0 flex-1 flex-col p-3 text-base text-slate-700">
-          <h2 class="shrink-0 pb-2 text-sm font-bold uppercase tracking-wide text-black sm:text-base">
+        <div class="flex min-h-0 flex-1 flex-col p-3 text-base text-slate-700 xl:p-4 xl:text-[1.8rem]">
+          <h2 class="shrink-0 pb-2 text-sm font-bold uppercase tracking-wide text-black sm:text-base xl:pb-3 xl:text-[1.8rem]">
             Now playing
           </h2>
           <ol
@@ -111,7 +112,7 @@
               v-for="(rowId, index) in queueSnapshot.ids"
               :key="`${index}-${rowId}`"
               :aria-current="index === queueSnapshot.currentIndex ? 'true' : undefined"
-              class="flex min-w-0 shrink-0 items-start justify-between gap-2 px-3 py-3.5 text-base leading-snug"
+              class="flex min-w-0 shrink-0 items-start justify-between gap-2 px-3 py-3.5 text-base leading-snug xl:gap-3 xl:px-4 xl:py-5 xl:text-[1.8rem] xl:leading-snug"
               :class="
                 index === queueSnapshot.currentIndex
                   ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
@@ -133,7 +134,7 @@
                 </p>
                 <p
                   v-if="queueSnapshot.requestedBys[index]"
-                  class="mt-1.5 min-w-0 truncate text-left text-sm leading-[1.45] sm:text-base sm:leading-[1.45]"
+                  class="mt-1.5 min-w-0 truncate text-left text-sm leading-[1.45] sm:text-base sm:leading-[1.45] xl:mt-2 xl:text-[1.8rem] xl:leading-[1.45]"
                 >
                   <span class="font-medium text-slate-600">Requested by </span>
                   <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>
@@ -141,7 +142,7 @@
               </div>
               <span
                 v-if="index === queueSnapshot.currentIndex"
-                class="shrink-0 rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white"
+                class="shrink-0 rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white xl:px-3 xl:py-1.5 xl:text-[1.575rem]"
               >
                 Playing
               </span>
@@ -150,7 +151,7 @@
         </div>
 
         <footer
-          class="mt-auto shrink-0 border-t border-slate-100 px-3 py-2 text-right text-xs text-slate-500 sm:px-4 sm:text-sm"
+          class="mt-auto shrink-0 border-t border-slate-100 px-3 py-2 text-right text-xs text-slate-500 sm:px-4 sm:text-sm xl:px-5 xl:py-3 xl:text-[1.575rem]"
         >
           Made by KuyaJon with ❤️
         </footer>

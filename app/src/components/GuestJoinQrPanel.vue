@@ -1,9 +1,15 @@
 <template>
-  <div v-if="sessionId.trim()" class="shrink-0 p-3 text-indigo-950 sm:p-4">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+  <div v-if="sessionId.trim()" class="shrink-0 p-3 text-indigo-950 sm:p-4 xl:p-6">
+    <div
+      class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 xl:gap-6"
+    >
       <div class="min-w-0 flex-1">
-        <h2 class="text-lg font-semibold leading-snug text-indigo-950 sm:text-xl">Join in from your phone</h2>
-        <p class="mt-2 text-base leading-relaxed text-indigo-900/90">
+        <h2
+          class="text-lg font-semibold leading-snug text-indigo-950 sm:text-xl xl:text-[2.25rem] xl:leading-snug"
+        >
+          Join in from your phone
+        </h2>
+        <p class="mt-2 text-base leading-relaxed text-indigo-900/90 xl:mt-3 xl:text-[1.8rem] xl:leading-relaxed">
           Scan with a phone camera or QR app—opens this sing-along in the browser, no signup.
         </p>
       </div>
@@ -41,12 +47,15 @@
             </div>
           </div>
         </div>
-        <p v-else-if="qrError" class="w-full text-center text-base leading-snug text-red-700">
+        <p
+          v-else-if="qrError"
+          class="w-full text-center text-base leading-snug text-red-700 xl:text-[1.8rem] xl:leading-snug"
+        >
           {{ qrError }}
         </p>
         <p
           v-else
-          class="mx-auto flex h-48 w-48 max-w-full items-center justify-center text-base text-slate-500"
+          class="mx-auto flex h-48 w-48 max-w-full items-center justify-center text-base text-slate-500 xl:text-[1.8rem]"
           aria-live="polite"
         >
           Preparing QR…
