@@ -1,6 +1,8 @@
 # deploy — GitHub Pages release (Cursor)
 
-Guide and execute **yoochog** deployment to **GitHub Pages** using the flows documented in **[`docs/github-pages.md`](../../docs/github-pages.md)**. This repo’s Vue app lives in **`app/`**; production uses Vite **`base`** **`/yoochog/`**.
+Guide and execute **yoochog** deployment to **GitHub Pages** by publishing the **`gh-pages`** branch, as documented in **[`docs/github-pages.md`](../../docs/github-pages.md)**. This repo’s Vue app lives in **`app/`**; production uses Vite **`base`** **`/yoochog/`**.
+
+**This project deploys only via the `gh-pages` branch** (`npm run deploy:gh-pages` from **`app/`**). Do not instruct or run GitHub Actions workflows for Pages here.
 
 ## When invoked
 
@@ -8,11 +10,7 @@ Parse text after **`/deploy`** as **`$ARGUMENT`**:
 
 | `$ARGUMENT` | Behavior |
 |-------------|----------|
-| *(empty)*, **`ci`**, **`actions`**, **`workflow`** | Prefer **GitHub Actions** deploy (workflow on `master` or manual `workflow_dispatch`). |
-| **`manual`**, **`gh-pages`**, **`local`**, **`branch`** | Use **`npm run deploy:gh-pages`** from **`app/`** (pushes static **`dist/`** to remote branch **`gh-pages`**). |
-| **`help`** or **`docs`** | Summarize both paths + link to `docs/github-pages.md`; do not run destructive commands unless the user asks. |
-
-If the user’s intent is unclear, ask once: **CI (Actions)** or **manual (`gh-pages` branch)**?
+| *(empty)*, **`gh-pages`**, **`manual`**, **`local`**, **`branch`**, **`help`**, **`docs`** | Use **`npm run deploy:gh-pages`** from **`app/`** (or summarize steps + link to `docs/github-pages.md` for **`help`** / **`docs`** without running destructive commands unless the user asks). |
 
 ## Required reading (agent)
 
@@ -21,23 +19,16 @@ Read **`docs/github-pages.md`** (full file) before running deploy steps so SPA *
 ## Safety (non-negotiable)
 
 - **Never** read, print, or paste contents of **`app/.env.local`** (or any env file with real credentials) into chat.
-- **`VITE_*`** values are **inlined into the client bundle** at build time—GitHub “Secrets” do not hide them from browsers.
+- **`VITE_*`** values are **inlined into the client bundle** at build time.
 - Do **not** commit **`app/.env.local`** or other secret files.
 
-## Path A — GitHub Actions
+## Deploy — `gh-pages` branch
 
-1. From repo root: `gh auth status`; `gh repo view --json nameWithOwner -q .nameWithOwner`.
-2. If the user wants a run now: `gh workflow run deploy-github-pages.yml --ref master` then `gh run list --workflow=deploy-github-pages.yml --limit 3` and `gh run watch <id>` (or tell them to use the Actions tab).
-3. Remind: **Settings → Pages → Source: GitHub Actions** must be set for **`actions/deploy-pages`** to publish. If Actions fails with **billing / account locked**, switch to Path B or fix billing per that doc.
-
-**Build-time env in CI:** repository **Secrets** / **Variables** mapped in **`.github/workflows/deploy-github-pages.yml`** (names align with **`app/.env.example`**).
-
-## Path B — `gh-pages` branch (no Actions / billing blocked)
-
-1. **`cd app`**; ensure dependencies: **`npm ci`** or **`npm install`** as appropriate.
-2. Production build uses **`app/.env.local`** when present—do not display it. If the file is missing, tell the user to copy **`app/.env.example` → `app/.env.local`** and set **`VITE_*`**, then rerun.
-3. Run **`npm run deploy:gh-pages`** (runs **`npm run build`** then **`gh-pages -d dist`**). Requires **git push** access to **`origin`**.
-4. Remind: **Settings → Pages → Deploy from a branch** → branch **`gh-pages`**, folder **`/ (root)`** — not **`/docs`** (that folder is ADR markdown, not the app).
+1. From repo root (optional): `gh auth status`; `gh repo view --json nameWithOwner -q .nameWithOwner` for the smoke URL owner.
+2. **`cd app`**; ensure dependencies: **`npm ci`** or **`npm install`** as appropriate.
+3. Production build uses **`app/.env.local`** when present—do not display it. If the file is missing, tell the user to copy **`app/.env.example` → `app/.env.local`** and set **`VITE_*`**, then rerun.
+4. Run **`npm run deploy:gh-pages`** (runs **`npm run build`** then **`gh-pages -d dist`**). Requires **git push** access to **`origin`**.
+5. **Settings → Pages → Deploy from a branch** → branch **`gh-pages`**, folder **`/ (root)`** — not **`/docs`** (that folder is ADR markdown, not the app).
 
 ## After deploy
 
@@ -46,4 +37,4 @@ Read **`docs/github-pages.md`** (full file) before running deploy steps so SPA *
 
 ## Output
 
-Reply with: which path ran (or was instructed), exact commands used or next steps, Pages settings to verify, and the public URL pattern—**no** secret values.
+Reply with: commands used or next steps, Pages settings to verify, and the public URL pattern—**no** secret values.
