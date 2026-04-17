@@ -11,15 +11,24 @@ describe('applyGuestPartyMessage', () => {
         type: 'queue_snapshot',
         ids: ['a'],
         currentIndex: 0,
+        titles: ['Song'],
+        requestedBys: ['Sam'],
       },
     )
     expect(next.snapshot?.ids).toEqual(['a'])
+    expect(next.snapshot?.titles).toEqual(['Song'])
+    expect(next.snapshot?.requestedBys).toEqual(['Sam'])
     expect(next.snapshot?.currentIndex).toBe(0)
   })
 
   it('records enqueue_rejected', () => {
     const prev = {
-      snapshot: { ids: ['x'], currentIndex: 0 },
+      snapshot: {
+        ids: ['x'],
+        titles: [null],
+        requestedBys: [null],
+        currentIndex: 0,
+      },
       lastEnqueueError: null as string | null,
     }
     const next = applyGuestPartyMessage(prev, {
@@ -33,7 +42,12 @@ describe('applyGuestPartyMessage', () => {
 
   it('leaves state unchanged on heartbeat', () => {
     const prev = {
-      snapshot: { ids: ['a'], currentIndex: 0 },
+      snapshot: {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        currentIndex: 0,
+      },
       lastEnqueueError: 'prior' as string | null,
     }
     const next = applyGuestPartyMessage(prev, {

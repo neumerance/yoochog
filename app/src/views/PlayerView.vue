@@ -63,11 +63,19 @@
             <h2 class="text-sm font-bold uppercase tracking-wide text-black sm:text-base">
               Now playing
             </h2>
-            <p v-if="nowPlayingId" class="break-all font-mono text-xl font-bold leading-tight text-slate-900 sm:text-2xl">
-              {{ nowPlayingId }}
-            </p>
+            <template v-if="nowPlayingRow">
+              <p class="min-w-0 truncate text-xl font-bold leading-tight text-slate-900 sm:text-2xl">
+                {{ rowTitle(nowPlayingRow.title) }}
+              </p>
+              <p
+                v-if="nowPlayingRow.requestedBy"
+                class="min-w-0 truncate text-base sm:text-lg"
+              >
+                <span class="font-medium text-slate-600">Requested by </span>
+                <span class="font-bold text-slate-900">{{ nowPlayingRow.requestedBy }}</span>
+              </p>
+            </template>
             <p v-else class="text-xl font-semibold text-slate-400 sm:text-2xl">Nothing queued</p>
-            <p v-if="nowPlayingId" class="text-base font-medium text-slate-600">Title unavailable</p>
           </div>
 
           <ol
@@ -85,10 +93,21 @@
                   : 'text-slate-700'
               "
             >
-              <span class="min-w-0 break-all font-mono">
-                <span class="mr-2 tabular-nums text-slate-400 select-none">{{ index + 1 }}.</span>
-                {{ rowId }}
-              </span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-semibold text-slate-900">
+                  <span class="mr-2 tabular-nums font-normal text-slate-400 select-none">{{
+                    index + 1
+                  }}.</span>
+                  {{ rowTitle(queueSnapshot.titles[index] ?? null) }}
+                </p>
+                <p
+                  v-if="queueSnapshot.requestedBys[index]"
+                  class="mt-0.5 truncate text-sm sm:text-base"
+                >
+                  <span class="font-medium text-slate-600">Requested by </span>
+                  <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>
+                </p>
+              </div>
               <span
                 v-if="index === queueSnapshot.currentIndex"
                 class="shrink-0 rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white"
@@ -112,20 +131,39 @@ import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
 import { useHostPartySession } from '@/composables/useHostPartySession'
 import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
-import { DEMO_HOST_QUEUE_IDS } from '@/constants/sampleVideo'
 import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
+import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersistence'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
 
 const { hostSessionId } = useHostSessionId()
 
 const queue = createHostVideoQueue()
 const queueTick = ref(0)
+/** Bumps only when the current playback row changes (advance/skip), not on enqueue — avoids restarting the iframe on append. */
+const playerSyncTick = ref(0)
 
 function bumpQueue() {
   queueTick.value++
+  const id = hostSessionId.value
+  if (id) {
+    saveHostQueue(id, queue.getSnapshot())
+  }
 }
 
-queue.append([...DEMO_HOST_QUEUE_IDS])
+watch(
+  () => hostSessionId.value,
+  (id) => {
+    if (!id) {
+      return
+    }
+    const snap = loadHostQueue(id)
+    if (snap) {
+      queue.applySnapshot(snap)
+      queueTick.value++
+    }
+  },
+  { immediate: true },
+)
 
 const {
   status: handshakeStatus,
@@ -148,12 +186,21 @@ const queueSnapshot = computed(() => {
   return queue.getSnapshot()
 })
 
-const nowPlayingId = computed(() => {
+function rowTitle(title: string | null): string {
+  return title ?? 'Unknown title'
+}
+
+const nowPlayingRow = computed(() => {
+  queueTick.value
   const s = queueSnapshot.value
   if (s.ids.length === 0 || s.currentIndex === null) {
     return null
   }
-  return s.ids[s.currentIndex] ?? null
+  const i = s.currentIndex
+  return {
+    title: s.titles[i] ?? null,
+    requestedBy: s.requestedBys[i] ?? null,
+  }
 })
 
 watch(
@@ -175,7 +222,7 @@ const audioSessionUnlocked = ref(false)
 
 const { player, isReady } = useYoutubePlayer(playerContainer, {
   videoId: activeVideoId,
-  playbackSequence: queueTick,
+  playbackSequence: playerSyncTick,
   autoplay: true,
   audioSessionUnlocked,
   onEnded: handlePlaybackEnded,
@@ -197,6 +244,7 @@ function handlePlaybackEnded() {
   if (action.kind === 'advance') {
     idleVariant.value = null
     queue.advance()
+    playerSyncTick.value++
     bumpQueue()
     return
   }
@@ -209,6 +257,7 @@ function handlePlaybackError() {
     skipMessage.value = 'That one hid from us — skipping ahead.'
     idleVariant.value = null
     queue.advance()
+    playerSyncTick.value++
     bumpQueue()
     return
   }

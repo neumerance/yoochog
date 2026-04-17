@@ -1,5 +1,6 @@
 /**
- * In-memory host video queue: ordered YouTube video IDs and a current “now playing” index.
+ * In-memory host video queue: ordered queue rows (video id + optional display metadata) and a
+ * current “now playing” index.
  *
  * ## Semantics (edge cases)
  *
@@ -10,7 +11,7 @@
  *   is unchanged.
  * - **replace:** Replaces the entire list with a copy. Current becomes `0` when the new list is
  *   non-empty; otherwise empty state (no current).
- * - **clear:** Removes all IDs; no current item.
+ * - **clear:** Removes all rows; no current item.
  * - **advance:** If there is no current item, or the current item is already the last, returns
  *   `false` and leaves the index unchanged. Otherwise increments the index and returns `true`.
  * - **stepBack:** If there is no current item, or the current item is already the first, returns
@@ -18,20 +19,37 @@
  * - **hasNext:** `true` only when there is a current item and a later item exists in the list.
  */
 
+export interface HostVideoQueueItem {
+  videoId: string
+  /** Resolved title, or `null` when unknown. */
+  title: string | null
+  /** Guest display label for “requested by”, or `null` when absent / legacy. */
+  requestedBy: string | null
+}
+
 /** Read-only view of queue order and current position for UI (e.g. ordered list + highlight). */
 export interface HostVideoQueueSnapshot {
   /** All video IDs in playback order (index `0` … `length - 1`). */
   ids: readonly string[]
+  /** Parallel to `ids`: title or unknown (`null`). */
+  titles: readonly (string | null)[]
+  /** Parallel to `ids`: requester label or absent (`null`). */
+  requestedBys: readonly (string | null)[]
   /** Index of the current item, or `null` when the queue is empty or has no current position. */
   currentIndex: number | null
 }
 
 export interface HostVideoQueue {
-  /** Appends copies of `ids` to the end in order. No-op if `ids` is empty. */
-  append: (ids: readonly string[]) => void
-  /** Replaces the entire queue with a copy of `ids` and updates current per semantics above. */
-  replace: (ids: readonly string[]) => void
-  /** Removes all IDs and clears the current position. */
+  /** Appends copies of `items` to the end in order. No-op if `items` is empty. */
+  append: (items: readonly HostVideoQueueItem[]) => void
+  /** Replaces the entire queue with a copy of `items` and updates current per semantics above. */
+  replace: (items: readonly HostVideoQueueItem[]) => void
+  /**
+   * Replaces the queue and restores **current index** from a snapshot (e.g. localStorage reload).
+   * Invalid `currentIndex` for the row count falls back to `0` when non-empty.
+   */
+  applySnapshot: (snapshot: HostVideoQueueSnapshot) => void
+  /** Removes all rows and clears the current position. */
   clear: () => void
   /** The video ID at the current index, or `undefined` when there is no current item. */
   currentVideoId: () => string | undefined
@@ -40,9 +58,9 @@ export interface HostVideoQueue {
    * @returns `true` if the index moved; `false` if there is no current item or already at the last.
    */
   advance: () => boolean
-  /** `true` when there is no current item and no IDs (same as `length === 0` with no current). */
+  /** `true` when there is no current item and no rows (same as `length === 0` with no current). */
   isEmpty: () => boolean
-  /** Number of IDs in the queue. */
+  /** Number of rows in the queue. */
   readonly length: number
   /**
    * `true` when there is a current item and a later item exists (i.e. `advance()` would succeed).
@@ -64,43 +82,78 @@ export interface HostVideoQueue {
  * Creates an independent in-memory queue (no shared global state).
  */
 export function createHostVideoQueue(): HostVideoQueue {
-  let ids: string[] = []
+  let items: HostVideoQueueItem[] = []
   let currentIndex: number | null = null
 
+  function snapshotFromState(): HostVideoQueueSnapshot {
+    const ids = items.map((i) => i.videoId)
+    const titles = items.map((i) => i.title)
+    const requestedBys = items.map((i) => i.requestedBy)
+    return {
+      ids: Object.freeze(ids),
+      titles: Object.freeze(titles),
+      requestedBys: Object.freeze(requestedBys),
+      currentIndex,
+    }
+  }
+
   return {
-    append(idsToAppend: readonly string[]) {
-      if (idsToAppend.length === 0) {
+    append(itemsToAppend: readonly HostVideoQueueItem[]) {
+      if (itemsToAppend.length === 0) {
         return
       }
-      const wasEmpty = ids.length === 0
-      ids = ids.concat([...idsToAppend])
+      const wasEmpty = items.length === 0
+      items = items.concat(itemsToAppend.map((i) => ({ ...i })))
       if (wasEmpty) {
         currentIndex = 0
       }
     },
 
-    replace(newIds: readonly string[]) {
-      ids = [...newIds]
-      currentIndex = ids.length > 0 ? 0 : null
+    replace(newItems: readonly HostVideoQueueItem[]) {
+      items = newItems.map((i) => ({ ...i }))
+      currentIndex = items.length > 0 ? 0 : null
+    },
+
+    applySnapshot(snapshot: HostVideoQueueSnapshot) {
+      items = snapshot.ids.map((videoId, i) => ({
+        videoId,
+        title: snapshot.titles[i] ?? null,
+        requestedBy: snapshot.requestedBys[i] ?? null,
+      }))
+      if (items.length === 0) {
+        currentIndex = null
+        return
+      }
+      const ci = snapshot.currentIndex
+      if (
+        ci === null ||
+        !Number.isInteger(ci) ||
+        ci < 0 ||
+        ci >= items.length
+      ) {
+        currentIndex = 0
+        return
+      }
+      currentIndex = ci
     },
 
     clear() {
-      ids = []
+      items = []
       currentIndex = null
     },
 
     currentVideoId() {
-      if (currentIndex === null || ids.length === 0) {
+      if (currentIndex === null || items.length === 0) {
         return undefined
       }
-      return ids[currentIndex]
+      return items[currentIndex]?.videoId
     },
 
     advance() {
-      if (currentIndex === null || ids.length === 0) {
+      if (currentIndex === null || items.length === 0) {
         return false
       }
-      if (currentIndex >= ids.length - 1) {
+      if (currentIndex >= items.length - 1) {
         return false
       }
       currentIndex++
@@ -108,22 +161,22 @@ export function createHostVideoQueue(): HostVideoQueue {
     },
 
     isEmpty() {
-      return ids.length === 0 && currentIndex === null
+      return items.length === 0 && currentIndex === null
     },
 
     get length() {
-      return ids.length
+      return items.length
     },
 
     hasNext() {
-      if (currentIndex === null || ids.length === 0) {
+      if (currentIndex === null || items.length === 0) {
         return false
       }
-      return currentIndex < ids.length - 1
+      return currentIndex < items.length - 1
     },
 
     stepBack() {
-      if (currentIndex === null || ids.length === 0) {
+      if (currentIndex === null || items.length === 0) {
         return false
       }
       if (currentIndex <= 0) {
@@ -134,10 +187,7 @@ export function createHostVideoQueue(): HostVideoQueue {
     },
 
     getSnapshot() {
-      return {
-        ids: Object.freeze(ids.slice()),
-        currentIndex,
-      }
+      return snapshotFromState()
     },
   }
 }

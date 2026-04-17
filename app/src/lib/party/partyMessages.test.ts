@@ -4,6 +4,8 @@ import {
   isPlausibleYoutubeVideoId,
   parsePartyMessage,
   PARTY_MESSAGE_MAX_RAW_BYTES,
+  PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH,
+  PARTY_QUEUE_TITLE_MAX_LENGTH,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
   serializePartyMessage,
@@ -20,13 +22,55 @@ describe('isPlausibleYoutubeVideoId', () => {
 })
 
 describe('parsePartyMessage', () => {
-  it('round-trips queue_snapshot', () => {
+  it('round-trips queue_snapshot with metadata', () => {
     const msg = queueSnapshotToMessage({
       ids: ['a', 'b'],
+      titles: [null, 'T'],
+      requestedBys: ['x', null],
       currentIndex: 0,
     })
     const raw = serializePartyMessage(msg)
     expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('accepts legacy queue_snapshot without titles/requestedBys (fills nulls)', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['dQw4w9WgXcQ'],
+      currentIndex: 0,
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['dQw4w9WgXcQ'],
+      currentIndex: 0,
+      titles: [null],
+      requestedBys: [null],
+    })
+  })
+
+  it('rejects queue_snapshot when only one parallel metadata array is present', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['a', 'b'],
+      currentIndex: 0,
+      titles: [null, null],
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects queue_snapshot when parallel arrays mismatch ids length', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['a', 'b'],
+      currentIndex: 0,
+      titles: [null],
+      requestedBys: [null],
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
   })
 
   it('accepts empty queue snapshot', () => {
@@ -38,6 +82,10 @@ describe('parsePartyMessage', () => {
     })
     const p = parsePartyMessage(raw)
     expect(p?.type === 'queue_snapshot' && p.ids.length === 0 && p.currentIndex === null).toBe(true)
+    if (p?.type === 'queue_snapshot') {
+      expect(p.titles).toEqual([])
+      expect(p.requestedBys).toEqual([])
+    }
   })
 
   it('rejects empty queue with non-null current index', () => {
@@ -76,7 +124,7 @@ describe('parsePartyMessage', () => {
     expect(parsePartyMessage(raw)).toBeNull()
   })
 
-  it('accepts valid enqueue_request', () => {
+  it('accepts valid enqueue_request without optional fields (normalized to null)', () => {
     const raw = JSON.stringify({
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'enqueue_request',
@@ -86,7 +134,46 @@ describe('parsePartyMessage', () => {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'enqueue_request',
       videoId: 'dQw4w9WgXcQ',
+      title: null,
+      requestedBy: null,
     })
+  })
+
+  it('accepts enqueue_request with title and requestedBy', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      title: 'Never Gonna Give You Up',
+      requestedBy: 'Alex',
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      title: 'Never Gonna Give You Up',
+      requestedBy: 'Alex',
+    })
+  })
+
+  it('rejects enqueue_request with overlong title', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      title: 'x'.repeat(PARTY_QUEUE_TITLE_MAX_LENGTH + 1),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects enqueue_request with overlong requestedBy', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      requestedBy: 'x'.repeat(PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH + 1),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
   })
 
   it('round-trips enqueue_rejected', () => {
