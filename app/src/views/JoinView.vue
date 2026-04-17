@@ -41,10 +41,6 @@ const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
 const isEnqueueSubmitting = ref(false)
 
-function youtubeWatchUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
-}
-
 function queueRowTitle(index: number): string {
   const s = queueSnapshot.value
   if (!s) {
@@ -119,16 +115,13 @@ function onAddSongDialogClose() {
   void nextTick(() => addSongTriggerRef.value?.focus())
 }
 
-const YOUTUBE_OPEN_URL = 'https://www.youtube.com'
-
 function goToPasteStep() {
   addSongStep.value = 2
   void nextTick(() => document.getElementById('guest-add-song-paste')?.focus())
 }
 
-/** Opens YouTube in a new tab and advances to the paste-link step. */
+/** Advances to the paste step without opening external sites. */
 function continueFromStep1() {
-  window.open(YOUTUBE_OPEN_URL, '_blank', 'noopener,noreferrer')
   goToPasteStep()
 }
 
@@ -244,21 +237,13 @@ async function submitPasteEnqueue() {
                   </div>
                 </div>
               </div>
-              <div class="flex shrink-0 items-center gap-2 pt-0.5">
+              <div class="flex shrink-0 items-center justify-end pt-0.5">
                 <span
                   v-if="index === queueSnapshot?.currentIndex"
                   class="inline-flex items-center rounded-full bg-[#FF3B30] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
                 >
                   Playing
                 </span>
-                <a
-                  class="text-[15px] font-normal leading-5 text-[#007AFF] hover:opacity-80 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#007AFF]"
-                  :href="youtubeWatchUrl(rowId)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  YouTube
-                </a>
               </div>
             </div>
           </li>
