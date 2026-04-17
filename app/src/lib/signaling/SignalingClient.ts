@@ -1,3 +1,5 @@
+import { rtcDebugLog, rtcFailureLog, signalPayloadSummary } from '@/lib/debug/rtcDebugLog'
+
 import type { PartySignalingTransport } from './PartySignalingTransport'
 import {
   isServerToClientMessage,
@@ -51,18 +53,29 @@ export class SignalingClient implements PartySignalingTransport {
 
   async connect(): Promise<void> {
     const url = this.resolvedWebSocketUrl
+    rtcDebugLog('signaling', 'WebSocket connecting', url)
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(url)
       this.ws = ws
-      ws.onopen = () => resolve()
+      ws.onopen = () => {
+        rtcDebugLog('signaling', 'WebSocket open')
+        resolve()
+      }
       ws.onerror = () => {
+        rtcFailureLog('signaling', 'WebSocket error — could not connect', url)
+        rtcDebugLog('signaling', 'WebSocket error')
         reject(new Error('Could not connect to signaling.'))
       }
       ws.onmessage = (ev) => {
         this.handleMessage(String(ev.data))
       }
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
+        rtcDebugLog('signaling', 'WebSocket close', { code: ev.code, reason: ev.reason })
         if (this.pendingJoin) {
+          rtcFailureLog('signaling', 'WebSocket closed before join completed', {
+            code: ev.code,
+            reason: ev.reason,
+          })
           this.pendingJoin.reject(new Error('Signaling connection closed before join completed.'))
           this.pendingJoin = null
         }
@@ -72,10 +85,13 @@ export class SignalingClient implements PartySignalingTransport {
 
   join(room: string, clientId: string, role: SignalingRole): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      rtcFailureLog('signaling', 'join called but WebSocket is not open')
+      rtcDebugLog('signaling', 'WebSocket join rejected: socket not open')
       return Promise.reject(new Error('WebSocket is not open.'))
     }
     this.room = room
     this.clientId = clientId
+    rtcDebugLog('signaling', 'WebSocket join send', { room, clientId, role })
     const msg: JoinClientMessage = { type: 'join', room, clientId, role }
     this.ws.send(JSON.stringify(msg))
     return new Promise((resolve, reject) => {
@@ -97,10 +113,12 @@ export class SignalingClient implements PartySignalingTransport {
       to,
       payload,
     }
+    rtcDebugLog('signaling', 'WebSocket signal send', { to, payload: signalPayloadSummary(payload) })
     this.ws.send(JSON.stringify(msg))
   }
 
   close(): void {
+    rtcDebugLog('signaling', 'WebSocket close()')
     try {
       this.ws?.close()
     } catch {
@@ -124,6 +142,7 @@ export class SignalingClient implements PartySignalingTransport {
     }
     switch (data.type) {
       case 'joined':
+        rtcDebugLog('signaling', 'WebSocket msg joined', { peers: data.peers })
         this.joinedPeers = data.peers
         if (this.pendingJoin) {
           this.pendingJoin.resolve()
@@ -132,18 +151,26 @@ export class SignalingClient implements PartySignalingTransport {
         return
       case 'peer-joined': {
         const peer: PeerInfo = { clientId: data.clientId, role: data.role }
+        rtcDebugLog('signaling', 'WebSocket msg peer-joined', peer)
         for (const h of this.peerJoinedListeners) {
           h(peer)
         }
         return
       }
       case 'peer-left':
+        rtcDebugLog('signaling', 'WebSocket msg peer-left', data.clientId)
         this.onPeerLeft?.(data.clientId)
         return
       case 'signal':
+        rtcDebugLog('signaling', 'WebSocket msg signal', {
+          from: data.from,
+          payload: signalPayloadSummary(data.payload),
+        })
         this.onSignal?.({ from: data.from, payload: data.payload })
         return
       case 'error':
+        rtcFailureLog('signaling', 'WebSocket server error message', data.message)
+        rtcDebugLog('signaling', 'WebSocket msg error', data.message)
         if (this.pendingJoin) {
           this.pendingJoin.reject(new Error(data.message))
           this.pendingJoin = null

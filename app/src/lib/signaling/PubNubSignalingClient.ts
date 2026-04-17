@@ -1,5 +1,7 @@
 import PubNub from 'pubnub'
 
+import { rtcDebugLog, rtcFailureLog, signalPayloadSummary } from '@/lib/debug/rtcDebugLog'
+
 import type { PartySignalingTransport } from './PartySignalingTransport'
 import type { PeerInfo, SignalPayload, SignalingRole } from './protocol'
 import { isServerToClientMessage } from './protocol'
@@ -88,6 +90,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
   }
 
   async connect(): Promise<void> {
+    rtcDebugLog('signaling', 'PubNub connect() (no-op; join initializes SDK)')
     return Promise.resolve()
   }
 
@@ -100,8 +103,12 @@ export class PubNubSignalingClient implements PartySignalingTransport {
 
     const userId = toPubNubUserId(clientId)
     if (userId.length < 1) {
+      rtcFailureLog('signaling', 'PubNub join rejected: empty userId from clientId', clientId)
+      rtcDebugLog('signaling', 'PubNub join rejected: empty userId from clientId')
       return Promise.reject(new Error('Invalid client id for PubNub userId.'))
     }
+
+    rtcDebugLog('signaling', 'PubNub join start', { room, role, clientId, userId })
 
     this.pubnub = new PubNub({
       publishKey: this.options.publishKey,
@@ -119,11 +126,20 @@ export class PubNubSignalingClient implements PartySignalingTransport {
             statusEvent.category === PubNub.CATEGORIES.PNAccessDeniedCategory || httpStatus === 403
           if (forbidden && this.pendingJoin) {
             this.clearJoinFallbackTimer()
+            rtcFailureLog('signaling', 'PubNub access denied (403)', {
+              category: statusEvent.category,
+              httpStatus,
+            })
+            rtcDebugLog('signaling', 'PubNub join failed: access denied / 403', {
+              category: statusEvent.category,
+              httpStatus,
+            })
             this.pendingJoin.reject(new Error(PUBNUB_403_HINT))
             this.pendingJoin = null
             return
           }
           if (statusEvent.category === PubNub.CATEGORIES.PNSubscriptionChangedCategory) {
+            rtcDebugLog('signaling', 'PubNub PNSubscriptionChangedCategory → join handshake')
             this.finishJoinHandshake()
           }
         },
@@ -133,10 +149,12 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       })
 
       this.pubnub!.subscribe({ channels: [room] })
+      rtcDebugLog('signaling', 'PubNub subscribe', { channels: [room] })
 
       this.joinFallbackTimer = globalThis.setTimeout(() => {
         this.joinFallbackTimer = null
         if (this.pendingJoin) {
+          rtcDebugLog('signaling', 'PubNub join fallback timer (2s): completing handshake')
           this.finishJoinHandshake()
         }
       }, 2000)
@@ -148,6 +166,11 @@ export class PubNubSignalingClient implements PartySignalingTransport {
     if (!this.pendingJoin) {
       return
     }
+    rtcDebugLog('signaling', 'PubNub join OK', {
+      room: this.room,
+      role: this.role,
+      peersSnapshot: this.joinedPeers.length,
+    })
     this.pendingJoin.resolve()
     this.pendingJoin = null
     this.publishPeerAnnouncement()
@@ -169,6 +192,8 @@ export class PubNubSignalingClient implements PartySignalingTransport {
     void this.pubnub
       .publish({ channel: this.room, message: toPubNubMessage(msg) })
       .catch(() => {
+        rtcFailureLog('signaling', 'PubNub publish yoochog-peer failed (403 / network)')
+        rtcDebugLog('signaling', 'PubNub publish yoochog-peer failed (403 / network)')
         /* 403 etc. — user should fix keyset / Access Manager; avoid unhandled rejection noise */
       })
   }
@@ -185,11 +210,13 @@ export class PubNubSignalingClient implements PartySignalingTransport {
         room: this.room,
         clientId: this.clientId,
       }
-      void this.pubnub
-        .publish({ channel: this.room, message: toPubNubMessage(msg) })
-        .catch(() => {})
+      void this.pubnub.publish({ channel: this.room, message: toPubNubMessage(msg) }).catch(() => {
+        rtcFailureLog('signaling', 'PubNub publish yoochog-request-host failed')
+        rtcDebugLog('signaling', 'PubNub publish yoochog-request-host failed')
+      })
     }
     publish()
+    rtcDebugLog('signaling', 'PubNub guest: request-host interval started (1.5s)')
     this.requestHostInterval = globalThis.setInterval(publish, 1500)
   }
 
@@ -212,6 +239,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
     }
     this.seenPeerIds.add(peer.clientId)
     this.joinedPeers.push(peer)
+    rtcDebugLog('signaling', 'PubNub peer discovered', peer)
     this.emitPeerJoined(peer)
     if (peer.role === 'host' && this.role === 'guest') {
       this.stopRequestHostLoop()
@@ -238,9 +266,11 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       if (!isServerToClientMessage(envelope)) {
         return
       }
+      const pl = envelope.payload as SignalPayload
+      rtcDebugLog('signaling', 'PubNub signal in', { from: data.from, payload: signalPayloadSummary(pl) })
       this.onSignal?.({
         from: data.from,
-        payload: envelope.payload as SignalPayload,
+        payload: pl,
       })
       return
     }
@@ -262,6 +292,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       data.room === this.room &&
       this.role === 'host'
     ) {
+      rtcDebugLog('signaling', 'PubNub yoochog-request-host (host will re-announce)')
       this.publishPeerAnnouncement()
     }
   }
@@ -277,12 +308,17 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       to,
       payload,
     }
+    rtcDebugLog('signaling', 'PubNub signal out', { to, payload: signalPayloadSummary(payload) })
     void this.pubnub
       .publish({ channel: this.room, message: toPubNubMessage(msg) })
-      .catch(() => {})
+      .catch(() => {
+        rtcFailureLog('signaling', 'PubNub signal publish failed', { to, payload: signalPayloadSummary(payload) })
+        rtcDebugLog('signaling', 'PubNub signal publish failed', { to })
+      })
   }
 
   close(): void {
+    rtcDebugLog('signaling', 'PubNub close()')
     this.clearJoinFallbackTimer()
     this.stopRequestHostLoop()
     try {

@@ -1,3 +1,4 @@
+import { rtcDebugLog, rtcFailureLog } from '@/lib/debug/rtcDebugLog'
 import { DEFAULT_DEV_ICE_SERVERS } from '@/lib/webrtc/defaultIceServers'
 
 /** Subset of `ImportMetaEnv` used for ICE; allows tests to inject a plain object. */
@@ -76,6 +77,7 @@ export function getPartyIceServers(options?: GetPartyIceServersOptions): RTCIceS
   const pass = env.VITE_TURN_CREDENTIAL?.trim() ?? ''
 
   if (turnUrls.length === 0) {
+    rtcDebugLog('webrtc', 'ICE: using STUN only', { serverEntries: stunServers.length })
     return stunServers
   }
 
@@ -86,6 +88,12 @@ export function getPartyIceServers(options?: GetPartyIceServersOptions): RTCIceS
       '[yoochog] ICE: VITE_TURN_URLS is set but VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL must both be set for TURN; relay candidates will be skipped.',
       warn,
     )
+    rtcFailureLog(
+      'webrtc',
+      'ICE: partial TURN config (missing username/credential) — using STUN only',
+      { turnUrlCount: turnUrls.length },
+    )
+    rtcDebugLog('webrtc', 'ICE: partial TURN config — STUN only', { serverEntries: stunServers.length })
     return stunServers
   }
 
@@ -95,5 +103,10 @@ export function getPartyIceServers(options?: GetPartyIceServersOptions): RTCIceS
     credential: pass,
   }))
 
-  return [...stunServers, ...turnServers]
+  const merged = [...stunServers, ...turnServers]
+  rtcDebugLog('webrtc', 'ICE: STUN + TURN', {
+    serverEntries: merged.length,
+    turnUrlCount: turnUrls.length,
+  })
+  return merged
 }

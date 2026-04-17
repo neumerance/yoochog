@@ -1,3 +1,4 @@
+import { rtcDebugLog, rtcFailureLog, signalPayloadSummary } from '@/lib/debug/rtcDebugLog'
 import type { PartySignalingTransport } from '@/lib/signaling/PartySignalingTransport'
 import type { SignalPayload } from '@/lib/signaling/protocol'
 import { createSignalingTransport } from '@/lib/signaling/signalingFactory'
@@ -60,20 +61,26 @@ export type GuestPartyHandshakeHandle = {
 async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortSignal): Promise<string> {
   const fromJoined = signaling.joinedPeers.find((p) => p.role === 'host')?.clientId
   if (fromJoined) {
+    rtcDebugLog('handshake', 'guest: host id from join snapshot', fromJoined)
     return fromJoined
   }
+  rtcDebugLog('handshake', 'guest: waiting for host announcement (up to 60s)')
   return new Promise((resolve, reject) => {
     const timeout = globalThis.setTimeout(() => {
       cleanup()
+      rtcFailureLog('handshake', 'guest: timed out waiting for host (60s)')
+      rtcDebugLog('handshake', 'guest: timed out waiting for host')
       reject(new Error('Timed out waiting for host.'))
     }, 60_000)
     const onAbort = () => {
       cleanup()
+      rtcFailureLog('handshake', 'guest: aborted while waiting for host')
       reject(new DOMException('Aborted', 'AbortError'))
     }
     signal.addEventListener('abort', onAbort, { once: true })
     const off = signaling.subscribePeerJoined((peer) => {
       if (peer.role === 'host') {
+        rtcDebugLog('handshake', 'guest: host appeared via peer-joined', peer.clientId)
         cleanup()
         resolve(peer.clientId)
       }
@@ -114,7 +121,8 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
     }
     try {
       ch.send(raw)
-    } catch {
+    } catch (e) {
+      rtcFailureLog('webrtc', 'host party channel send failed', guestId, e)
       // Channel may be closing.
     }
   }
@@ -140,19 +148,28 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
   )
 
   void (async () => {
+    const reportStatus = (s: HandshakeUiState) => {
+      rtcDebugLog('handshake', 'host status', s)
+      options.onStatus(s)
+    }
+    rtcDebugLog('handshake', 'host start', { sessionId: options.sessionId, room, clientId })
     try {
-      options.onStatus('connecting_signaling')
+      reportStatus('connecting_signaling')
       await signaling.connect()
-      options.onStatus('establishing_handshake')
+      reportStatus('establishing_handshake')
       await signaling.join(room, clientId, 'host')
+      rtcDebugLog('handshake', 'host signaling room joined')
     } catch (e) {
-      options.onStatus('failed')
+      rtcFailureLog('handshake', 'host signaling failed', e)
+      rtcDebugLog('handshake', 'host signaling failed', e)
+      reportStatus('failed')
       options.onError(e instanceof Error ? e.message : 'Signaling failed.')
       dispose()
       return
     }
 
     signaling.onPeerLeft = (leftId) => {
+      rtcDebugLog('handshake', 'host onPeerLeft', leftId)
       if (pcs.has(leftId)) {
         removeGuest(leftId)
       }
@@ -180,13 +197,17 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
     async function handleHostSignal(from: string, payload: SignalPayload) {
       const pc = pcs.get(from)
       if (!pc) {
+        rtcDebugLog('handshake', 'host signal ignored (no pc)', from, signalPayloadSummary(payload))
         return
       }
       try {
         if (payload.kind === 'answer') {
+          rtcDebugLog('handshake', 'host received answer', from, signalPayloadSummary(payload))
           await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp })
         }
       } catch (e) {
+        rtcFailureLog('handshake', 'host setRemoteDescription failed', { from, err: e })
+        rtcDebugLog('handshake', 'host setRemoteDescription failed', from, e)
         const message = e instanceof Error ? e.message : 'Handshake failed.'
         options.onGuestPeerFailed?.(from, message)
         removeGuest(from)
@@ -200,6 +221,7 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
       if (options.signal.aborted) {
         return
       }
+      rtcDebugLog('handshake', 'host attachGuest', guestId, { iceServerCount: iceServers.length })
       const pc = new RTCPeerConnection({ iceServers })
       pcs.set(guestId, pc)
 
@@ -221,11 +243,13 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
           return
         }
         clearDisconnectGrace()
+        rtcFailureLog('webrtc', 'host guest connection lost', guestId, detail)
         options.onGuestConnectionLost?.(guestId, detail)
         removeGuest(guestId)
       }
 
       dc.onopen = () => {
+        rtcDebugLog('webrtc', 'host party data channel open', guestId)
         options.onPartyChannelOpen?.(guestId)
       }
       dc.onmessage = (ev) => {
@@ -240,6 +264,7 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
           return
         }
         const st = pc.connectionState
+        rtcDebugLog('webrtc', 'host pc connectionstatechange', guestId, st)
         if (st === 'connected') {
           clearDisconnectGrace()
           return
@@ -273,6 +298,7 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
           return
         }
         const ice = pc.iceConnectionState
+        rtcDebugLog('webrtc', 'host pc iceconnectionstatechange', guestId, ice)
         if (ice === 'connected' || ice === 'completed') {
           clearDisconnectGrace()
           return
@@ -302,15 +328,28 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
       try {
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
-        await waitForIceGatheringComplete(pc, { signal: options.signal, timeoutMs: 15_000 })
+        rtcDebugLog('handshake', 'host created offer', guestId)
+        await waitForIceGatheringComplete(pc, {
+          signal: options.signal,
+          timeoutMs: 15_000,
+          debugLabel: `host→${guestId.slice(0, 8)}`,
+        })
         const sdp = pc.localDescription?.sdp ?? ''
+        rtcDebugLog('handshake', 'host sending offer', guestId, `sdpChars=${sdp.length}`)
         signaling.sendSignal(guestId, { kind: 'offer', sdp })
-        await waitForPeerConnectionConnected(pc, { signal: options.signal, timeoutMs: 60_000 })
+        await waitForPeerConnectionConnected(pc, {
+          signal: options.signal,
+          timeoutMs: 60_000,
+          debugLabel: `host→${guestId.slice(0, 8)}`,
+        })
         if (!reportedConnected) {
           reportedConnected = true
-          options.onStatus('connected')
+          rtcDebugLog('handshake', 'host first peer fully connected → UI connected')
+          reportStatus('connected')
         }
       } catch (e) {
+        rtcFailureLog('handshake', 'host attachGuest / WebRTC failed', guestId, e)
+        rtcDebugLog('handshake', 'host attachGuest failed', guestId, e)
         const message = e instanceof Error ? e.message : 'Handshake failed.'
         options.onGuestPeerFailed?.(guestId, message)
         removeGuest(guestId)
@@ -343,7 +382,8 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
     }
     try {
       partyDc.send(raw)
-    } catch {
+    } catch (e) {
+      rtcFailureLog('webrtc', 'guest party channel send failed', e)
       // ignore
     }
   }
@@ -375,15 +415,23 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
   )
 
   void (async () => {
+    const reportStatus = (s: HandshakeUiState) => {
+      rtcDebugLog('handshake', 'guest status', s)
+      options.onStatus(s)
+    }
+    rtcDebugLog('handshake', 'guest start', { sessionId: options.sessionId, room, clientId })
     try {
-      options.onStatus('connecting_signaling')
+      reportStatus('connecting_signaling')
       signaling.onSignal = (msg) => {
+        rtcDebugLog('handshake', 'guest buffering signal (pre-join)', msg.from, signalPayloadSummary(msg.payload))
         preSignal.push(msg)
       }
       await signaling.connect()
-      options.onStatus('establishing_handshake')
+      reportStatus('establishing_handshake')
       await signaling.join(room, clientId, 'guest')
+      rtcDebugLog('handshake', 'guest signaling room joined')
       const hostId = await findHostPeerId(signaling, options.signal)
+      rtcDebugLog('handshake', 'guest resolved hostId', hostId)
 
       let handshakeFinished = false
       let lostNotified = false
@@ -401,8 +449,10 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
         }
         lostNotified = true
         clearDisconnectGrace()
+        rtcFailureLog('handshake', 'guest connection lost', detail, { handshakeFinished })
+        rtcDebugLog('handshake', 'guest connection lost', detail, { handshakeFinished })
         if (!handshakeFinished) {
-          options.onStatus('failed')
+          reportStatus('failed')
           options.onError(detail)
           dispose()
           return
@@ -430,6 +480,7 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
         }, PEER_DISCONNECTED_GRACE_MS)
       }
 
+      rtcDebugLog('handshake', 'guest RTCPeerConnection created', { iceServerCount: iceServers.length })
       pc = new RTCPeerConnection({ iceServers })
 
       pc.onconnectionstatechange = () => {
@@ -437,6 +488,7 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
           return
         }
         const st = pc.connectionState
+        rtcDebugLog('webrtc', 'guest pc connectionstatechange', st)
         if (st === 'connected') {
           clearDisconnectGrace()
           return
@@ -455,6 +507,7 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
           return
         }
         const ice = pc.iceConnectionState
+        rtcDebugLog('webrtc', 'guest pc iceconnectionstatechange', ice)
         if (ice === 'connected' || ice === 'completed') {
           clearDisconnectGrace()
           return
@@ -475,6 +528,7 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
         partyDc = ev.channel
         partyDc.binaryType = 'blob'
         partyDc.onopen = () => {
+          rtcDebugLog('webrtc', 'guest party data channel open')
           options.onPartyChannelOpen?.()
         }
         partyDc.onmessage = (e) => {
@@ -486,20 +540,42 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
       }
 
       const processSignal = async (from: string, payload: SignalPayload) => {
-        if (from !== hostId || !pc || handshakeFinished) {
-          return
+        try {
+          if (from !== hostId || !pc || handshakeFinished) {
+            if (payload.kind === 'offer' && from !== hostId) {
+              rtcDebugLog('handshake', 'guest ignoring offer from non-host', from)
+            }
+            return
+          }
+          if (payload.kind !== 'offer') {
+            rtcDebugLog('handshake', 'guest ignoring non-offer', signalPayloadSummary(payload))
+            return
+          }
+          rtcDebugLog('handshake', 'guest received offer', signalPayloadSummary(payload))
+          await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp })
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+          rtcDebugLog('handshake', 'guest created answer')
+          await waitForIceGatheringComplete(pc, {
+            signal: options.signal,
+            timeoutMs: 15_000,
+            debugLabel: 'guest answer',
+          })
+          const ansSdp = pc.localDescription?.sdp ?? ''
+          rtcDebugLog('handshake', 'guest sending answer', `sdpChars=${ansSdp.length}`)
+          signaling.sendSignal(hostId, { kind: 'answer', sdp: ansSdp })
+          await waitForPeerConnectionConnected(pc, {
+            signal: options.signal,
+            timeoutMs: 60_000,
+            debugLabel: 'guest wait',
+          })
+          handshakeFinished = true
+          rtcDebugLog('handshake', 'guest WebRTC connected')
+          reportStatus('connected')
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Guest offer/answer failed.'
+          notifyGuestLost(msg)
         }
-        if (payload.kind !== 'offer') {
-          return
-        }
-        await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp })
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        await waitForIceGatheringComplete(pc, { signal: options.signal, timeoutMs: 15_000 })
-        signaling.sendSignal(hostId, { kind: 'answer', sdp: pc.localDescription?.sdp ?? '' })
-        await waitForPeerConnectionConnected(pc, { signal: options.signal, timeoutMs: 60_000 })
-        handshakeFinished = true
-        options.onStatus('connected')
       }
 
       for (const m of preSignal) {
@@ -508,10 +584,13 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
       preSignal.length = 0
 
       signaling.onSignal = (msg) => {
+        rtcDebugLog('handshake', 'guest signal', msg.from, signalPayloadSummary(msg.payload))
         void processSignal(msg.from, msg.payload)
       }
     } catch (e) {
-      options.onStatus('failed')
+      rtcFailureLog('handshake', 'guest handshake failed', e)
+      rtcDebugLog('handshake', 'guest handshake failed', e)
+      reportStatus('failed')
       options.onError(e instanceof Error ? e.message : 'Handshake failed.')
       dispose()
     }
