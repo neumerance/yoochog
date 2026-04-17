@@ -26,14 +26,14 @@ defineExpose({ open })
   <dialog
     id="privacy-notice-dialog"
     ref="dialogRef"
-    class="fixed inset-0 z-[220] m-0 box-border h-full max-h-full w-full max-w-none border-0 bg-transparent p-0 [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+    class="fixed inset-0 z-[220] m-0 flex h-full max-h-full w-full max-w-none items-center justify-center border-0 bg-transparent p-4 [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
     aria-labelledby="privacy-notice-title"
     aria-modal="true"
     @click.self="dismiss"
     @close="onDialogClose"
   >
     <div
-      class="absolute inset-x-0 bottom-0 mx-auto flex max-h-[min(90dvh,36rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-[#F2F2F7] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-4 text-black shadow-[0_-4px_24px_rgba(0,0,0,0.12)] sm:pt-5"
+      class="flex max-h-[min(90dvh,36rem)] w-full max-w-lg flex-col overflow-hidden rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] text-black shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
       @click.stop
     >
       <div class="min-h-0 flex-1 overflow-y-auto px-1 sm:px-2">
