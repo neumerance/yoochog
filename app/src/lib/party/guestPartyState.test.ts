@@ -30,4 +30,16 @@ describe('applyGuestPartyMessage', () => {
     expect(next.lastEnqueueError).toBe('bad id')
     expect(next.snapshot).toEqual(prev.snapshot)
   })
+
+  it('leaves state unchanged on heartbeat', () => {
+    const prev = {
+      snapshot: { ids: ['a'], currentIndex: 0 },
+      lastEnqueueError: 'prior' as string | null,
+    }
+    const next = applyGuestPartyMessage(prev, {
+      v: 1,
+      type: 'heartbeat',
+    })
+    expect(next).toEqual(prev)
+  })
 })
