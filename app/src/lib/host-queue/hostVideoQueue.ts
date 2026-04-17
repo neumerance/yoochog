@@ -26,6 +26,11 @@ export interface HostVideoQueueItem {
   title: string | null
   /** Guest display label for “requested by”, or `null` when absent / legacy. */
   requestedBy: string | null
+  /**
+   * Stable logical guest id for enqueue policy (session-scoped UUID from the guest, or legacy
+   * peer id when absent). `null` when unknown / legacy rows.
+   */
+  requesterGuestId: string | null
 }
 
 /** Read-only view of queue order and current position for UI (e.g. ordered list + highlight). */
@@ -36,6 +41,8 @@ export interface HostVideoQueueSnapshot {
   titles: readonly (string | null)[]
   /** Parallel to `ids`: requester label or absent (`null`). */
   requestedBys: readonly (string | null)[]
+  /** Parallel to `ids`: logical guest id for ownership / one-song-per-guest policy, or `null`. */
+  requesterGuestIds: readonly (string | null)[]
   /** Index of the current item, or `null` when the queue is empty or has no current position. */
   currentIndex: number | null
 }
@@ -90,10 +97,12 @@ export function createHostVideoQueue(): HostVideoQueue {
     const ids = items.map((i) => i.videoId)
     const titles = items.map((i) => i.title)
     const requestedBys = items.map((i) => i.requestedBy)
+    const requesterGuestIds = items.map((i) => i.requesterGuestId)
     return {
       ids: Object.freeze(ids),
       titles: Object.freeze(titles),
       requestedBys: Object.freeze(requestedBys),
+      requesterGuestIds: Object.freeze(requesterGuestIds),
       currentIndex,
     }
   }
@@ -120,6 +129,7 @@ export function createHostVideoQueue(): HostVideoQueue {
         videoId,
         title: snapshot.titles[i] ?? null,
         requestedBy: snapshot.requestedBys[i] ?? null,
+        requesterGuestId: snapshot.requesterGuestIds[i] ?? null,
       }))
       if (items.length === 0) {
         currentIndex = null

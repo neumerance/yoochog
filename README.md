@@ -60,7 +60,7 @@ Reserved **environment variable names** for WebRTC-related configuration. These 
 
 ## Party queue (guest adds)
 
-When guests enqueue by URL, the host keeps **at most one row per YouTube video id** in the queue. A duplicate request is rejected with a human-readable message on the guest (see [`app/README.md`](app/README.md) and [ADR 0002](docs/adr/0002-party-data-channel-wire-protocol-v1.md)).
+When guests enqueue by URL, the host enforces two rules: **each YouTube video id** may appear **at most once** in the queue (including the playing row), and **each guest** may have **at most one** row at a time (including the playing row). Rejected requests return a short **`reason`** on the party channel; the guest UI surfaces it via `lastEnqueueError`. See [`app/README.md`](app/README.md), [ADR 0002](docs/adr/0002-party-data-channel-wire-protocol-v1.md), and [ADR 0004](docs/adr/0004-party-queue-guest-ownership-v1.md).
 
 ## Host session ids (threat model)
 

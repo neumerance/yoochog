@@ -99,6 +99,12 @@
                     index + 1
                   }}.</span>
                   {{ rowTitle(queueSnapshot.titles[index] ?? null) }}
+                  <span
+                    v-if="queueSnapshot.requesterGuestIds[index]"
+                    class="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"
+                    title="Guest-requested row (one song per guest)"
+                    aria-hidden="true"
+                  />
                 </p>
                 <p
                   v-if="queueSnapshot.requestedBys[index]"

@@ -6,6 +6,7 @@ import {
   PARTY_MESSAGE_MAX_RAW_BYTES,
   PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH,
   PARTY_QUEUE_TITLE_MAX_LENGTH,
+  PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
   serializePartyMessage,
@@ -27,6 +28,7 @@ describe('parsePartyMessage', () => {
       ids: ['a', 'b'],
       titles: [null, 'T'],
       requestedBys: ['x', null],
+      requesterGuestIds: ['g1', null],
       currentIndex: 0,
     })
     const raw = serializePartyMessage(msg)
@@ -47,6 +49,7 @@ describe('parsePartyMessage', () => {
       currentIndex: 0,
       titles: [null],
       requestedBys: [null],
+      requesterGuestIds: [null],
     })
   })
 
@@ -85,6 +88,7 @@ describe('parsePartyMessage', () => {
     if (p?.type === 'queue_snapshot') {
       expect(p.titles).toEqual([])
       expect(p.requestedBys).toEqual([])
+      expect(p.requesterGuestIds).toEqual([])
     }
   })
 
@@ -136,6 +140,7 @@ describe('parsePartyMessage', () => {
       videoId: 'dQw4w9WgXcQ',
       title: null,
       requestedBy: null,
+      requesterGuestId: null,
     })
   })
 
@@ -153,7 +158,48 @@ describe('parsePartyMessage', () => {
       videoId: 'dQw4w9WgXcQ',
       title: 'Never Gonna Give You Up',
       requestedBy: 'Alex',
+      requesterGuestId: null,
     })
+  })
+
+  it('accepts enqueue_request with requesterGuestId', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      title: null,
+      requestedBy: null,
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+    })
+  })
+
+  it('rejects enqueue_request with overlong requesterGuestId', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+      requesterGuestId: 'x'.repeat(PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH + 1),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects queue_snapshot when requesterGuestIds length mismatches ids', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['a', 'b'],
+      currentIndex: 0,
+      titles: [null, null],
+      requestedBys: [null, null],
+      requesterGuestIds: ['g1'],
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
   })
 
   it('rejects enqueue_request with overlong title', () => {

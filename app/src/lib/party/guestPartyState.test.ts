@@ -13,11 +13,13 @@ describe('applyGuestPartyMessage', () => {
         currentIndex: 0,
         titles: ['Song'],
         requestedBys: ['Sam'],
+        requesterGuestIds: ['g1'],
       },
     )
     expect(next.snapshot?.ids).toEqual(['a'])
     expect(next.snapshot?.titles).toEqual(['Song'])
     expect(next.snapshot?.requestedBys).toEqual(['Sam'])
+    expect(next.snapshot?.requesterGuestIds).toEqual(['g1'])
     expect(next.snapshot?.currentIndex).toBe(0)
   })
 
@@ -27,6 +29,7 @@ describe('applyGuestPartyMessage', () => {
         ids: ['x'],
         titles: [null],
         requestedBys: [null],
+        requesterGuestIds: [null],
         currentIndex: 0,
       },
       lastEnqueueError: null as string | null,
@@ -46,6 +49,7 @@ describe('applyGuestPartyMessage', () => {
         ids: ['a'],
         titles: [null],
         requestedBys: [null],
+        requesterGuestIds: [null],
         currentIndex: 0,
       },
       lastEnqueueError: 'prior' as string | null,

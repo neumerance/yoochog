@@ -21,6 +21,7 @@ export function saveGuestQueueSnapshot(sessionId: string, snapshot: HostVideoQue
         ids: [...snapshot.ids],
         titles: [...snapshot.titles],
         requestedBys: [...snapshot.requestedBys],
+        requesterGuestIds: [...snapshot.requesterGuestIds],
         currentIndex: snapshot.currentIndex,
       }),
     )
@@ -45,12 +46,19 @@ export function loadGuestQueueSnapshot(sessionId: string): HostVideoQueueSnapsho
     if (o.ids.length !== o.titles.length || o.ids.length !== o.requestedBys.length) {
       return null
     }
+    if (
+      o.requesterGuestIds !== undefined &&
+      (!Array.isArray(o.requesterGuestIds) || o.requesterGuestIds.length !== o.ids.length)
+    ) {
+      return null
+    }
     if (o.ids.length === 0) {
       return o.currentIndex === null
         ? {
             ids: Object.freeze([]),
             titles: Object.freeze([]),
             requestedBys: Object.freeze([]),
+            requesterGuestIds: Object.freeze([]),
             currentIndex: null,
           }
         : null
@@ -58,10 +66,17 @@ export function loadGuestQueueSnapshot(sessionId: string): HostVideoQueueSnapsho
     if (typeof o.currentIndex !== 'number' || o.currentIndex < 0 || o.currentIndex >= o.ids.length) {
       return null
     }
+    const requesterGuestIdsRaw =
+      o.requesterGuestIds !== undefined ? (o.requesterGuestIds as unknown[]) : null
+    const requesterGuestIds = (o.ids as string[]).map((_, i) => {
+      const gi = requesterGuestIdsRaw?.[i]
+      return gi === null ? null : typeof gi === 'string' ? gi : null
+    })
     return {
       ids: Object.freeze([...(o.ids as string[])]),
       titles: Object.freeze([...(o.titles as (string | null)[])]),
       requestedBys: Object.freeze([...(o.requestedBys as (string | null)[])]),
+      requesterGuestIds: Object.freeze(requesterGuestIds),
       currentIndex: o.currentIndex,
     }
   } catch {

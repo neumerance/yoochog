@@ -6,8 +6,9 @@ function row(
   videoId: string,
   title: string | null = null,
   requestedBy: string | null = null,
+  requesterGuestId: string | null = null,
 ): HostVideoQueueItem {
-  return { videoId, title, requestedBy }
+  return { videoId, title, requestedBy, requesterGuestId }
 }
 
 describe('createHostVideoQueue', () => {
@@ -107,6 +108,7 @@ describe('createHostVideoQueue', () => {
       ids: ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc'],
       titles: [null, null, null],
       requestedBys: [null, null, null],
+      requesterGuestIds: [null, null, null],
       currentIndex: 1,
     })
     expect(q.currentVideoId()).toBe('bbbbbbbbbbb')
@@ -116,13 +118,14 @@ describe('createHostVideoQueue', () => {
   it('preserves per-row title and requester in snapshot', () => {
     const q = createHostVideoQueue()
     q.append([
-      { videoId: 'a', title: 'Song A', requestedBy: 'Sam' },
-      { videoId: 'b', title: null, requestedBy: null },
+      { videoId: 'a', title: 'Song A', requestedBy: 'Sam', requesterGuestId: 'g1' },
+      { videoId: 'b', title: null, requestedBy: null, requesterGuestId: null },
     ])
     expect(q.getSnapshot()).toEqual({
       ids: ['a', 'b'],
       titles: ['Song A', null],
       requestedBys: ['Sam', null],
+      requesterGuestIds: ['g1', null],
       currentIndex: 0,
     })
   })
@@ -134,6 +137,7 @@ describe('createHostVideoQueue', () => {
         ids: [],
         titles: [],
         requestedBys: [],
+        requesterGuestIds: [],
         currentIndex: null,
       })
     })
@@ -145,6 +149,7 @@ describe('createHostVideoQueue', () => {
         ids: ['a', 'b', 'c'],
         titles: [null, null, null],
         requestedBys: [null, null, null],
+        requesterGuestIds: [null, null, null],
         currentIndex: 0,
       })
     })
@@ -157,6 +162,7 @@ describe('createHostVideoQueue', () => {
         ids: ['a', 'b'],
         titles: [null, null],
         requestedBys: [null, null],
+        requesterGuestIds: [null, null],
         currentIndex: 1,
       })
     })
@@ -169,6 +175,7 @@ describe('createHostVideoQueue', () => {
         ids: ['x', 'y', 'z'],
         titles: [null, null, null],
         requestedBys: [null, null, null],
+        requesterGuestIds: [null, null, null],
         currentIndex: 0,
       })
       q.clear()
@@ -176,6 +183,7 @@ describe('createHostVideoQueue', () => {
         ids: [],
         titles: [],
         requestedBys: [],
+        requesterGuestIds: [],
         currentIndex: null,
       })
     })
@@ -187,6 +195,7 @@ describe('createHostVideoQueue', () => {
         ids: ['same', 'same'],
         titles: [null, null],
         requestedBys: [null, null],
+        requesterGuestIds: [null, null],
         currentIndex: 0,
       })
       q.advance()
@@ -194,6 +203,7 @@ describe('createHostVideoQueue', () => {
         ids: ['same', 'same'],
         titles: [null, null],
         requestedBys: [null, null],
+        requesterGuestIds: [null, null],
         currentIndex: 1,
       })
     })

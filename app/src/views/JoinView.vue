@@ -12,6 +12,8 @@ import {
   saveGuestDisplayName,
   validateGuestDisplayName,
 } from '@/lib/guest/guestDisplayName'
+import { ENQUEUE_REJECTED_ALREADY_HAS_REQUEST } from '@/lib/host-queue/guestEnqueuePolicy'
+import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
 import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
@@ -41,6 +43,21 @@ const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
 const isEnqueueSubmitting = ref(false)
 
+const alreadyHasMySongInQueue = computed(() => {
+  const s = queueSnapshot.value
+  const sid = sessionId.value
+  if (!s?.ids?.length || !sid) {
+    return false
+  }
+  const mine = getOrCreatePartyGuestRequesterId(sid)
+  return s.requesterGuestIds.some((id) => id === mine)
+})
+
+/** True when connected and policy allows opening the add-song flow (not already holding a slot). */
+const canOpenAddSongFlow = computed(
+  () => canRequestEnqueue.value && !alreadyHasMySongInQueue.value,
+)
+
 function queueRowTitle(index: number): string {
   const s = queueSnapshot.value
   if (!s) {
@@ -56,6 +73,26 @@ function queueRowRequester(index: number): string | null {
     return null
   }
   return s.requestedBys[index] ?? null
+}
+
+function isMyQueueRow(index: number): boolean {
+  const s = queueSnapshot.value
+  if (!s || !sessionId.value) {
+    return false
+  }
+  const mine = getOrCreatePartyGuestRequesterId(sessionId.value)
+  return s.requesterGuestIds[index] === mine
+}
+
+function onAddSongBarTap() {
+  if (!canRequestEnqueue.value) {
+    return
+  }
+  if (alreadyHasMySongInQueue.value) {
+    window.alert(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST)
+    return
+  }
+  openAddSongModal()
 }
 
 function openAddSongModal() {
@@ -132,6 +169,10 @@ async function submitPasteEnqueue() {
     pasteValidationError.value = 'Set your display name before adding a song.'
     return
   }
+  if (alreadyHasMySongInQueue.value) {
+    pasteValidationError.value = ENQUEUE_REJECTED_ALREADY_HAS_REQUEST
+    return
+  }
   const id = extractYoutubeVideoId(pasteInput.value)
   if (!id) {
     pasteValidationError.value = "That doesn't look like a valid YouTube link."
@@ -143,7 +184,8 @@ async function submitPasteEnqueue() {
   isEnqueueSubmitting.value = true
   try {
     const title = await fetchYoutubeVideoTitle(id)
-    requestEnqueue(id, title, guestName)
+    const requesterId = getOrCreatePartyGuestRequesterId(sessionId.value)
+    requestEnqueue(id, title, guestName, requesterId)
     closeAddSongModal()
   } finally {
     isEnqueueSubmitting.value = false
@@ -200,10 +242,19 @@ async function submitPasteEnqueue() {
       >
         <div
           v-if="!(queueSnapshot?.ids?.length)"
-          class="flex min-h-[4.5rem] flex-1 items-center px-4 py-3"
+          class="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-12 text-center"
+          role="status"
+          aria-label="Queue is empty"
         >
-          <p class="text-[17px] leading-snug text-[#C7C7CC]">
-            Nothing queued
+          <p
+            class="max-w-[17rem] text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
+          >
+            No songs in the queue yet
+          </p>
+          <p
+            class="mt-2 max-w-[17rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93]"
+          >
+            When someone adds a song, it will show up here.
           </p>
         </div>
 
@@ -240,6 +291,12 @@ async function submitPasteEnqueue() {
                       <span class="font-medium">Requested by </span>
                       <span class="font-bold text-black">{{ queueRowRequester(index) }}</span>
                     </p>
+                    <p
+                      v-if="isMyQueueRow(index)"
+                      class="mt-1 min-w-0 text-left text-[13px] font-medium leading-[1.35] text-[#8E8E93]"
+                    >
+                      Your request
+                    </p>
                   </div>
                 </div>
               </div>
@@ -264,9 +321,22 @@ async function submitPasteEnqueue() {
       <button
         ref="addSongTriggerRef"
         type="button"
-        class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-[#FF3B30] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:bg-[#C7C7CC] disabled:active:scale-100"
+        class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:active:scale-100"
+        :class="
+          canOpenAddSongFlow
+            ? 'bg-[#FF3B30] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline-[#FF3B30]'
+            : [
+                'bg-[#C7C7CC]',
+                canRequestEnqueue && alreadyHasMySongInQueue ? 'cursor-pointer' : 'cursor-default',
+              ]
+        "
         :disabled="!canRequestEnqueue"
-        @click="openAddSongModal"
+        :aria-label="
+          alreadyHasMySongInQueue
+            ? 'Add my song — your song is still in the queue'
+            : 'Add my song'
+        "
+        @click="onAddSongBarTap"
       >
         Add my song
       </button>
