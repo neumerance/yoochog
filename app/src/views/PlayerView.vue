@@ -79,14 +79,14 @@
           </div>
 
           <ol
-            class="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto divide-y divide-slate-200"
+            class="mt-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto divide-y divide-slate-200"
             aria-label="Playback queue"
           >
             <li
               v-for="(rowId, index) in queueSnapshot.ids"
               :key="`${index}-${rowId}`"
               :aria-current="index === queueSnapshot.currentIndex ? 'true' : undefined"
-              class="flex items-start justify-between gap-2 px-3 py-3 text-base leading-snug"
+              class="flex min-w-0 shrink-0 items-start justify-between gap-2 px-3 py-3.5 text-base leading-snug"
               :class="
                 index === queueSnapshot.currentIndex
                   ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
@@ -94,7 +94,7 @@
               "
             >
               <div class="min-w-0 flex-1">
-                <p class="truncate font-semibold text-slate-900">
+                <p class="min-w-0 truncate text-left font-semibold leading-snug text-slate-900">
                   <span class="mr-2 tabular-nums font-normal text-slate-400 select-none">{{
                     index + 1
                   }}.</span>
@@ -102,7 +102,7 @@
                 </p>
                 <p
                   v-if="queueSnapshot.requestedBys[index]"
-                  class="mt-0.5 truncate text-sm sm:text-base"
+                  class="mt-1.5 min-w-0 truncate text-left text-sm leading-[1.45] sm:text-base sm:leading-[1.45]"
                 >
                   <span class="font-medium text-slate-600">Requested by </span>
                   <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>

@@ -153,9 +153,10 @@ async function submitPasteEnqueue() {
 
 <template>
   <GuestShell
-    class="gap-5 bg-[#F2F2F7] pb-8 text-[17px] leading-[1.29] antialiased [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',sans-serif] min-h-[100dvh]"
+    class="flex h-[100dvh] max-h-[100dvh] flex-col gap-5 overflow-hidden !pb-0 bg-[#F2F2F7] text-[17px] leading-[1.29] antialiased [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',sans-serif]"
   >
-    <header class="flex justify-center pb-2 pt-1">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-5">
+    <header class="flex shrink-0 justify-center pb-2 pt-1">
       <img
         :src="logoUrl"
         alt="Yoochog"
@@ -166,7 +167,7 @@ async function submitPasteEnqueue() {
 
     <!-- Grouped “cell”: connection status -->
     <div
-      class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+      class="shrink-0 overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
       aria-live="polite"
     >
       <div class="px-4 py-3 text-[15px] leading-snug text-[#3C3C43]">
@@ -179,24 +180,27 @@ async function submitPasteEnqueue() {
       </div>
     </div>
 
-    <div
-      v-if="lastEnqueueError"
-      class="rounded-[10px] border border-[#FFD2CC] bg-[#FFF4F2] px-4 py-3 text-[15px] leading-snug text-[#C93400]"
-      role="status"
-    >
-      {{ lastEnqueueError }}
-    </div>
+    <Transition name="enqueue-toast">
+      <div
+        v-if="lastEnqueueError"
+        class="overflow-hidden rounded-[12px] bg-white px-4 py-3 text-center text-[15px] font-normal leading-[1.38] tracking-[-0.24px] text-[#3C3C43] shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+        role="status"
+        aria-live="polite"
+      >
+        {{ lastEnqueueError }}
+      </div>
+    </Transition>
 
-    <div>
-      <h2 class="px-1 pb-1 pt-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72]">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <h2 class="shrink-0 px-1 pb-1 pt-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72]">
         Queue
       </h2>
       <div
-        class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
       >
         <div
           v-if="!(queueSnapshot?.ids?.length)"
-          class="px-4 py-2.5"
+          class="flex min-h-[4.5rem] flex-1 items-center px-4 py-3"
         >
           <p class="text-[17px] leading-snug text-[#C7C7CC]">
             Nothing queued
@@ -205,14 +209,14 @@ async function submitPasteEnqueue() {
 
         <ol
           v-else
-          class="flex max-h-[min(38vh,20rem)] flex-col overflow-y-auto overscroll-contain"
+          class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
           aria-label="Playback queue"
         >
           <li
             v-for="(rowId, index) in queueSnapshot?.ids ?? []"
             :key="`${index}-${rowId}`"
             :aria-current="index === queueSnapshot?.currentIndex ? 'true' : undefined"
-            class="flex min-h-[44px] border-b border-[#C6C6C8] px-4 py-2 last:border-b-0"
+            class="flex min-h-[44px] min-w-0 w-full shrink-0 border-b border-[#C6C6C8] px-4 py-3.5 last:border-b-0"
             :class="
               index === queueSnapshot?.currentIndex
                 ? 'bg-[rgba(255,59,48,0.08)]'
@@ -224,14 +228,16 @@ async function submitPasteEnqueue() {
                 <div class="flex items-start gap-2">
                   <span class="w-5 shrink-0 pt-0.5 text-right text-[13px] tabular-nums leading-5 text-[#8E8E93] select-none">{{ index + 1 }}</span>
                   <div class="min-w-0 flex-1">
-                    <p class="truncate text-[17px] font-normal leading-[1.25] tracking-[-0.01em] text-black">
+                    <p
+                      class="min-w-0 truncate text-left text-[17px] font-normal leading-[1.35] tracking-[-0.01em] text-black"
+                    >
                       {{ queueRowTitle(index) }}
                     </p>
                     <p
                       v-if="queueRowRequester(index)"
-                      class="mt-1 truncate text-[15px] leading-snug"
+                      class="mt-1.5 min-w-0 truncate text-left text-[15px] font-normal leading-[1.45] text-[#6D6D72]"
                     >
-                      <span class="font-medium text-[#6D6D72]">Requested by </span>
+                      <span class="font-medium">Requested by </span>
                       <span class="font-bold text-black">{{ queueRowRequester(index) }}</span>
                     </p>
                   </div>
@@ -248,19 +254,22 @@ async function submitPasteEnqueue() {
             </div>
           </li>
         </ol>
-
-        <div class="border-t border-[#C6C6C8] bg-[#FAFAFA] p-3">
-          <button
-            ref="addSongTriggerRef"
-            type="button"
-            class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-[#FF3B30] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:bg-[#C7C7CC] disabled:active:scale-100"
-            :disabled="!canRequestEnqueue"
-            @click="openAddSongModal"
-          >
-            Add my song
-          </button>
-        </div>
       </div>
+    </div>
+    </div>
+
+    <div
+      class="shrink-0 border-t border-[#C6C6C8] bg-[#FAFAFA] px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
+    >
+      <button
+        ref="addSongTriggerRef"
+        type="button"
+        class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-[#FF3B30] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:bg-[#C7C7CC] disabled:active:scale-100"
+        :disabled="!canRequestEnqueue"
+        @click="openAddSongModal"
+      >
+        Add my song
+      </button>
     </div>
 
     <dialog
@@ -402,3 +411,14 @@ async function submitPasteEnqueue() {
     </dialog>
   </GuestShell>
 </template>
+
+<style scoped>
+.enqueue-toast-enter-active,
+.enqueue-toast-leave-active {
+  transition: opacity 0.22s ease;
+}
+.enqueue-toast-enter-from,
+.enqueue-toast-leave-to {
+  opacity: 0;
+}
+</style>

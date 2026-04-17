@@ -92,7 +92,7 @@ describe('createHostVideoQueue', () => {
     expect(q.currentVideoId()).toBe('a')
   })
 
-  it('allows duplicate video ids in order', () => {
+  it('append can still produce duplicate ids (legacy / data layer; guest enqueue dedupes separately)', () => {
     const q = createHostVideoQueue()
     q.append([row('same'), row('same')])
     expect(q.length).toBe(2)
@@ -180,7 +180,7 @@ describe('createHostVideoQueue', () => {
       })
     })
 
-    it('lists duplicate ids as distinct rows with stable indices', () => {
+    it('lists legacy duplicate ids as distinct rows with stable indices', () => {
       const q = createHostVideoQueue()
       q.append([row('same'), row('same')])
       expect(q.getSnapshot()).toEqual({

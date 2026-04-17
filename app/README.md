@@ -108,6 +108,10 @@ Start the relay (`cd signaling-dev && npm install && npm start`, default port **
 
 **Manual check (relay only):** DevTools → Network may show an open WebSocket to the relay URL.
 
+### Party queue deduplication (guest enqueue)
+
+Each **YouTube video id** may appear **at most once** in the host’s ordered queue at a time (including the currently playing row). If a guest requests a video whose id is **already** in the queue, the host **does not** add another row and sends **`enqueue_rejected`** with a short, friendly **`reason`**; the guest UI shows it via `lastEnqueueError` (see [ADR 0002](../docs/adr/0002-party-data-channel-wire-protocol-v1.md)).
+
 ### YouTube queue titles (optional)
 
 Guest enqueue can resolve **video titles** via the **YouTube Data API v3** (`videos.list`) using a **browser-restricted API key** in **`app/.env.local`**:

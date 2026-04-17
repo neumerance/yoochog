@@ -29,7 +29,7 @@ After signaling establishes the WebRTC session, peers exchange **application dat
 |--------|------|----------------|
 | `queue_snapshot` | Host → guest(s) | **`ids`**: ordered list of video id strings (max 500 entries, each id max 64 chars). **`currentIndex`**: non-negative integer index into `ids`, or **`null`** only when **`ids`** is empty (empty queue, nothing playing). |
 | `enqueue_request` | Guest → host | **`videoId`**: string, trimmed; must match a plausible YouTube id (11 chars `[A-Za-z0-9_-]`). |
-| `enqueue_rejected` | Host → guest | **`reason`**: human-readable string, max 500 chars. |
+| `enqueue_rejected` | Host → guest | **`reason`**: human-readable string, max 500 chars (e.g. invalid id, or video already in the queue — see guest enqueue policy / [#37](https://github.com/neumerance/yoochog/issues/37)). |
 | `heartbeat` | Either direction | **No additional required fields** beyond `v` and `type`. Semantics in v1: **liveness only**; receivers **must not** change queue state or enqueue error state when applying guest UI updates (see `applyGuestPartyMessage`). |
 
 ### Forward compatibility and safe handling

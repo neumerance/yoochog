@@ -58,6 +58,10 @@ Reserved **environment variable names** for WebRTC-related configuration. These 
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.
 
+## Party queue (guest adds)
+
+When guests enqueue by URL, the host keeps **at most one row per YouTube video id** in the queue. A duplicate request is rejected with a human-readable message on the guest (see [`app/README.md`](app/README.md) and [ADR 0002](docs/adr/0002-party-data-channel-wire-protocol-v1.md)).
+
 ## Host session ids (threat model)
 
 The host experience stores a **random, unguessable** id per browser tab (UUID-style via `crypto.randomUUID()`, persisted in `sessionStorage`) so casual guessing or drive-by URL typing is unlikely to join the wrong party. That is **not** a full multi-tenant security, compliance, or anti-abuse boundary—there are no server-issued secrets in this repo, and join flows remain **client-side** until later epics add real membership and controls.
