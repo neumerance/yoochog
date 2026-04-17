@@ -39,4 +39,25 @@
     padding-top: max(2.5rem, env(safe-area-inset-top, 0px));
     padding-bottom: max(2.5rem, env(safe-area-inset-bottom, 0px));
   }
+
+  /**
+   * Host “Start Singing” CTA — expanding ring so it stays obvious on TV / distance viewing.
+   */
+  .animate-start-singing-pulse {
+    animation: start-singing-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes start-singing-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.12),
+      0 0 0 0 rgb(248 113 113 / 0.7);
+  }
+  50% {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.12),
+      0 0 0 1.15rem rgb(248 113 113 / 0);
+  }
 }

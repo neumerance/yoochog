@@ -56,10 +56,13 @@
           />
           <HostPlaybackIdle v-if="idleVariant" :variant="idleVariant" class="absolute inset-0 z-10" />
         </div>
-        <div v-if="activeVideoId && !audioSessionUnlocked" class="flex shrink-0 justify-center">
+        <div
+          v-if="activeVideoId && !audioSessionUnlocked"
+          class="flex shrink-0 justify-center px-6 py-6 sm:px-8 sm:py-8 xl:px-10 xl:py-10"
+        >
           <button
             type="button"
-            class="min-h-[52px] rounded-full bg-red-600 px-8 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-red-700 active:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 sm:min-h-[56px] sm:text-xl xl:min-h-[5.04rem] xl:px-12 xl:py-4 xl:text-[2.25rem]"
+            class="animate-start-singing-pulse m-2 min-h-[52px] rounded-full bg-red-600 px-8 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-red-700 active:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 sm:min-h-[56px] sm:text-xl xl:min-h-[5.04rem] xl:px-12 xl:py-4 xl:text-[2.25rem]"
             @click="startSinging"
           >
             Start Singing
@@ -68,11 +71,11 @@
       </section>
 
       <aside
-        class="flex min-h-0 flex-1 flex-col overflow-hidden lg:h-full lg:min-h-0 lg:min-w-0 lg:w-full"
+        class="@container flex min-h-0 flex-1 flex-col overflow-hidden lg:h-full lg:min-h-0 lg:min-w-0 lg:w-full"
       >
         <div
           v-if="embedSetupError || skipMessage"
-          class="shrink-0 border-b border-red-200 bg-red-50 p-3 text-base leading-snug text-red-950 xl:p-4 xl:text-[1.8rem] xl:leading-snug"
+          class="shrink-0 border-b border-red-200 bg-red-50 p-3 text-sm leading-snug text-red-950 @min-[300px]:p-4 @min-[300px]:text-base @min-[300px]:leading-snug @min-[500px]:p-5 @min-[500px]:text-lg @min-[500px]:leading-snug"
           role="alert"
         >
           <p v-if="embedSetupError" class="font-semibold">{{ embedSetupError }}</p>
@@ -85,14 +88,17 @@
           </p>
         </div>
 
-        <GuestJoinQrPanel :session-id="hostSessionId" class="shrink-0 px-2 pt-2 sm:px-3 sm:pt-3" />
+        <GuestJoinQrPanel
+          :session-id="hostSessionId"
+          class="shrink-0 px-2 pt-2 @min-[300px]:px-3 @min-[300px]:pt-3 @min-[500px]:px-4 @min-[500px]:pt-4"
+        />
 
         <div
-          class="shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 sm:px-4 xl:px-5 xl:py-3 xl:text-[1.575rem]"
+          class="shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 @min-[300px]:px-4 @min-[300px]:py-2.5 @min-[300px]:text-sm @min-[500px]:px-5 @min-[500px]:py-3 @min-[500px]:text-base"
           aria-live="polite"
         >
           <HandshakeStatusStrip
-            class="xl:[&_svg]:h-6 xl:[&_svg]:w-6"
+            class="@min-[300px]:[&_svg]:h-5 @min-[300px]:[&_svg]:w-5 @min-[500px]:[&_svg]:h-6 @min-[500px]:[&_svg]:w-6"
             :status="handshakeStatus"
             :status-label="handshakeStatusLabel"
             :error="handshakeError"
@@ -100,8 +106,12 @@
           />
         </div>
 
-        <div class="flex min-h-0 flex-1 flex-col p-3 text-base text-slate-700 xl:p-4 xl:text-[1.8rem]">
-          <h2 class="shrink-0 pb-2 text-sm font-bold uppercase tracking-wide text-black sm:text-base xl:pb-3 xl:text-[1.8rem]">
+        <div
+          class="flex min-h-0 flex-1 flex-col p-3 text-sm text-slate-700 @min-[300px]:p-4 @min-[300px]:text-base @min-[500px]:p-5 @min-[500px]:text-[1.0625rem]"
+        >
+          <h2
+            class="shrink-0 pb-2 text-xs font-bold uppercase tracking-wide text-black @min-[300px]:pb-2.5 @min-[300px]:text-sm @min-[500px]:pb-3 @min-[500px]:text-base"
+          >
             Now playing
           </h2>
           <ol
@@ -112,7 +122,7 @@
               v-for="(rowId, index) in queueSnapshot.ids"
               :key="`${index}-${rowId}`"
               :aria-current="index === queueSnapshot.currentIndex ? 'true' : undefined"
-              class="flex min-w-0 shrink-0 items-start justify-between gap-2 px-3 py-3.5 text-base leading-snug xl:gap-3 xl:px-4 xl:py-5 xl:text-[1.8rem] xl:leading-snug"
+              class="flex min-w-0 shrink-0 items-start justify-between gap-2 px-3 py-3 text-sm leading-snug @min-[300px]:gap-2.5 @min-[300px]:px-3.5 @min-[300px]:py-4 @min-[300px]:text-base @min-[300px]:leading-snug @min-[500px]:gap-3 @min-[500px]:px-4 @min-[500px]:py-5 @min-[500px]:text-[1.0625rem] @min-[500px]:leading-snug"
               :class="
                 index === queueSnapshot.currentIndex
                   ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
@@ -134,7 +144,7 @@
                 </p>
                 <p
                   v-if="queueSnapshot.requestedBys[index]"
-                  class="mt-1.5 min-w-0 truncate text-left text-sm leading-[1.45] sm:text-base sm:leading-[1.45] xl:mt-2 xl:text-[1.8rem] xl:leading-[1.45]"
+                  class="mt-1 min-w-0 truncate text-left text-xs leading-[1.45] @min-[300px]:mt-1.5 @min-[300px]:text-sm @min-[300px]:leading-[1.45] @min-[500px]:mt-2 @min-[500px]:text-[1.0625rem] @min-[500px]:leading-[1.45]"
                 >
                   <span class="font-medium text-slate-600">Requested by </span>
                   <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>
@@ -142,7 +152,7 @@
               </div>
               <span
                 v-if="index === queueSnapshot.currentIndex"
-                class="shrink-0 rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white xl:px-3 xl:py-1.5 xl:text-[1.575rem]"
+                class="shrink-0 rounded-md bg-red-600 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white @min-[300px]:px-2 @min-[300px]:py-1 @min-[300px]:text-sm @min-[500px]:px-2.5 @min-[500px]:text-base"
               >
                 Playing
               </span>
@@ -151,7 +161,7 @@
         </div>
 
         <footer
-          class="mt-auto shrink-0 border-t border-slate-100 px-3 py-2 text-right text-xs text-slate-500 sm:px-4 sm:text-sm xl:px-5 xl:py-3 xl:text-[1.575rem]"
+          class="mt-auto shrink-0 border-t border-slate-100 px-3 py-2 text-right text-xs text-slate-500 @min-[300px]:px-4 @min-[300px]:py-2 @min-[500px]:px-4 @min-[500px]:py-2.5 @min-[500px]:text-sm"
         >
           Made by KuyaJon with ❤️
         </footer>
