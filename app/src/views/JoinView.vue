@@ -25,7 +25,22 @@ import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
 
 const route = useRoute()
-const sessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
+const routeSessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
+
+/** Saved display name (re-read after save / when connecting). */
+const guestDisplayName = ref<string | null>(null)
+
+function refreshGuestDisplayName() {
+  guestDisplayName.value = readGuestDisplayName()
+}
+
+const guestNameReady = computed(() => {
+  const n = guestDisplayName.value?.trim()
+  return !!(n && n.length > 0)
+})
+
+/** WebRTC handshake only runs after a valid nickname is saved — guests cannot join the session without one. */
+const handshakeSessionId = computed(() => (guestNameReady.value ? routeSessionId.value : ''))
 
 const {
   status: handshakeStatus,
@@ -39,7 +54,7 @@ const {
   requestEndCurrentPlayback,
   requestRemoveRow,
   canRequestEnqueue,
-} = useGuestPartyHandshake(sessionId)
+} = useGuestPartyHandshake(handshakeSessionId)
 
 const guestNameDialog = ref<HTMLDialogElement | null>(null)
 const guestNameInput = ref('')
@@ -61,7 +76,7 @@ const openAddSongAfterGuestName = ref(false)
 /** Rows in the snapshot owned by this tab’s guest id (including now playing). */
 const mySongsInQueueCount = computed(() => {
   const s = queueSnapshot.value
-  const sid = sessionId.value
+  const sid = routeSessionId.value
   if (!s?.ids?.length || !sid) {
     return 0
   }
@@ -98,16 +113,16 @@ function queueRowRequester(index: number): string | null {
 
 function isMyQueueRow(index: number): boolean {
   const s = queueSnapshot.value
-  if (!s || !sessionId.value) {
+  if (!s || !routeSessionId.value) {
     return false
   }
-  const mine = getOrCreatePartyGuestRequesterId(sessionId.value)
+  const mine = getOrCreatePartyGuestRequesterId(routeSessionId.value)
   return s.requesterGuestIds[index] === mine
 }
 
 /** First guest in the session (stable logical id from host); used for admin-only actions. */
 const isSessionAdmin = computed(() => {
-  const sid = sessionId.value
+  const sid = routeSessionId.value
   if (!sid) {
     return false
   }
@@ -115,13 +130,6 @@ const isSessionAdmin = computed(() => {
   const mine = getOrCreatePartyGuestRequesterId(sid)
   return admin !== null && mine === admin
 })
-
-/** Saved display name (re-read after save / when connecting). */
-const guestDisplayName = ref<string | null>(null)
-
-function refreshGuestDisplayName() {
-  guestDisplayName.value = readGuestDisplayName()
-}
 
 const guestDisplayNameLabel = computed(() => {
   const n = guestDisplayName.value?.trim()
@@ -148,6 +156,14 @@ watch(handshakeStatus, (s) => {
   if (s === 'connected') {
     refreshGuestDisplayName()
   }
+})
+
+/** Explains why the session is idle when the join link is valid but nickname is not set yet. */
+const joinHandshakeStatusLabel = computed(() => {
+  if (!guestNameReady.value && routeSessionId.value) {
+    return 'Set your nickname to connect…'
+  }
+  return statusLabel.value
 })
 
 /**
@@ -201,7 +217,7 @@ function closeEndSongDialog() {
 }
 
 function confirmEndSong() {
-  const sid = sessionId.value
+  const sid = routeSessionId.value
   if (!sid) {
     closeEndSongDialog()
     return
@@ -211,7 +227,7 @@ function confirmEndSong() {
 }
 
 function onRemoveQueueRow(index: number) {
-  const sid = sessionId.value
+  const sid = routeSessionId.value
   if (!sid) {
     return
   }
@@ -283,11 +299,6 @@ function submitGuestName() {
   }
 }
 
-function closeGuestNameModal() {
-  openAddSongAfterGuestName.value = false
-  guestNameDialog.value?.close()
-}
-
 function onGuestNameDialogClose() {
   guestNameInput.value = ''
   guestNameError.value = null
@@ -341,7 +352,7 @@ async function submitPasteEnqueue() {
   isEnqueueSubmitting.value = true
   try {
     const title = await fetchYoutubeVideoTitle(id)
-    const requesterId = getOrCreatePartyGuestRequesterId(sessionId.value)
+    const requesterId = getOrCreatePartyGuestRequesterId(routeSessionId.value)
     requestEnqueue(id, title, guestName, requesterId)
     closeAddSongModal()
   } finally {
@@ -382,7 +393,7 @@ onMounted(() => {
         <div class="min-w-0 flex-1 text-[15px] leading-snug text-[#3C3C43]">
           <HandshakeStatusStrip
             :status="handshakeStatus"
-            :status-label="statusLabel"
+            :status-label="joinHandshakeStatusLabel"
             :error="handshakeError"
             :is-signaling-configured="isSignalingConfigured"
           />
@@ -568,6 +579,7 @@ onMounted(() => {
       class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
       aria-labelledby="guest-name-title"
       aria-modal="true"
+      @cancel.prevent
       @close="onGuestNameDialogClose"
     >
       <div
@@ -607,13 +619,6 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
-          @click="closeGuestNameModal"
-        >
-          Cancel
-        </button>
       </div>
     </dialog>
 
