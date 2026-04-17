@@ -23,6 +23,24 @@ describe('applyGuestPartyMessage', () => {
     expect(next.snapshot?.currentIndex).toBe(0)
   })
 
+  it('normalizes legacy queue_snapshot rows before current playhead', () => {
+    const next = applyGuestPartyMessage(
+      { snapshot: null, lastEnqueueError: null },
+      {
+        v: 1,
+        type: 'queue_snapshot',
+        ids: ['aaaaaaaaaaa', 'bbbbbbbbbbb'],
+        currentIndex: 1,
+        titles: ['A', 'B'],
+        requestedBys: [null, null],
+        requesterGuestIds: [null, null],
+      },
+    )
+    expect(next.snapshot?.ids).toEqual(['bbbbbbbbbbb'])
+    expect(next.snapshot?.titles).toEqual(['B'])
+    expect(next.snapshot?.currentIndex).toBe(0)
+  })
+
   it('records enqueue_rejected', () => {
     const prev = {
       snapshot: {

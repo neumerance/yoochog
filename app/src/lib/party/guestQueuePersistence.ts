@@ -1,4 +1,7 @@
-import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
+import {
+  normalizeHostVideoQueueSnapshot,
+  type HostVideoQueueSnapshot,
+} from '@/lib/host-queue/hostVideoQueue'
 
 const STORAGE_PREFIX = 'yoochog.guestQueue.v1.'
 
@@ -63,22 +66,21 @@ export function loadGuestQueueSnapshot(sessionId: string): HostVideoQueueSnapsho
           }
         : null
     }
-    if (typeof o.currentIndex !== 'number' || o.currentIndex < 0 || o.currentIndex >= o.ids.length) {
-      return null
-    }
     const requesterGuestIdsRaw =
       o.requesterGuestIds !== undefined ? (o.requesterGuestIds as unknown[]) : null
     const requesterGuestIds = (o.ids as string[]).map((_, i) => {
       const gi = requesterGuestIdsRaw?.[i]
       return gi === null ? null : typeof gi === 'string' ? gi : null
     })
-    return {
+    const ci =
+      typeof o.currentIndex === 'number' && Number.isInteger(o.currentIndex) ? o.currentIndex : null
+    return normalizeHostVideoQueueSnapshot({
       ids: Object.freeze([...(o.ids as string[])]),
       titles: Object.freeze([...(o.titles as (string | null)[])]),
       requestedBys: Object.freeze([...(o.requestedBys as (string | null)[])]),
       requesterGuestIds: Object.freeze(requesterGuestIds),
-      currentIndex: o.currentIndex,
-    }
+      currentIndex: ci,
+    })
   } catch {
     return null
   }

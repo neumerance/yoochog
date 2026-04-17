@@ -114,6 +114,8 @@ Each **YouTube video id** may appear **at most once** in the host’s ordered qu
 
 Each **logical guest** may have **at most one** row in the queue at a time (including the currently playing row). A second request is rejected until that guest’s row is gone (played, skipped, or removed). Rows carry a stable **`requesterGuestId`** for enforcement and sync; see [ADR 0004](../docs/adr/0004-party-queue-guest-ownership-v1.md).
 
+**Queue list on the wire:** `queue_snapshot` in [ADR 0002](../docs/adr/0002-party-data-channel-wire-protocol-v1.md) lists **video ids in playback order** for the **current song and what is still up next** — not a log of finished tracks. The host trims consumed rows as playback moves; `currentIndex` is `0` on the first remaining row when the list is non-empty. Guests render the same compact snapshot after each broadcast (and normalize older cached snapshots on load when needed).
+
 ### YouTube queue titles (optional)
 
 Guest enqueue can resolve **video titles** via the **YouTube Data API v3** (`videos.list`) using a **browser-restricted API key** in **`app/.env.local`**:
