@@ -349,11 +349,20 @@ onMounted(() => {
                 <button
                   v-if="index === queueSnapshot?.currentIndex && canShowEndNowPlaying"
                   type="button"
-                  class="min-h-[44px] shrink-0 rounded-full border border-[#FF3B30] bg-white px-3 py-1.5 text-[13px] font-semibold leading-4 text-[#FF3B30] shadow-sm transition-colors active:bg-[rgba(255,59,48,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30]"
-                  aria-label="End this song for everyone"
+                  class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FF3B30] shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-[transform,background-color] active:scale-[0.96] active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30]"
+                  aria-label="Stop this song for everyone"
                   @click="openEndSongDialog"
                 >
-                  End
+                  <!-- Classic player stop: solid square on red (same red as Playing pill) -->
+                  <svg
+                    class="pointer-events-none h-[14px] w-[14px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <rect x="5" y="5" width="14" height="14" rx="1.5" fill="white" />
+                  </svg>
                 </button>
                 <span
                   v-if="index === queueSnapshot?.currentIndex"

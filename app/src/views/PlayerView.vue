@@ -153,6 +153,10 @@ const queueTick = ref(0)
 /** Bumps only when the current playback row changes (advance/skip), not on enqueue — avoids restarting the iframe on append. */
 const playerSyncTick = ref(0)
 const idleVariant = ref<'empty' | 'ended' | null>(null)
+/** After each new now-playing row, host taps again to unlock audio (next singer can prepare). */
+const audioSessionUnlocked = ref(false)
+/** Reset when advancing tracks so the next “Start Singing” seek+play runs once per song. */
+const didSeekOnFirstUnlock = ref(false)
 
 function bumpQueue() {
   queueTick.value++
@@ -166,6 +170,9 @@ function applyNaturalPlaybackEnd() {
   const action = onPlaybackEnded(queue.hasNext())
   if (action.kind === 'advance') {
     idleVariant.value = null
+    // Lock session before queue/video id updates so loadVideoById sees muted state (avoid flush ordering).
+    audioSessionUnlocked.value = false
+    didSeekOnFirstUnlock.value = false
     queue.advance()
     playerSyncTick.value++
     bumpQueue()
@@ -241,8 +248,6 @@ watch(
 )
 
 const playerContainer = ref<HTMLElement | null>(null)
-/** After one tap, queue-driven `loadVideoById` stays unmuted via the composable (no per-song controls). */
-const audioSessionUnlocked = ref(false)
 
 const { player, isReady } = useYoutubePlayer(playerContainer, {
   videoId: activeVideoId,
@@ -272,6 +277,8 @@ function handlePlaybackError() {
   if (action.kind === 'advance') {
     skipMessage.value = 'That one hid from us — skipping ahead.'
     idleVariant.value = null
+    audioSessionUnlocked.value = false
+    didSeekOnFirstUnlock.value = false
     queue.advance()
     playerSyncTick.value++
     bumpQueue()
@@ -302,7 +309,6 @@ function startSinging() {
 }
 
 /** Restart from the beginning when “Start Singing” unlocks audio (covers click before `isReady`). */
-const didSeekOnFirstUnlock = ref(false)
 watch([isReady, audioSessionUnlocked], () => {
   if (!isReady.value || !audioSessionUnlocked.value || !player.value) {
     return
