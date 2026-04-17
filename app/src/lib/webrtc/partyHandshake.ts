@@ -5,7 +5,7 @@ import { signalingRoomId } from '@/lib/signaling/roomId'
 import { broadcastToPartyDataChannels, PARTY_CHANNEL_LABEL } from '@/lib/party/broadcastPartyDataChannels'
 import { removeGuestPeer } from '@/lib/party/partyPeerCleanup'
 import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
-import { DEFAULT_DEV_ICE_SERVERS } from '@/lib/webrtc/defaultIceServers'
+import { getPartyIceServers } from '@/lib/webrtc/iceServersFromEnv'
 import { waitForIceGatheringComplete } from '@/lib/webrtc/iceGathering'
 import { waitForPeerConnectionConnected } from '@/lib/webrtc/waitForConnected'
 
@@ -77,6 +77,7 @@ async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortS
  * Host: one RTCPeerConnection per guest; offer/answer with ICE in SDP (non-trickle for dev stability).
  */
 export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostPartyHandshakeHandle {
+  const iceServers = getPartyIceServers()
   const clientId = crypto.randomUUID()
   const signaling = createSignalingTransport({
     signalingBaseUrl: import.meta.env.VITE_SIGNALING_URL,
@@ -186,7 +187,7 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
       if (options.signal.aborted) {
         return
       }
-      const pc = new RTCPeerConnection({ iceServers: DEFAULT_DEV_ICE_SERVERS })
+      const pc = new RTCPeerConnection({ iceServers })
       pcs.set(guestId, pc)
 
       const dc = pc.createDataChannel(PARTY_CHANNEL_LABEL, { ordered: true })
@@ -234,6 +235,7 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
  * Guest: waits for host, answers host offer, waits until the peer connection is connected.
  */
 export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): GuestPartyHandshakeHandle {
+  const iceServers = getPartyIceServers()
   const clientId = crypto.randomUUID()
   const signaling = createSignalingTransport({
     signalingBaseUrl: import.meta.env.VITE_SIGNALING_URL,
@@ -286,7 +288,7 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
       options.onStatus('establishing_handshake')
       await signaling.join(room, clientId, 'guest')
       const hostId = await findHostPeerId(signaling, options.signal)
-      pc = new RTCPeerConnection({ iceServers: DEFAULT_DEV_ICE_SERVERS })
+      pc = new RTCPeerConnection({ iceServers })
       pc.ondatachannel = (ev) => {
         if (ev.channel.label !== PARTY_CHANNEL_LABEL) {
           return

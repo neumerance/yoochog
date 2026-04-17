@@ -106,6 +106,30 @@ Start the relay (`cd signaling-dev && npm install && npm start`, default port **
 
 **Manual check (relay only):** DevTools → Network may show an open WebSocket to the relay URL.
 
+### WebRTC ICE (STUN + optional TURN)
+
+Party WebRTC peer connections use ICE servers from Vite env (`import.meta.env`). Variable names only here — set real values in **`app/.env.local`** (gitignored), not in the repo.
+
+| Variable | Role |
+|----------|------|
+| `VITE_STUN_URLS` | Optional. Comma-separated STUN discovery URLs (`stun:` / `stuns:`). When unset or empty, the app uses the same default public STUN as before (Google `stun.l.google.com:19302`). |
+| `VITE_TURN_URLS` | Optional. Comma-separated TURN relay URLs (`turn:` / `turns:`). |
+| `VITE_TURN_USERNAME` | Required for TURN when `VITE_TURN_URLS` is set — together with `VITE_TURN_CREDENTIAL`. |
+| `VITE_TURN_CREDENTIAL` | TURN password or REST-style credential string. |
+
+**Security:** Anything prefixed with `VITE_` is **bundled into the client** at build time. Treat long-lived TURN passwords as visible to anyone who can download your JS. For production, prefer **short-lived** credentials (for example coturn **TURN REST** / `use-auth-secret`): your backend or deploy pipeline mints a temporary `username` (often expiry-based) and `credential` (HMAC) and injects them into build or runtime env — the browser still receives plain `username` + `credential` on `RTCIceServer`; the **shared secret** never ships in the front-end bundle.
+
+**Static username/password (typical for local dev):** set all four variables in `.env.local` against your coturn `user=…` style config.
+
+**Partial config:** If `VITE_TURN_URLS` is set but username or credential is missing, TURN entries are skipped and the console warns once so operators can fix configuration.
+
+**Manual check (relay path):** Automated E2E for relay selection is out of scope; verify by hand when TURN is configured:
+
+1. Put TURN credentials in **`app/.env.local`** and restart **`npm run dev`** (or rebuild for preview).
+2. Use two browsers (or profiles) on the **same party** as usual (PubNub or relay signaling).
+3. Force a **relay-heavy** network: e.g. join one side from a **phone hotspot** or with a **VPN** so a direct peer/reflexive path is unlikely.
+4. Confirm the party still reaches **Connected**. Optionally open **`chrome://webrtc-internals`** (Chromium) and inspect the peer connection’s ICE candidates — you should see **`relay`**-type candidates when TURN is in use.
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh
