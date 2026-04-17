@@ -93,4 +93,20 @@ describe('hostQueuePersistence', () => {
       currentIndex: 0,
     })
   })
+
+  it('round-trips compact snapshot after advance (current + up next only)', () => {
+    const q = createHostVideoQueue()
+    q.append([
+      { videoId: 'a', title: 'A', requestedBy: null, requesterGuestId: null },
+      { videoId: 'b', title: 'B', requestedBy: null, requesterGuestId: null },
+    ])
+    q.advance()
+    const snap = q.getSnapshot()
+    saveHostQueue('sess-compact', snap)
+    const loaded = loadHostQueue('sess-compact')
+    expect(loaded).toEqual(snap)
+    const q2 = createHostVideoQueue()
+    q2.applySnapshot(loaded!)
+    expect(q2.getSnapshot()).toEqual(snap)
+  })
 })

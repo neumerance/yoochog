@@ -1,4 +1,7 @@
-import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
+import {
+  normalizeHostVideoQueueSnapshot,
+  type HostVideoQueueSnapshot,
+} from '@/lib/host-queue/hostVideoQueue'
 
 import type { PartyMessage } from './partyMessages'
 
@@ -14,13 +17,13 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
   switch (msg.type) {
     case 'queue_snapshot':
       return {
-        snapshot: {
-          ids: Object.freeze([...msg.ids]),
-          titles: Object.freeze([...msg.titles]),
-          requestedBys: Object.freeze([...msg.requestedBys]),
-          requesterGuestIds: Object.freeze([...msg.requesterGuestIds]),
+        snapshot: normalizeHostVideoQueueSnapshot({
+          ids: msg.ids,
+          titles: msg.titles,
+          requestedBys: msg.requestedBys,
+          requesterGuestIds: msg.requesterGuestIds,
           currentIndex: msg.currentIndex,
-        },
+        }),
         lastEnqueueError: prev.lastEnqueueError,
       }
     case 'enqueue_rejected':

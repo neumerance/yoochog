@@ -1,6 +1,13 @@
 /**
  * In-memory host video queue: ordered queue rows (video id + optional display metadata) and a
- * current “now playing” index.
+ * current “now playing” position.
+ *
+ * ## Compact list semantics
+ *
+ * The queue stores **only** the current track and what is still **up next** — not a full history of
+ * finished songs. After each successful `advance()`, rows before the new current item are dropped
+ * and `currentIndex` is **`0`** whenever there is at least one row. Empty queue uses `currentIndex`
+ * **`null`**.
  *
  * ## Semantics (edge cases)
  *
@@ -14,9 +21,11 @@
  *   non-empty; otherwise empty state (no current).
  * - **clear:** Removes all rows; no current item.
  * - **advance:** If there is no current item, or the current item is already the last, returns
- *   `false` and leaves the index unchanged. Otherwise increments the index and returns `true`.
- * - **stepBack:** If there is no current item, or the current item is already the first, returns
- *   `false` and leaves the index unchanged. Otherwise decrements the index and returns `true`.
+ *   `false`. Otherwise drops all rows before the next track, sets the new current to index `0`, and
+ *   returns `true`.
+ * - **stepBack:** With a compact list the current row is always at index `0` when non-empty; there
+ *   is no prior row in the stored list (history is not kept), so this returns `false` whenever the
+ *   queue is empty or current is at the front.
  * - **hasNext:** `true` only when there is a current item and a later item exists in the list.
  */
 
@@ -35,7 +44,7 @@ export interface HostVideoQueueItem {
 
 /** Read-only view of queue order and current position for UI (e.g. ordered list + highlight). */
 export interface HostVideoQueueSnapshot {
-  /** All video IDs in playback order (index `0` … `length - 1`). */
+  /** Video IDs in playback order: current first, then up next (`0` … `length - 1`). */
   ids: readonly string[]
   /** Parallel to `ids`: title or unknown (`null`). */
   titles: readonly (string | null)[]
@@ -43,7 +52,10 @@ export interface HostVideoQueueSnapshot {
   requestedBys: readonly (string | null)[]
   /** Parallel to `ids`: logical guest id for ownership / one-song-per-guest policy, or `null`. */
   requesterGuestIds: readonly (string | null)[]
-  /** Index of the current item, or `null` when the queue is empty or has no current position. */
+  /**
+   * Index of the current item (`0` when non-empty in compact form), or `null` when the queue is
+   * empty or has no current position.
+   */
   currentIndex: number | null
 }
 
@@ -54,7 +66,9 @@ export interface HostVideoQueue {
   replace: (items: readonly HostVideoQueueItem[]) => void
   /**
    * Replaces the queue and restores **current index** from a snapshot (e.g. localStorage reload).
-   * Invalid `currentIndex` for the row count falls back to `0` when non-empty.
+   * Invalid `currentIndex` for the row count falls back to `0` when non-empty. Legacy snapshots that
+   * still list rows before the current playhead are **normalized** to a compact list (`current` at
+   * index `0`).
    */
   applySnapshot: (snapshot: HostVideoQueueSnapshot) => void
   /** Removes all rows and clears the current position. */
@@ -63,7 +77,8 @@ export interface HostVideoQueue {
   currentVideoId: () => string | undefined
   /**
    * Moves to the next item when possible.
-   * @returns `true` if the index moved; `false` if there is no current item or already at the last.
+   * @returns `true` if the queue moved to the next track; `false` if there is no current item or
+   * already at the last.
    */
   advance: () => boolean
   /** `true` when there is no current item and no rows (same as `length === 0` with no current). */
@@ -75,7 +90,7 @@ export interface HostVideoQueue {
    */
   hasNext: () => boolean
   /**
-   * Moves to the previous item when possible.
+   * Moves to the previous item when possible (compact queue does not retain prior rows).
    * @returns `true` if the index moved; `false` if empty, no current, or already at the first.
    */
   stepBack: () => boolean
@@ -84,6 +99,37 @@ export interface HostVideoQueue {
    * Duplicate IDs may appear as separate rows in legacy data; use row index (not id alone) as the key.
    */
   getSnapshot: () => HostVideoQueueSnapshot
+}
+
+/**
+ * Normalizes a snapshot to compact semantics: only rows from the current playhead onward,
+ * with `currentIndex` `0` when non-empty and `null` when empty. Use for legacy persisted data and
+ * guest-side display so host and guest lists match ADR 0002 intent.
+ */
+export function normalizeHostVideoQueueSnapshot(
+  snapshot: HostVideoQueueSnapshot,
+): HostVideoQueueSnapshot {
+  const n = snapshot.ids.length
+  if (n === 0) {
+    return {
+      ids: Object.freeze([]),
+      titles: Object.freeze([]),
+      requestedBys: Object.freeze([]),
+      requesterGuestIds: Object.freeze([]),
+      currentIndex: null,
+    }
+  }
+  let ci = snapshot.currentIndex
+  if (ci === null || !Number.isInteger(ci) || ci < 0 || ci >= n) {
+    ci = 0
+  }
+  return {
+    ids: Object.freeze([...snapshot.ids.slice(ci)]),
+    titles: Object.freeze([...snapshot.titles.slice(ci)]),
+    requestedBys: Object.freeze([...snapshot.requestedBys.slice(ci)]),
+    requesterGuestIds: Object.freeze([...snapshot.requesterGuestIds.slice(ci)]),
+    currentIndex: 0,
+  }
 }
 
 /**
@@ -125,27 +171,14 @@ export function createHostVideoQueue(): HostVideoQueue {
     },
 
     applySnapshot(snapshot: HostVideoQueueSnapshot) {
-      items = snapshot.ids.map((videoId, i) => ({
+      const normalized = normalizeHostVideoQueueSnapshot(snapshot)
+      items = normalized.ids.map((videoId, i) => ({
         videoId,
-        title: snapshot.titles[i] ?? null,
-        requestedBy: snapshot.requestedBys[i] ?? null,
-        requesterGuestId: snapshot.requesterGuestIds[i] ?? null,
+        title: normalized.titles[i] ?? null,
+        requestedBy: normalized.requestedBys[i] ?? null,
+        requesterGuestId: normalized.requesterGuestIds[i] ?? null,
       }))
-      if (items.length === 0) {
-        currentIndex = null
-        return
-      }
-      const ci = snapshot.currentIndex
-      if (
-        ci === null ||
-        !Number.isInteger(ci) ||
-        ci < 0 ||
-        ci >= items.length
-      ) {
-        currentIndex = 0
-        return
-      }
-      currentIndex = ci
+      currentIndex = normalized.ids.length > 0 ? 0 : null
     },
 
     clear() {
@@ -167,7 +200,9 @@ export function createHostVideoQueue(): HostVideoQueue {
       if (currentIndex >= items.length - 1) {
         return false
       }
-      currentIndex++
+      const nextIndex = currentIndex + 1
+      items = items.slice(nextIndex)
+      currentIndex = items.length > 0 ? 0 : null
       return true
     },
 

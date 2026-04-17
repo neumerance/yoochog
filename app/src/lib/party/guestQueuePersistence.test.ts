@@ -60,4 +60,22 @@ describe('guestQueuePersistence', () => {
       currentIndex: 0,
     })
   })
+
+  it('normalizes legacy cache with currentIndex > 0 to compact snapshot', () => {
+    const legacy = JSON.stringify({
+      ids: ['aaaaaaaaaaa', 'bbbbbbbbbbb'],
+      titles: ['A', 'B'],
+      requestedBys: [null, null],
+      currentIndex: 1,
+      requesterGuestIds: [null, null],
+    })
+    store[guestQueueStorageKey('legacy-idx')] = legacy
+    expect(loadGuestQueueSnapshot('legacy-idx')).toEqual({
+      ids: ['bbbbbbbbbbb'],
+      titles: ['B'],
+      requestedBys: [null],
+      requesterGuestIds: [null],
+      currentIndex: 0,
+    })
+  })
 })

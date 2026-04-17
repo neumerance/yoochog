@@ -51,6 +51,7 @@ describe('createHostVideoQueue', () => {
     q.append([row('a'), row('b')])
     q.advance()
     expect(q.currentVideoId()).toBe('b')
+    expect(q.getSnapshot().ids).toEqual(['b'])
     q.replace([row('x'), row('y'), row('z')])
     expect(q.length).toBe(3)
     expect(q.currentVideoId()).toBe('x')
@@ -68,29 +69,32 @@ describe('createHostVideoQueue', () => {
     expect(q.isEmpty()).toBe(true)
   })
 
-  it('advance walks the list and stops at the last item', () => {
+  it('advance walks the list, compacts consumed rows, and stops at the last item', () => {
     const q = createHostVideoQueue()
     q.append([row('a'), row('b'), row('c')])
     expect(q.currentVideoId()).toBe('a')
+    expect(q.getSnapshot().ids).toEqual(['a', 'b', 'c'])
     expect(q.advance()).toBe(true)
     expect(q.currentVideoId()).toBe('b')
+    expect(q.getSnapshot().ids).toEqual(['b', 'c'])
+    expect(q.getSnapshot().currentIndex).toBe(0)
     expect(q.hasNext()).toBe(true)
     expect(q.advance()).toBe(true)
     expect(q.currentVideoId()).toBe('c')
+    expect(q.getSnapshot().ids).toEqual(['c'])
     expect(q.hasNext()).toBe(false)
     expect(q.advance()).toBe(false)
     expect(q.currentVideoId()).toBe('c')
   })
 
-  it('stepBack walks backward and stops at the first item', () => {
+  it('stepBack does not restore removed prior rows (compact queue)', () => {
     const q = createHostVideoQueue()
     q.append([row('a'), row('b')])
     q.advance()
     expect(q.currentVideoId()).toBe('b')
-    expect(q.stepBack()).toBe(true)
-    expect(q.currentVideoId()).toBe('a')
+    expect(q.getSnapshot().ids).toEqual(['b'])
     expect(q.stepBack()).toBe(false)
-    expect(q.currentVideoId()).toBe('a')
+    expect(q.currentVideoId()).toBe('b')
   })
 
   it('append can still produce duplicate ids (legacy / data layer; guest enqueue dedupes separately)', () => {
@@ -102,7 +106,7 @@ describe('createHostVideoQueue', () => {
     expect(q.currentVideoId()).toBe('same')
   })
 
-  it('applySnapshot restores currentIndex not only row 0', () => {
+  it('applySnapshot normalizes legacy snapshots with currentIndex > 0 to a compact list', () => {
     const q = createHostVideoQueue()
     q.applySnapshot({
       ids: ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc'],
@@ -112,7 +116,8 @@ describe('createHostVideoQueue', () => {
       currentIndex: 1,
     })
     expect(q.currentVideoId()).toBe('bbbbbbbbbbb')
-    expect(q.getSnapshot().currentIndex).toBe(1)
+    expect(q.getSnapshot().ids).toEqual(['bbbbbbbbbbb', 'ccccccccccc'])
+    expect(q.getSnapshot().currentIndex).toBe(0)
   })
 
   it('preserves per-row title and requester in snapshot', () => {
@@ -154,16 +159,16 @@ describe('createHostVideoQueue', () => {
       })
     })
 
-    it('updates currentIndex after advance', () => {
+    it('updates snapshot after advance to current + up next only', () => {
       const q = createHostVideoQueue()
       q.append([row('a'), row('b')])
       q.advance()
       expect(q.getSnapshot()).toEqual({
-        ids: ['a', 'b'],
-        titles: [null, null],
-        requestedBys: [null, null],
-        requesterGuestIds: [null, null],
-        currentIndex: 1,
+        ids: ['b'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
       })
     })
 
@@ -200,11 +205,11 @@ describe('createHostVideoQueue', () => {
       })
       q.advance()
       expect(q.getSnapshot()).toEqual({
-        ids: ['same', 'same'],
-        titles: [null, null],
-        requestedBys: [null, null],
-        requesterGuestIds: [null, null],
-        currentIndex: 1,
+        ids: ['same'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
       })
     })
 

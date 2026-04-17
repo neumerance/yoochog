@@ -220,7 +220,7 @@ watch(
     embedSetupError.value = null
     if (queue.isEmpty()) {
       idleVariant.value = 'empty'
-    } else if (idleVariant.value === 'empty') {
+    } else if (idleVariant.value === 'empty' || idleVariant.value === 'ended') {
       idleVariant.value = null
     }
   },
@@ -259,6 +259,8 @@ function handlePlaybackEnded() {
     bumpQueue()
     return
   }
+  queue.clear()
+  bumpQueue()
   idleVariant.value = 'ended'
 }
 
@@ -273,6 +275,8 @@ function handlePlaybackError() {
     return
   }
   skipMessage.value = 'That one hid from us — no encore for that clip.'
+  queue.clear()
+  bumpQueue()
   idleVariant.value = 'ended'
   window.setTimeout(() => {
     skipMessage.value = null
