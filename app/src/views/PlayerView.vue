@@ -1,5 +1,26 @@
 <template>
-  <div class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+  <div
+    v-if="!hostPlayerViewportOk"
+    class="flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-slate-50 px-6 py-10 text-center [padding-bottom:max(2.5rem,env(safe-area-inset-bottom,0px))] [padding-top:max(2.5rem,env(safe-area-inset-top,0px))]"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="mx-auto max-w-md space-y-4">
+      <p class="text-xl font-semibold tracking-tight text-slate-900">
+        Use a larger screen
+      </p>
+      <p class="text-base leading-relaxed text-slate-600">
+        The host view is built for a
+        <strong class="font-semibold text-slate-800">laptop, desktop, or TV</strong>.
+        Open this page on a bigger screen to run your session.
+      </p>
+      <p class="text-sm leading-relaxed text-slate-500">
+        Guests can still use their phones with the join link.
+      </p>
+    </div>
+  </div>
+
+  <div v-else class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
     <div
       v-if="showMigrationNotice"
       class="mb-2 shrink-0 rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-base leading-relaxed text-amber-950"
@@ -136,11 +157,11 @@
       </aside>
     </div>
   </div>
-  <PrivacyNoticeSheet ref="privacyNoticeSheet" />
+  <PrivacyNoticeSheet v-if="hostPlayerViewportOk" ref="privacyNoticeSheet" />
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
@@ -157,6 +178,19 @@ import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
 
 const route = useRoute()
 const router = useRouter()
+
+/** Host UI is intended for laptop / TV; narrow viewports get a message instead. Matches Tailwind `xl` (1280px). */
+function readHostPlayerViewportOk(): boolean {
+  if (typeof window === 'undefined') {
+    return true
+  }
+  return window.matchMedia('(min-width: 1280px)').matches
+}
+
+const hostPlayerViewportOk = ref(readHostPlayerViewportOk())
+
+let stopHostViewportListener: (() => void) | null = null
+
 const showMigrationNotice = ref(route.query.migrated === 'client')
 
 watch(
@@ -344,8 +378,20 @@ watch([isReady, audioSessionUnlocked], () => {
 })
 
 onMounted(() => {
-  if (!readPrivacyNoticeDismissed()) {
+  if (hostPlayerViewportOk.value && !readPrivacyNoticeDismissed()) {
     void nextTick(() => privacyNoticeSheet.value?.open())
   }
+
+  const mq = window.matchMedia('(min-width: 1280px)')
+  const onViewportChange = () => {
+    hostPlayerViewportOk.value = mq.matches
+  }
+  mq.addEventListener('change', onViewportChange)
+  stopHostViewportListener = () => mq.removeEventListener('change', onViewportChange)
+})
+
+onBeforeUnmount(() => {
+  stopHostViewportListener?.()
+  stopHostViewportListener = null
 })
 </script>
