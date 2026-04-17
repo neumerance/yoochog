@@ -4,10 +4,17 @@ import { createSignalingTransport } from '@/lib/signaling/signalingFactory'
 import { signalingRoomId } from '@/lib/signaling/roomId'
 import { broadcastToPartyDataChannels, PARTY_CHANNEL_LABEL } from '@/lib/party/broadcastPartyDataChannels'
 import { removeGuestPeer } from '@/lib/party/partyPeerCleanup'
+import {
+  isImmediateConnectionLoss,
+  isImmediateIceFailure,
+  isTransientConnectionDisconnected,
+  isTransientIceDisconnected,
+} from '@/lib/webrtc/connectionFailure'
 import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import { getPartyIceServers } from '@/lib/webrtc/iceServersFromEnv'
 import { waitForIceGatheringComplete } from '@/lib/webrtc/iceGathering'
 import { waitForPeerConnectionConnected } from '@/lib/webrtc/waitForConnected'
+import { PEER_DISCONNECTED_GRACE_MS } from '@/lib/webrtc/reconnectPolicy'
 
 export type PartyHandshakeCallbacks = {
   onStatus: (s: HandshakeUiState) => void
@@ -23,6 +30,8 @@ export type HostPartyHandshakeOptions = {
   onPartyMessage?: (guestId: string, raw: string) => void
   /** One guest's WebRTC/signaling step failed; other guests are unaffected. */
   onGuestPeerFailed?: (guestId: string, message: string) => void
+  /** Runtime loss (ICE/DC) after a guest was attached; host still removes the peer — guest should rejoin with a new client id. */
+  onGuestConnectionLost?: (guestId: string, detail: string) => void
 } & PartyHandshakeCallbacks
 
 export type HostPartyHandshakeHandle = {
@@ -36,6 +45,8 @@ export type GuestPartyHandshakeOptions = {
   signal: AbortSignal
   onPartyChannelOpen?: () => void
   onPartyMessage?: (raw: string) => void
+  /** After the party link was up: PC/ICE/data channel dropped; composable should reconnect with backoff. */
+  onConnectionLost?: (detail: string) => void
 } & PartyHandshakeCallbacks
 
 export type GuestPartyHandshakeHandle = {
@@ -193,19 +204,96 @@ export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostP
       const dc = pc.createDataChannel(PARTY_CHANNEL_LABEL, { ordered: true })
       partyChannels.set(guestId, dc)
 
+      /** Clears when the peer is removed or recovers to connected. */
+      let disconnectedGraceTimer: ReturnType<typeof setTimeout> | null = null
+
+      function clearDisconnectGrace() {
+        if (disconnectedGraceTimer) {
+          clearTimeout(disconnectedGraceTimer)
+          disconnectedGraceTimer = null
+        }
+      }
+
+      function removeGuestAfterLoss(detail: string) {
+        if (pcs.get(guestId) !== pc) {
+          return
+        }
+        clearDisconnectGrace()
+        options.onGuestConnectionLost?.(guestId, detail)
+        removeGuest(guestId)
+      }
+
       dc.onopen = () => {
         options.onPartyChannelOpen?.(guestId)
       }
       dc.onmessage = (ev) => {
         options.onPartyMessage?.(guestId, String(ev.data))
       }
+      dc.onclose = () => {
+        removeGuestAfterLoss('Party data channel closed')
+      }
 
       pc.onconnectionstatechange = () => {
+        if (pcs.get(guestId) !== pc) {
+          return
+        }
         const st = pc.connectionState
-        if (st === 'failed' || st === 'disconnected' || st === 'closed') {
-          if (pcs.get(guestId) === pc) {
-            removeGuest(guestId)
-          }
+        if (st === 'connected') {
+          clearDisconnectGrace()
+          return
+        }
+        if (isImmediateConnectionLoss(st)) {
+          removeGuestAfterLoss(`Peer connection ${st}`)
+          return
+        }
+        if (isTransientConnectionDisconnected(st)) {
+          clearDisconnectGrace()
+          disconnectedGraceTimer = setTimeout(() => {
+            disconnectedGraceTimer = null
+            if (pcs.get(guestId) !== pc) {
+              return
+            }
+            const cur = pc.connectionState
+            if (cur === 'connected') {
+              return
+            }
+            if (cur === 'disconnected' || isImmediateConnectionLoss(cur)) {
+              removeGuestAfterLoss(
+                `Peer connection ${cur} (still unhealthy after ${PEER_DISCONNECTED_GRACE_MS}ms grace)`,
+              )
+            }
+          }, PEER_DISCONNECTED_GRACE_MS)
+        }
+      }
+
+      pc.oniceconnectionstatechange = () => {
+        if (pcs.get(guestId) !== pc) {
+          return
+        }
+        const ice = pc.iceConnectionState
+        if (ice === 'connected' || ice === 'completed') {
+          clearDisconnectGrace()
+          return
+        }
+        if (isImmediateIceFailure(ice)) {
+          removeGuestAfterLoss(`ICE ${ice}`)
+          return
+        }
+        if (isTransientIceDisconnected(ice)) {
+          clearDisconnectGrace()
+          disconnectedGraceTimer = setTimeout(() => {
+            disconnectedGraceTimer = null
+            if (pcs.get(guestId) !== pc) {
+              return
+            }
+            const cur = pc.iceConnectionState
+            if (cur === 'connected' || cur === 'completed') {
+              return
+            }
+            if (isTransientIceDisconnected(cur) || isImmediateIceFailure(cur)) {
+              removeGuestAfterLoss(`ICE ${cur} (still unhealthy after ${PEER_DISCONNECTED_GRACE_MS}ms grace)`)
+            }
+          }, PEER_DISCONNECTED_GRACE_MS)
         }
       }
 
@@ -258,7 +346,13 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
     }
   }
 
+  let disconnectedGraceTimer: ReturnType<typeof setTimeout> | null = null
+
   const dispose = () => {
+    if (disconnectedGraceTimer) {
+      clearTimeout(disconnectedGraceTimer)
+      disconnectedGraceTimer = null
+    }
     signaling.close()
     try {
       partyDc?.close()
@@ -288,7 +382,90 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
       options.onStatus('establishing_handshake')
       await signaling.join(room, clientId, 'guest')
       const hostId = await findHostPeerId(signaling, options.signal)
+
+      let handshakeFinished = false
+      let lostNotified = false
+
+      function clearDisconnectGrace() {
+        if (disconnectedGraceTimer) {
+          clearTimeout(disconnectedGraceTimer)
+          disconnectedGraceTimer = null
+        }
+      }
+
+      function notifyGuestLost(detail: string) {
+        if (lostNotified) {
+          return
+        }
+        lostNotified = true
+        clearDisconnectGrace()
+        if (!handshakeFinished) {
+          options.onStatus('failed')
+          options.onError(detail)
+          dispose()
+          return
+        }
+        options.onConnectionLost?.(detail)
+      }
+
+      function scheduleDisconnectGraceForGuest() {
+        clearDisconnectGrace()
+        disconnectedGraceTimer = setTimeout(() => {
+          disconnectedGraceTimer = null
+          if (!pc || lostNotified) {
+            return
+          }
+          if (pc.connectionState === 'connected') {
+            return
+          }
+          const ice = pc.iceConnectionState
+          if (ice === 'connected' || ice === 'completed') {
+            return
+          }
+          notifyGuestLost(
+            `Peer/ICE still unhealthy after ${PEER_DISCONNECTED_GRACE_MS}ms (connection=${pc.connectionState}, ice=${ice})`,
+          )
+        }, PEER_DISCONNECTED_GRACE_MS)
+      }
+
       pc = new RTCPeerConnection({ iceServers })
+
+      pc.onconnectionstatechange = () => {
+        if (!pc || lostNotified) {
+          return
+        }
+        const st = pc.connectionState
+        if (st === 'connected') {
+          clearDisconnectGrace()
+          return
+        }
+        if (isImmediateConnectionLoss(st)) {
+          notifyGuestLost(`Peer connection ${st}`)
+          return
+        }
+        if (isTransientConnectionDisconnected(st)) {
+          scheduleDisconnectGraceForGuest()
+        }
+      }
+
+      pc.oniceconnectionstatechange = () => {
+        if (!pc || lostNotified) {
+          return
+        }
+        const ice = pc.iceConnectionState
+        if (ice === 'connected' || ice === 'completed') {
+          clearDisconnectGrace()
+          return
+        }
+        if (isImmediateIceFailure(ice)) {
+          notifyGuestLost(`ICE ${ice}`)
+          return
+        }
+        if (isTransientIceDisconnected(ice)) {
+          scheduleDisconnectGraceForGuest()
+        }
+      }
+
       pc.ondatachannel = (ev) => {
         if (ev.channel.label !== PARTY_CHANNEL_LABEL) {
           return
@@ -301,9 +478,11 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
         partyDc.onmessage = (e) => {
           options.onPartyMessage?.(String(e.data))
         }
+        partyDc.onclose = () => {
+          notifyGuestLost('Party data channel closed')
+        }
       }
 
-      let handshakeFinished = false
       const processSignal = async (from: string, payload: SignalPayload) => {
         if (from !== hostId || !pc || handshakeFinished) {
           return
