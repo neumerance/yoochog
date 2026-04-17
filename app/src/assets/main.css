@@ -13,3 +13,13 @@
     @apply flex h-full min-h-0 flex-col;
   }
 }
+
+@layer utilities {
+  /* Matches prior guest px-4 / py-10 rhythm, or safe-area inset when larger */
+  .guest-shell-padding {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-top: max(2.5rem, env(safe-area-inset-top, 0px));
+    padding-bottom: max(2.5rem, env(safe-area-inset-bottom, 0px));
+  }
+}
