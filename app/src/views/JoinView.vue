@@ -236,12 +236,10 @@ async function submitPasteEnqueue() {
                     </p>
                     <p
                       v-if="queueRowRequester(index)"
-                      class="mt-0.5 truncate text-[13px] leading-4 text-[#8E8E93]"
+                      class="mt-1 truncate text-[15px] leading-snug"
                     >
-                      Requested by {{ queueRowRequester(index) }}
-                    </p>
-                    <p class="mt-0.5 truncate font-mono text-[11px] leading-4 text-[#C7C7CC]">
-                      {{ rowId }}
+                      <span class="font-medium text-[#6D6D72]">Requested by </span>
+                      <span class="font-bold text-black">{{ queueRowRequester(index) }}</span>
                     </p>
                   </div>
                 </div>

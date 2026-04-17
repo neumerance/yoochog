@@ -101,6 +101,18 @@ describe('createHostVideoQueue', () => {
     expect(q.currentVideoId()).toBe('same')
   })
 
+  it('applySnapshot restores currentIndex not only row 0', () => {
+    const q = createHostVideoQueue()
+    q.applySnapshot({
+      ids: ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc'],
+      titles: [null, null, null],
+      requestedBys: [null, null, null],
+      currentIndex: 1,
+    })
+    expect(q.currentVideoId()).toBe('bbbbbbbbbbb')
+    expect(q.getSnapshot().currentIndex).toBe(1)
+  })
+
   it('preserves per-row title and requester in snapshot', () => {
     const q = createHostVideoQueue()
     q.append([

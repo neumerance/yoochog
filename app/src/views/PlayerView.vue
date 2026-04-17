@@ -69,11 +69,11 @@
               </p>
               <p
                 v-if="nowPlayingRow.requestedBy"
-                class="min-w-0 truncate text-base font-medium text-slate-600"
+                class="min-w-0 truncate text-base sm:text-lg"
               >
-                Requested by {{ nowPlayingRow.requestedBy }}
+                <span class="font-medium text-slate-600">Requested by </span>
+                <span class="font-bold text-slate-900">{{ nowPlayingRow.requestedBy }}</span>
               </p>
-              <p class="break-all font-mono text-sm text-slate-500">{{ nowPlayingRow.videoId }}</p>
             </template>
             <p v-else class="text-xl font-semibold text-slate-400 sm:text-2xl">Nothing queued</p>
           </div>
@@ -100,10 +100,13 @@
                   }}.</span>
                   {{ rowTitle(queueSnapshot.titles[index] ?? null) }}
                 </p>
-                <p v-if="queueSnapshot.requestedBys[index]" class="truncate text-sm text-slate-600">
-                  Requested by {{ queueSnapshot.requestedBys[index] }}
+                <p
+                  v-if="queueSnapshot.requestedBys[index]"
+                  class="mt-0.5 truncate text-sm sm:text-base"
+                >
+                  <span class="font-medium text-slate-600">Requested by </span>
+                  <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>
                 </p>
-                <p class="truncate font-mono text-xs text-slate-500">{{ rowId }}</p>
               </div>
               <span
                 v-if="index === queueSnapshot.currentIndex"
@@ -128,20 +131,39 @@ import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
 import { useHostPartySession } from '@/composables/useHostPartySession'
 import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
-import { DEMO_HOST_QUEUE_ITEMS } from '@/constants/sampleVideo'
 import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
+import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersistence'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
 
 const { hostSessionId } = useHostSessionId()
 
 const queue = createHostVideoQueue()
 const queueTick = ref(0)
+/** Bumps only when the current playback row changes (advance/skip), not on enqueue — avoids restarting the iframe on append. */
+const playerSyncTick = ref(0)
 
 function bumpQueue() {
   queueTick.value++
+  const id = hostSessionId.value
+  if (id) {
+    saveHostQueue(id, queue.getSnapshot())
+  }
 }
 
-queue.append([...DEMO_HOST_QUEUE_ITEMS])
+watch(
+  () => hostSessionId.value,
+  (id) => {
+    if (!id) {
+      return
+    }
+    const snap = loadHostQueue(id)
+    if (snap) {
+      queue.applySnapshot(snap)
+      queueTick.value++
+    }
+  },
+  { immediate: true },
+)
 
 const {
   status: handshakeStatus,
@@ -176,13 +198,10 @@ const nowPlayingRow = computed(() => {
   }
   const i = s.currentIndex
   return {
-    videoId: s.ids[i] ?? '',
     title: s.titles[i] ?? null,
     requestedBy: s.requestedBys[i] ?? null,
   }
 })
-
-const nowPlayingId = computed(() => nowPlayingRow.value?.videoId ?? null)
 
 watch(
   () => queueTick.value,
@@ -203,7 +222,7 @@ const audioSessionUnlocked = ref(false)
 
 const { player, isReady } = useYoutubePlayer(playerContainer, {
   videoId: activeVideoId,
-  playbackSequence: queueTick,
+  playbackSequence: playerSyncTick,
   autoplay: true,
   audioSessionUnlocked,
   onEnded: handlePlaybackEnded,
@@ -225,6 +244,7 @@ function handlePlaybackEnded() {
   if (action.kind === 'advance') {
     idleVariant.value = null
     queue.advance()
+    playerSyncTick.value++
     bumpQueue()
     return
   }
@@ -237,6 +257,7 @@ function handlePlaybackError() {
     skipMessage.value = 'That one hid from us — skipping ahead.'
     idleVariant.value = null
     queue.advance()
+    playerSyncTick.value++
     bumpQueue()
     return
   }

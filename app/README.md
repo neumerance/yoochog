@@ -116,7 +116,7 @@ Guest enqueue can resolve **video titles** via the **YouTube Data API v3** (`vid
 VITE_YOUTUBE_API_KEY=your-youtube-data-api-key
 ```
 
-When the variable is **unset** or the API errors, the app still enqueues by **video id**; the UI shows titles as **unknown**. Keys prefixed with **`VITE_`** are bundled into the client — restrict the key by **HTTP referrer** (and app restrictions) in Google Cloud Console. See [ADR 0003](../docs/adr/0003-party-queue-metadata-v1.md) for queue metadata on the party channel.
+When the variable is **unset** or the API errors, the app still enqueues by **video id**; the UI shows titles as **unknown**. Keys prefixed with **`VITE_`** are bundled into the client — restrict the key by **HTTP referrer** (and app restrictions) in Google Cloud Console. If the Data API is unavailable, the client **falls back** to [noembed.com](https://noembed.com/) for titles (third-party; no API key). See [ADR 0003](../docs/adr/0003-party-queue-metadata-v1.md) for queue metadata on the party channel.
 
 ### WebRTC ICE (STUN + optional TURN)
 

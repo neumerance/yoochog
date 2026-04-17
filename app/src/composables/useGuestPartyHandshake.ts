@@ -2,6 +2,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
+import { loadGuestQueueSnapshot, saveGuestQueueSnapshot } from '@/lib/party/guestQueuePersistence'
 import { applyGuestPartyMessage } from '@/lib/party/guestPartyState'
 import { parsePartyMessage, PARTY_MESSAGE_SCHEMA_VERSION } from '@/lib/party/partyMessages'
 import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
@@ -87,7 +88,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       activeDispose = null
       sendPartyRaw = null
       error.value = null
-      queueSnapshot.value = null
+      queueSnapshot.value = id ? loadGuestQueueSnapshot(id) : null
       lastEnqueueError.value = null
 
       if (id !== prevSessionId.value) {
@@ -140,6 +141,9 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           )
           queueSnapshot.value = next.snapshot
           lastEnqueueError.value = next.lastEnqueueError
+          if (next.snapshot && sessionId.value) {
+            saveGuestQueueSnapshot(sessionId.value, next.snapshot)
+          }
         },
         onConnectionLost: () => {
           scheduleReconnectFromLoss()

@@ -44,6 +44,11 @@ export interface HostVideoQueue {
   append: (items: readonly HostVideoQueueItem[]) => void
   /** Replaces the entire queue with a copy of `items` and updates current per semantics above. */
   replace: (items: readonly HostVideoQueueItem[]) => void
+  /**
+   * Replaces the queue and restores **current index** from a snapshot (e.g. localStorage reload).
+   * Invalid `currentIndex` for the row count falls back to `0` when non-empty.
+   */
+  applySnapshot: (snapshot: HostVideoQueueSnapshot) => void
   /** Removes all rows and clears the current position. */
   clear: () => void
   /** The video ID at the current index, or `undefined` when there is no current item. */
@@ -107,6 +112,29 @@ export function createHostVideoQueue(): HostVideoQueue {
     replace(newItems: readonly HostVideoQueueItem[]) {
       items = newItems.map((i) => ({ ...i }))
       currentIndex = items.length > 0 ? 0 : null
+    },
+
+    applySnapshot(snapshot: HostVideoQueueSnapshot) {
+      items = snapshot.ids.map((videoId, i) => ({
+        videoId,
+        title: snapshot.titles[i] ?? null,
+        requestedBy: snapshot.requestedBys[i] ?? null,
+      }))
+      if (items.length === 0) {
+        currentIndex = null
+        return
+      }
+      const ci = snapshot.currentIndex
+      if (
+        ci === null ||
+        !Number.isInteger(ci) ||
+        ci < 0 ||
+        ci >= items.length
+      ) {
+        currentIndex = 0
+        return
+      }
+      currentIndex = ci
     },
 
     clear() {
