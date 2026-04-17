@@ -13,7 +13,11 @@ import {
   saveGuestDisplayName,
   validateGuestDisplayName,
 } from '@/lib/guest/guestDisplayName'
-import { ENQUEUE_REJECTED_ALREADY_HAS_REQUEST } from '@/lib/host-queue/guestEnqueuePolicy'
+import {
+  countGuestRequestsInQueue,
+  ENQUEUE_REJECTED_ALREADY_HAS_REQUEST,
+  MAX_GUEST_QUEUE_ROWS_PER_GUEST,
+} from '@/lib/host-queue/guestEnqueuePolicy'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
@@ -52,19 +56,25 @@ const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
 const isEnqueueSubmitting = ref(false)
 
-const alreadyHasMySongInQueue = computed(() => {
+/** Rows in the snapshot owned by this tab’s guest id (including now playing). */
+const mySongsInQueueCount = computed(() => {
   const s = queueSnapshot.value
   const sid = sessionId.value
   if (!s?.ids?.length || !sid) {
-    return false
+    return 0
   }
   const mine = getOrCreatePartyGuestRequesterId(sid)
-  return s.requesterGuestIds.some((id) => id === mine)
+  return countGuestRequestsInQueue(mine, s)
 })
 
-/** True when connected and policy allows opening the add-song flow (not already holding a slot). */
+/** Matches host `resolveGuestEnqueueRequest` per-guest cap. */
+const atMaxMySongsInQueue = computed(
+  () => mySongsInQueueCount.value >= MAX_GUEST_QUEUE_ROWS_PER_GUEST,
+)
+
+/** True when connected and policy allows opening the add-song flow (under per-guest row cap). */
 const canOpenAddSongFlow = computed(
-  () => canRequestEnqueue.value && !alreadyHasMySongInQueue.value,
+  () => canRequestEnqueue.value && !atMaxMySongsInQueue.value,
 )
 
 function queueRowTitle(index: number): string {
@@ -206,7 +216,7 @@ function onAddSongBarTap() {
   if (!canRequestEnqueue.value) {
     return
   }
-  if (alreadyHasMySongInQueue.value) {
+  if (atMaxMySongsInQueue.value) {
     window.alert(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST)
     return
   }
@@ -288,7 +298,7 @@ async function submitPasteEnqueue() {
     pasteValidationError.value = 'Set your display name before adding a song.'
     return
   }
-  if (alreadyHasMySongInQueue.value) {
+  if (atMaxMySongsInQueue.value) {
     pasteValidationError.value = ENQUEUE_REJECTED_ALREADY_HAS_REQUEST
     return
   }
@@ -508,13 +518,13 @@ onMounted(() => {
             ? 'bg-[#FF3B30] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline-[#FF3B30]'
             : [
                 'bg-[#C7C7CC]',
-                canRequestEnqueue && alreadyHasMySongInQueue ? 'cursor-pointer' : 'cursor-default',
+                canRequestEnqueue && atMaxMySongsInQueue ? 'cursor-pointer' : 'cursor-default',
               ]
         "
         :disabled="!canRequestEnqueue"
         :aria-label="
-          alreadyHasMySongInQueue
-            ? 'Add my song — your song is still in the queue'
+          atMaxMySongsInQueue
+            ? 'Add my song — you already have two songs in the queue'
             : 'Add my song'
         "
         @click="onAddSongBarTap"
