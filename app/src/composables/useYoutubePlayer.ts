@@ -64,6 +64,12 @@ export function useYoutubePlayer(
   let stopWatch: (() => void) | null = null
 
   let lastSyncKey = { id: undefined as string | undefined, seq: -1 }
+  /**
+   * Last `YT.Player` state from `onStateChange` (before handling ENDED). Used so we only treat
+   * ENDED as a real track completion after PLAYING or PAUSED — avoids double-advance when YouTube
+   * emits extra ENDED during `loadVideoById` or when the host already advanced from a guest action.
+   */
+  let lastYtPlayerState: number | null = null
 
   const applySessionAudio = (p: YT.Player) => {
     if (!toValue(options.audioSessionUnlocked)) {
@@ -89,6 +95,7 @@ export function useYoutubePlayer(
     player.value = null
     isReady.value = false
     lastSyncKey = { id: undefined, seq: -1 }
+    lastYtPlayerState = null
     if (current) {
       try {
         current.destroy()
@@ -127,6 +134,8 @@ export function useYoutubePlayer(
         return
       }
       lastSyncKey = { id, seq }
+      // Ignore spurious ENDED from the previous clip while the iframe swaps to the next video.
+      lastYtPlayerState = null
       try {
         player.value.loadVideoById({ videoId: id })
         if (toValue(options.audioSessionUnlocked)) {
@@ -199,11 +208,16 @@ export function useYoutubePlayer(
             if (cancelled) {
               return
             }
-            if (event.data === 0 /* YT.PlayerState.ENDED */) {
-              options.onEnded?.()
+            const data = event.data
+            if (data === 0 /* YT.PlayerState.ENDED */) {
+              if (lastYtPlayerState === 1 /* PLAYING */ || lastYtPlayerState === 2 /* PAUSED */) {
+                options.onEnded?.()
+              }
+              lastYtPlayerState = 0
               return
             }
-            if (event.data !== 1 /* YT.PlayerState.PLAYING */) {
+            lastYtPlayerState = data
+            if (data !== 1 /* YT.PlayerState.PLAYING */) {
               return
             }
             options.onPlaying?.()
