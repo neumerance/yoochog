@@ -1,32 +1,35 @@
 <template>
-  <div v-if="sessionId.trim()" class="shrink-0 p-3 @min-[300px]:p-4 @min-[500px]:p-5">
+  <div
+    v-if="sessionId.trim()"
+    class="shrink-0 p-[clamp(0.65rem,1.75cqi,1.75rem)]"
+  >
     <div
-      class="flex flex-col gap-4 text-left @min-[500px]:gap-5 @min-[720px]:flex-row @min-[720px]:items-start @min-[720px]:justify-between @min-[720px]:gap-6 @min-[840px]:gap-8"
+      class="flex flex-col gap-[clamp(0.75rem,2cqi,1.5rem)] text-left @min-[720px]:flex-row @min-[720px]:items-start @min-[720px]:justify-between @min-[720px]:gap-[clamp(1rem,2.5cqi,2.5rem)]"
     >
-      <div class="flex min-w-0 w-full flex-col items-start gap-3 @min-[720px]:flex-1">
+      <div class="flex min-w-0 w-full flex-col items-start gap-[clamp(0.5rem,1.5cqi,1rem)] @min-[720px]:flex-1">
         <img
           :src="logoUrl"
           alt="Yoochog"
-          class="h-auto max-h-24 w-auto max-w-[12rem] shrink-0 self-start object-contain object-left @min-[500px]:max-h-28 @min-[500px]:max-w-[14rem]"
+          class="h-auto max-h-[min(28cqi,13rem)] w-auto max-w-[min(52cqi,26rem)] shrink-0 self-start object-contain object-left"
           decoding="async"
         />
         <h2
-          class="w-full text-lg font-semibold leading-snug text-indigo-950 @min-[300px]:text-xl @min-[500px]:text-2xl"
+          class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(1.0625rem,2.5cqi+0.35rem,2.25rem)]"
         >
           Join in from your phone
         </h2>
         <p
-          class="w-full text-sm leading-relaxed text-indigo-900/90 @min-[300px]:text-base @min-[500px]:text-[1.0625rem]"
+          class="w-full leading-relaxed text-indigo-900/90 text-[length:clamp(0.8125rem,1.8cqi+0.2rem,1.375rem)]"
         >
           Scan with a phone camera or QR app—opens this sing-along in the browser, no signup.
         </p>
       </div>
       <div
-        class="flex w-full min-w-0 shrink-0 flex-col items-center gap-3 @min-[500px]:gap-4 @min-[720px]:w-[20.8rem] @min-[720px]:shrink-0 @min-[840px]:w-[20.8rem]"
+        class="flex w-full min-w-0 shrink-0 flex-col items-center gap-[clamp(0.65rem,1.75cqi,1.25rem)] @min-[720px]:w-[min(27rem,88cqi)] @min-[720px]:shrink-0"
       >
         <div
           v-if="qrDataUrl"
-          class="relative mx-auto inline-block aspect-square w-[clamp(11.05rem,min(90%,47cqi),20.8rem)] max-w-full"
+          class="relative mx-auto inline-block aspect-square w-[clamp(10rem,82cqi,27rem)] max-w-full"
         >
           <img
             :src="qrDataUrl"
@@ -40,12 +43,12 @@
             aria-hidden="true"
           >
             <div
-              class="rounded-lg bg-white p-1 shadow-sm ring-1 ring-black/5 @min-[500px]:p-1.5"
+              class="rounded-lg bg-white p-[clamp(0.2rem,0.6cqi,0.5rem)] shadow-sm ring-1 ring-black/5"
             >
               <img
                 :src="logoUrl"
                 alt=""
-                class="h-[clamp(2.6rem,11.7cqi,3.575rem)] w-[clamp(2.6rem,11.7cqi,3.575rem)] object-contain"
+                class="object-contain h-[clamp(2rem,9cqi,4.25rem)] w-[clamp(2rem,9cqi,4.25rem)]"
                 decoding="async"
               />
             </div>
@@ -53,13 +56,13 @@
         </div>
         <p
           v-else-if="qrError"
-          class="w-full text-center text-sm leading-snug text-red-700 @min-[300px]:text-base @min-[500px]:text-lg"
+          class="w-full text-center leading-snug text-red-700 text-[length:clamp(0.8125rem,1.8cqi+0.2rem,1.5rem)]"
         >
           {{ qrError }}
         </p>
         <p
           v-else
-          class="flex aspect-square w-[clamp(11.05rem,min(90%,47cqi),20.8rem)] max-w-full items-center justify-center text-center text-sm text-slate-500 @min-[300px]:text-base"
+          class="flex aspect-square w-[clamp(10rem,82cqi,27rem)] max-w-full items-center justify-center text-center text-slate-500 text-[length:clamp(0.8125rem,1.8cqi+0.2rem,1.25rem)]"
           aria-live="polite"
         >
           Preparing QR…
@@ -76,7 +79,7 @@ import { computed, ref, watch } from 'vue'
 import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
 import { buildGuestJoinUrlFromEnv } from '@/lib/join-url/buildGuestJoinUrl'
 
-/** Bitmap edge length; ~1.3× prior 384px for larger on-screen QR. */
+/** Large enough for fluid `clamp(…, 82cqi, 27rem)` display on wide TVs. */
 const qrBitmapSize = 512
 
 const props = defineProps<{
