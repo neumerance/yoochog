@@ -59,27 +59,11 @@
         </div>
 
         <div class="flex min-h-0 flex-1 flex-col p-3 text-base text-slate-700">
-          <div class="shrink-0 space-y-2 pb-3">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-black sm:text-base">
-              Now playing
-            </h2>
-            <template v-if="nowPlayingRow">
-              <p class="min-w-0 truncate text-xl font-bold leading-tight text-slate-900 sm:text-2xl">
-                {{ rowTitle(nowPlayingRow.title) }}
-              </p>
-              <p
-                v-if="nowPlayingRow.requestedBy"
-                class="min-w-0 truncate text-base sm:text-lg"
-              >
-                <span class="font-medium text-slate-600">Requested by </span>
-                <span class="font-bold text-slate-900">{{ nowPlayingRow.requestedBy }}</span>
-              </p>
-            </template>
-            <p v-else class="text-xl font-semibold text-slate-400 sm:text-2xl">Nothing queued</p>
-          </div>
-
+          <h2 class="shrink-0 pb-2 text-sm font-bold uppercase tracking-wide text-black sm:text-base">
+            Now playing
+          </h2>
           <ol
-            class="mt-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto divide-y divide-slate-200"
+            class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto divide-y divide-slate-200"
             aria-label="Playback queue"
           >
             <li
@@ -220,19 +204,6 @@ const queueSnapshot = computed(() => {
 function rowTitle(title: string | null): string {
   return title ?? 'Unknown title'
 }
-
-const nowPlayingRow = computed(() => {
-  queueTick.value
-  const s = queueSnapshot.value
-  if (s.ids.length === 0 || s.currentIndex === null) {
-    return null
-  }
-  const i = s.currentIndex
-  return {
-    title: s.titles[i] ?? null,
-    requestedBy: s.requestedBys[i] ?? null,
-  }
-})
 
 watch(
   () => queueTick.value,
