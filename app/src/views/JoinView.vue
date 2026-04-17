@@ -55,6 +55,9 @@ const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
 const isEnqueueSubmitting = ref(false)
 
+/** True when the name dialog was opened from “Add my song”; after save, open that flow. */
+const openAddSongAfterGuestName = ref(false)
+
 /** Rows in the snapshot owned by this tab’s guest id (including now playing). */
 const mySongsInQueueCount = computed(() => {
   const s = queueSnapshot.value
@@ -226,8 +229,20 @@ function onAddSongBarTap() {
   openAddSongModal()
 }
 
+function tryOpenGuestNameModalIfNeeded() {
+  if (readGuestDisplayName()) {
+    return
+  }
+  openAddSongAfterGuestName.value = false
+  guestNameInput.value = ''
+  guestNameError.value = null
+  guestNameDialog.value?.showModal()
+  void nextTick(() => document.getElementById('guest-display-name-input')?.focus())
+}
+
 function openAddSongModal() {
   if (!readGuestDisplayName()) {
+    openAddSongAfterGuestName.value = true
     guestNameInput.value = ''
     guestNameError.value = null
     guestNameDialog.value?.showModal()
@@ -252,25 +267,35 @@ function submitGuestName() {
   guestNameError.value = null
   const v = validateGuestDisplayName(guestNameInput.value)
   if (!v) {
-    guestNameError.value = 'Enter a name (1–64 characters).'
+    guestNameError.value = 'Enter a nickname (1–10 characters).'
     return
   }
   if (!saveGuestDisplayName(v)) {
     guestNameError.value = 'Could not save. Check browser storage settings.'
     return
   }
+  const openAddSong = openAddSongAfterGuestName.value
+  openAddSongAfterGuestName.value = false
   refreshGuestDisplayName()
   guestNameDialog.value?.close()
-  openAddSongModalAfterName()
+  if (openAddSong) {
+    openAddSongModalAfterName()
+  }
 }
 
 function closeGuestNameModal() {
+  openAddSongAfterGuestName.value = false
   guestNameDialog.value?.close()
 }
 
 function onGuestNameDialogClose() {
   guestNameInput.value = ''
   guestNameError.value = null
+  openAddSongAfterGuestName.value = false
+}
+
+function onPrivacyNoticeDismissed() {
+  void nextTick(() => tryOpenGuestNameModalIfNeeded())
 }
 
 function closeAddSongModal() {
@@ -328,6 +353,8 @@ onMounted(() => {
   refreshGuestDisplayName()
   if (!readPrivacyNoticeDismissed()) {
     void nextTick(() => privacyNoticeSheet.value?.open())
+  } else {
+    void nextTick(() => tryOpenGuestNameModalIfNeeded())
   }
 })
 </script>
@@ -713,7 +740,7 @@ onMounted(() => {
       </div>
     </dialog>
 
-    <PrivacyNoticeSheet ref="privacyNoticeSheet" />
+    <PrivacyNoticeSheet ref="privacyNoticeSheet" @dismissed="onPrivacyNoticeDismissed" />
   </GuestShell>
 </template>
 

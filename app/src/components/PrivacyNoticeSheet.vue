@@ -3,6 +3,11 @@ import { nextTick, onUnmounted, ref, watch } from 'vue'
 
 import { savePrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 
+const emit = defineEmits<{
+  /** Fired after the user dismisses the sheet (Agree, backdrop, or Escape). */
+  dismissed: []
+}>()
+
 const isOpen = ref(false)
 const agreeButtonRef = ref<HTMLButtonElement | null>(null)
 
@@ -11,6 +16,7 @@ let removeEscapeListener: (() => void) | null = null
 function dismiss() {
   savePrivacyNoticeDismissed()
   isOpen.value = false
+  emit('dismissed')
 }
 
 function open() {
