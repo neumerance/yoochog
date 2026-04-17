@@ -16,6 +16,11 @@ interface ImportMetaEnv {
   readonly VITE_TURN_USERNAME?: string
   /** TURN password / REST credential (never commit real values; use `.env.local`). */
   readonly VITE_TURN_CREDENTIAL?: string
+  /**
+   * YouTube Data API v3 key (browser-restricted). Used only to resolve video titles for the queue.
+   * Optional: when unset, titles show as unknown.
+   */
+  readonly VITE_YOUTUBE_API_KEY?: string
 }
 
 interface ImportMeta {

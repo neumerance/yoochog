@@ -71,3 +71,4 @@ This ADR defines **only** the party data channel JSON protocol. It does **not** 
 - [`app/src/lib/party/partyMessages.ts`](../../app/src/lib/party/partyMessages.ts) — `PARTY_MESSAGE_SCHEMA_VERSION`, `PARTY_MESSAGE_MAX_RAW_BYTES`, parse/serialize  
 - [`app/src/lib/party/broadcastPartyDataChannels.ts`](../../app/src/lib/party/broadcastPartyDataChannels.ts) — `PARTY_CHANNEL_LABEL` (`yoochog-party`)  
 - [ADR 0001](./0001-webrtc-signaling.md) — signaling transport and room id  
+- [ADR 0003](./0003-party-queue-metadata-v1.md) — additive per-row metadata on `queue_snapshot` / `enqueue_request` (still `v: 1`)  

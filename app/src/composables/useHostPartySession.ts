@@ -64,7 +64,13 @@ export function useHostPartySession(
   function handleGuestRaw(guestId: string, raw: string) {
     const msg = parsePartyMessage(raw)
     if (msg?.type === 'enqueue_request') {
-      queue.append([msg.videoId])
+      queue.append([
+        {
+          videoId: msg.videoId,
+          title: msg.title,
+          requestedBy: msg.requestedBy,
+        },
+      ])
       bumpQueue()
       return
     }

@@ -6,17 +6,27 @@ export const PARTY_MESSAGE_SCHEMA_VERSION = 1 as const
 /** Max accepted raw JSON string length before parse (see ADR 0002). */
 export const PARTY_MESSAGE_MAX_RAW_BYTES = 256_000
 
+/** Per-row title in queue snapshot / enqueue (bytes-ish guard; UTF-16 length in JS). */
+export const PARTY_QUEUE_TITLE_MAX_LENGTH = 200
+
+/** Display name / requester label on wire. */
+export const PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH = 64
+
 export type PartyMessage =
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'queue_snapshot'
       ids: string[]
       currentIndex: number | null
+      titles: (string | null)[]
+      requestedBys: (string | null)[]
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'enqueue_request'
       videoId: string
+      title: string | null
+      requestedBy: string | null
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -40,9 +50,90 @@ function isNonNegativeInteger(n: unknown): n is number {
   return typeof n === 'number' && Number.isInteger(n) && n >= 0
 }
 
+function parseNullableTitle(value: unknown): string | null | 'invalid' {
+  if (value === undefined || value === null) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    return 'invalid'
+  }
+  const t = value.trim()
+  if (t.length === 0) {
+    return null
+  }
+  if (t.length > PARTY_QUEUE_TITLE_MAX_LENGTH) {
+    return 'invalid'
+  }
+  return t
+}
+
+function parseNullableRequestedBy(value: unknown): string | null | 'invalid' {
+  if (value === undefined || value === null) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    return 'invalid'
+  }
+  const t = value.trim()
+  if (t.length === 0) {
+    return null
+  }
+  if (t.length > PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH) {
+    return 'invalid'
+  }
+  return t
+}
+
+function parseParallelMetadata(
+  idsLen: number,
+  titlesRaw: unknown,
+  requestedBysRaw: unknown,
+): { titles: (string | null)[]; requestedBys: (string | null)[] } | null {
+  const hasTitles = titlesRaw !== undefined
+  const hasReq = requestedBysRaw !== undefined
+
+  if (!hasTitles && !hasReq) {
+    const titles = Array.from({ length: idsLen }, () => null as string | null)
+    const requestedBys = Array.from({ length: idsLen }, () => null as string | null)
+    return { titles, requestedBys }
+  }
+
+  if (hasTitles !== hasReq) {
+    return null
+  }
+  if (!Array.isArray(titlesRaw) || !Array.isArray(requestedBysRaw)) {
+    return null
+  }
+  if (titlesRaw.length !== idsLen || requestedBysRaw.length !== idsLen) {
+    return null
+  }
+
+  const titles: (string | null)[] = []
+  const requestedBys: (string | null)[] = []
+
+  for (let i = 0; i < idsLen; i++) {
+    const ti = parseNullableTitle(titlesRaw[i])
+    if (ti === 'invalid') {
+      return null
+    }
+    titles.push(ti)
+
+    const ri = parseNullableRequestedBy(requestedBysRaw[i])
+    if (ri === 'invalid') {
+      return null
+    }
+    requestedBys.push(ri)
+  }
+
+  return { titles, requestedBys }
+}
+
 function parseSnapshotPayload(
   v: unknown,
-): Pick<PartyMessage & { type: 'queue_snapshot' }, 'ids' | 'currentIndex'> | null {
+): Pick<
+  PartyMessage & { type: 'queue_snapshot' },
+  'ids' | 'currentIndex' | 'titles' | 'requestedBys'
+> | null {
   if (typeof v !== 'object' || v === null) {
     return null
   }
@@ -61,7 +152,7 @@ function parseSnapshotPayload(
     return null
   }
   if (ids.length === 0) {
-    return o.currentIndex === null ? { ids, currentIndex: null } : null
+    return o.currentIndex === null ? { ids, currentIndex: null, titles: [], requestedBys: [] } : null
   }
   if (o.currentIndex === null) {
     return null
@@ -72,7 +163,18 @@ function parseSnapshotPayload(
   if (o.currentIndex >= ids.length) {
     return null
   }
-  return { ids, currentIndex: o.currentIndex }
+
+  const meta = parseParallelMetadata(ids.length, o.titles, o.requestedBys)
+  if (!meta) {
+    return null
+  }
+
+  return {
+    ids,
+    currentIndex: o.currentIndex,
+    titles: meta.titles,
+    requestedBys: meta.requestedBys,
+  }
 }
 
 /**
@@ -106,6 +208,8 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       type: 'queue_snapshot',
       ids: snap.ids,
       currentIndex: snap.currentIndex,
+      titles: snap.titles,
+      requestedBys: snap.requestedBys,
     }
   }
   if (o.type === 'enqueue_request') {
@@ -116,7 +220,21 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     if (!isPlausibleYoutubeVideoId(videoId)) {
       return null
     }
-    return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'enqueue_request', videoId }
+    const title = parseNullableTitle(o.title)
+    if (title === 'invalid') {
+      return null
+    }
+    const requestedBy = parseNullableRequestedBy(o.requestedBy)
+    if (requestedBy === 'invalid') {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId,
+      title,
+      requestedBy,
+    }
   }
   if (o.type === 'enqueue_rejected') {
     if (typeof o.reason !== 'string' || o.reason.length > 500) {
@@ -140,5 +258,7 @@ export function queueSnapshotToMessage(snapshot: HostVideoQueueSnapshot): PartyM
     type: 'queue_snapshot',
     ids: [...snapshot.ids],
     currentIndex: snapshot.currentIndex,
+    titles: [...snapshot.titles],
+    requestedBys: [...snapshot.requestedBys],
   }
 }

@@ -7,8 +7,14 @@ import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
 import GuestShell from '@/components/GuestShell.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
+import {
+  readGuestDisplayName,
+  saveGuestDisplayName,
+  validateGuestDisplayName,
+} from '@/lib/guest/guestDisplayName'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
 import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
+import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
 
 const route = useRoute()
 const sessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
@@ -24,25 +30,50 @@ const {
   canRequestEnqueue,
 } = useGuestPartyHandshake(sessionId)
 
+const guestNameDialog = ref<HTMLDialogElement | null>(null)
+const guestNameInput = ref('')
+const guestNameError = ref<string | null>(null)
+
 const addSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongTriggerRef = ref<HTMLButtonElement | null>(null)
 const addSongStep = ref<1 | 2>(1)
 const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
-
-const nowPlayingId = computed(() => {
-  const s = queueSnapshot.value
-  if (!s || s.ids.length === 0 || s.currentIndex === null) {
-    return null
-  }
-  return s.ids[s.currentIndex] ?? null
-})
+const isEnqueueSubmitting = ref(false)
 
 function youtubeWatchUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
 }
 
+function queueRowTitle(index: number): string {
+  const s = queueSnapshot.value
+  if (!s) {
+    return 'Unknown title'
+  }
+  const t = s.titles[index]
+  return t ?? 'Unknown title'
+}
+
+function queueRowRequester(index: number): string | null {
+  const s = queueSnapshot.value
+  if (!s) {
+    return null
+  }
+  return s.requestedBys[index] ?? null
+}
+
 function openAddSongModal() {
+  if (!readGuestDisplayName()) {
+    guestNameInput.value = ''
+    guestNameError.value = null
+    guestNameDialog.value?.showModal()
+    void nextTick(() => document.getElementById('guest-display-name-input')?.focus())
+    return
+  }
+  openAddSongModalAfterName()
+}
+
+function openAddSongModalAfterName() {
   addSongStep.value = 1
   pasteInput.value = ''
   pasteValidationError.value = null
@@ -51,6 +82,30 @@ function openAddSongModal() {
     const root = addSongDialog.value
     root?.querySelector<HTMLElement>('button, [href]')?.focus()
   })
+}
+
+function submitGuestName() {
+  guestNameError.value = null
+  const v = validateGuestDisplayName(guestNameInput.value)
+  if (!v) {
+    guestNameError.value = 'Enter a name (1–64 characters).'
+    return
+  }
+  if (!saveGuestDisplayName(v)) {
+    guestNameError.value = 'Could not save. Check browser storage settings.'
+    return
+  }
+  guestNameDialog.value?.close()
+  openAddSongModalAfterName()
+}
+
+function closeGuestNameModal() {
+  guestNameDialog.value?.close()
+}
+
+function onGuestNameDialogClose() {
+  guestNameInput.value = ''
+  guestNameError.value = null
 }
 
 function closeAddSongModal() {
@@ -77,15 +132,29 @@ function continueFromStep1() {
   goToPasteStep()
 }
 
-function submitPasteEnqueue() {
+async function submitPasteEnqueue() {
   pasteValidationError.value = null
+  const guestName = readGuestDisplayName()
+  if (!guestName) {
+    pasteValidationError.value = 'Set your display name before adding a song.'
+    return
+  }
   const id = extractYoutubeVideoId(pasteInput.value)
   if (!id) {
     pasteValidationError.value = "That doesn't look like a valid YouTube link."
     return
   }
-  requestEnqueue(id)
-  closeAddSongModal()
+  if (isEnqueueSubmitting.value) {
+    return
+  }
+  isEnqueueSubmitting.value = true
+  try {
+    const title = await fetchYoutubeVideoTitle(id)
+    requestEnqueue(id, title, guestName)
+    closeAddSongModal()
+  } finally {
+    isEnqueueSubmitting.value = false
+  }
 }
 </script>
 
@@ -162,14 +231,17 @@ function submitPasteEnqueue() {
                 <div class="flex items-start gap-2">
                   <span class="w-5 shrink-0 pt-0.5 text-right text-[13px] tabular-nums leading-5 text-[#8E8E93] select-none">{{ index + 1 }}</span>
                   <div class="min-w-0 flex-1">
-                    <p class="break-words text-[17px] font-normal leading-[1.25] tracking-[-0.01em] text-black">
-                      {{ rowId }}
+                    <p class="truncate text-[17px] font-normal leading-[1.25] tracking-[-0.01em] text-black">
+                      {{ queueRowTitle(index) }}
                     </p>
                     <p
-                      v-if="index === queueSnapshot?.currentIndex && nowPlayingId"
-                      class="mt-0.5 text-[13px] leading-4 text-[#8E8E93]"
+                      v-if="queueRowRequester(index)"
+                      class="mt-0.5 truncate text-[13px] leading-4 text-[#8E8E93]"
                     >
-                      Title unavailable
+                      Requested by {{ queueRowRequester(index) }}
+                    </p>
+                    <p class="mt-0.5 truncate font-mono text-[11px] leading-4 text-[#C7C7CC]">
+                      {{ rowId }}
                     </p>
                   </div>
                 </div>
@@ -207,6 +279,60 @@ function submitPasteEnqueue() {
         </div>
       </div>
     </div>
+
+    <dialog
+      ref="guestNameDialog"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      aria-labelledby="guest-name-title"
+      aria-modal="true"
+      @close="onGuestNameDialogClose"
+    >
+      <div
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+      >
+        <h2 id="guest-name-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black">
+          Your name
+        </h2>
+        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
+          <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+            The host will see this label when you request songs.
+          </p>
+          <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
+            <label for="guest-display-name-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
+              Display name
+            </label>
+            <input
+              id="guest-display-name-input"
+              v-model="guestNameInput"
+              type="text"
+              autocomplete="name"
+              maxlength="64"
+              class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+              @keydown.enter.prevent="submitGuestName"
+            />
+            <p v-if="guestNameError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status">
+              {{ guestNameError }}
+            </p>
+          </div>
+          <div class="border-t border-[#C6C6C8]">
+            <button
+              type="button"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30]"
+              @click="submitGuestName"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          @click="closeGuestNameModal"
+        >
+          Cancel
+        </button>
+      </div>
+    </dialog>
 
     <dialog
       ref="addSongDialog"
@@ -262,7 +388,7 @@ function submitPasteEnqueue() {
                 autocomplete="off"
                 maxlength="2048"
                 class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
-                :disabled="!canRequestEnqueue"
+                :disabled="!canRequestEnqueue || isEnqueueSubmitting"
                 @keydown.enter.prevent="submitPasteEnqueue"
               />
               <p v-if="pasteValidationError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status" aria-live="polite">
@@ -273,10 +399,10 @@ function submitPasteEnqueue() {
               <button
                 type="button"
                 class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white"
-                :disabled="!canRequestEnqueue || !pasteInput.trim()"
+                :disabled="!canRequestEnqueue || !pasteInput.trim() || isEnqueueSubmitting"
                 @click="submitPasteEnqueue"
               >
-                Enqueue
+                {{ isEnqueueSubmitting ? '…' : 'Enqueue' }}
               </button>
             </div>
           </div>

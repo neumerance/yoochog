@@ -172,7 +172,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
 
   const statusLabel = computed(() => handshakeStatusLabel(status.value))
 
-  function requestEnqueue(videoId: string) {
+  function requestEnqueue(videoId: string, title: string | null, requestedBy: string | null) {
     const trimmed = videoId.trim()
     if (!sendPartyRaw) {
       return
@@ -181,6 +181,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'enqueue_request',
       videoId: trimmed,
+      title,
+      requestedBy,
     })
     sendPartyRaw(raw)
   }
