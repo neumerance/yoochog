@@ -2,6 +2,9 @@
 import { computed, nextTick, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
+
+import GuestShell from '@/components/GuestShell.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
@@ -79,115 +82,154 @@ function submitPasteEnqueue() {
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10">
-    <div>
-      <h1 class="mb-2 text-2xl font-bold text-slate-900">Join</h1>
-      <p class="text-slate-600">
-        Session:
-        <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm text-slate-800">{{ sessionId }}</code>
-      </p>
+  <GuestShell
+    class="gap-5 bg-[#F2F2F7] pb-8 text-[17px] leading-[1.29] antialiased [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',sans-serif] min-h-[100dvh]"
+  >
+    <header class="flex justify-center pb-2 pt-1">
+      <img
+        :src="logoUrl"
+        alt="Yoochog"
+        class="h-14 w-auto max-w-[min(100%,16rem)] object-contain object-center"
+        decoding="async"
+      />
+    </header>
+
+    <!-- Grouped “cell”: connection status -->
+    <div
+      class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+      aria-live="polite"
+    >
+      <div class="px-4 py-3 text-[15px] leading-snug text-[#3C3C43]">
+        <HandshakeStatusStrip
+          :status="handshakeStatus"
+          :status-label="statusLabel"
+          :error="handshakeError"
+          :is-signaling-configured="isSignalingConfigured"
+        />
+      </div>
     </div>
 
     <div
-      class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800"
-      aria-live="polite"
+      v-if="lastEnqueueError"
+      class="rounded-[10px] border border-[#FFD2CC] bg-[#FFF4F2] px-4 py-3 text-[15px] leading-snug text-[#C93400]"
+      role="status"
     >
-      <HandshakeStatusStrip
-        :status="handshakeStatus"
-        :status-label="statusLabel"
-        :error="handshakeError"
-        :is-signaling-configured="isSignalingConfigured"
-      />
-    </div>
-
-    <div v-if="lastEnqueueError" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
       {{ lastEnqueueError }}
     </div>
 
-    <div class="flex flex-col gap-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="space-y-2">
-        <h2 class="text-sm font-bold uppercase tracking-wide text-black">Now playing</h2>
-        <p v-if="nowPlayingId" class="break-all font-mono text-xl font-bold leading-tight text-slate-900">
-          {{ nowPlayingId }}
-        </p>
-        <p v-else class="text-xl font-semibold text-slate-400">Nothing queued</p>
-        <p v-if="nowPlayingId" class="text-base font-medium text-slate-600">Title unavailable</p>
-      </div>
-
-      <ol
-        class="flex max-h-[40vh] flex-col divide-y divide-slate-200 overflow-y-auto rounded border border-slate-100"
-        aria-label="Playback queue"
+    <div>
+      <h2 class="px-1 pb-1 pt-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72]">
+        Queue
+      </h2>
+      <div
+        class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
       >
-        <li
-          v-for="(rowId, index) in queueSnapshot?.ids ?? []"
-          :key="`${index}-${rowId}`"
-          :aria-current="index === queueSnapshot?.currentIndex ? 'true' : undefined"
-          class="flex flex-col gap-2 px-3 py-3 text-base leading-snug sm:flex-row sm:items-start sm:justify-between sm:gap-3"
-          :class="
-            index === queueSnapshot?.currentIndex
-              ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
-              : 'text-slate-700'
-          "
+        <div
+          v-if="!(queueSnapshot?.ids?.length)"
+          class="px-4 py-2.5"
         >
-          <span class="min-w-0 break-all font-mono">
-            <span class="mr-2 tabular-nums text-slate-400 select-none">{{ index + 1 }}.</span>
-            {{ rowId }}
-          </span>
-          <div class="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-            <a
-              class="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 underline-offset-2 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
-              :href="youtubeWatchUrl(rowId)"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open on YouTube
-            </a>
-            <span
-              v-if="index === queueSnapshot?.currentIndex"
-              class="inline-flex rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white"
-            >
-              Playing
-            </span>
-          </div>
-        </li>
-      </ol>
+          <p class="text-[17px] leading-snug text-[#C7C7CC]">
+            Nothing queued
+          </p>
+        </div>
 
-      <div class="border-t border-slate-200 pt-4">
-        <button
-          ref="addSongTriggerRef"
-          type="button"
-          class="min-h-11 w-full rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
-          :disabled="!canRequestEnqueue"
-          @click="openAddSongModal"
+        <ol
+          v-else
+          class="flex max-h-[min(38vh,20rem)] flex-col overflow-y-auto overscroll-contain"
+          aria-label="Playback queue"
         >
-          Add my song
-        </button>
+          <li
+            v-for="(rowId, index) in queueSnapshot?.ids ?? []"
+            :key="`${index}-${rowId}`"
+            :aria-current="index === queueSnapshot?.currentIndex ? 'true' : undefined"
+            class="flex min-h-[44px] border-b border-[#C6C6C8] px-4 py-2 last:border-b-0"
+            :class="
+              index === queueSnapshot?.currentIndex
+                ? 'bg-[rgba(255,59,48,0.08)]'
+                : 'bg-white'
+            "
+          >
+            <div class="flex w-full min-w-0 items-start gap-2">
+              <div class="min-w-0 flex-1 pt-0.5">
+                <div class="flex items-start gap-2">
+                  <span class="w-5 shrink-0 pt-0.5 text-right text-[13px] tabular-nums leading-5 text-[#8E8E93] select-none">{{ index + 1 }}</span>
+                  <div class="min-w-0 flex-1">
+                    <p class="break-words text-[17px] font-normal leading-[1.25] tracking-[-0.01em] text-black">
+                      {{ rowId }}
+                    </p>
+                    <p
+                      v-if="index === queueSnapshot?.currentIndex && nowPlayingId"
+                      class="mt-0.5 text-[13px] leading-4 text-[#8E8E93]"
+                    >
+                      Title unavailable
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-2 pt-0.5">
+                <span
+                  v-if="index === queueSnapshot?.currentIndex"
+                  class="inline-flex items-center rounded-full bg-[#FF3B30] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                >
+                  Playing
+                </span>
+                <a
+                  class="text-[15px] font-normal leading-5 text-[#007AFF] hover:opacity-80 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#007AFF]"
+                  :href="youtubeWatchUrl(rowId)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  YouTube
+                </a>
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <div class="border-t border-[#C6C6C8] bg-[#FAFAFA] p-3">
+          <button
+            ref="addSongTriggerRef"
+            type="button"
+            class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-[#FF3B30] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:bg-[#C7C7CC] disabled:active:scale-100"
+            :disabled="!canRequestEnqueue"
+            @click="openAddSongModal"
+          >
+            Add my song
+          </button>
+        </div>
       </div>
     </div>
 
     <dialog
       ref="addSongDialog"
-      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-black/50"
+      class="w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-[14px] border-0 bg-[#F2F2F7] p-0 text-black shadow-2xl backdrop:bg-black/45"
       aria-labelledby="guest-add-song-title"
       aria-modal="true"
       @close="onAddSongDialogClose"
     >
-      <div class="flex max-h-[min(90vh,32rem)] flex-col gap-4 p-4 sm:p-6">
-        <h2 id="guest-add-song-title" class="text-lg font-bold text-slate-900">
+      <div
+        class="flex max-h-[min(90vh,32rem)] flex-col gap-4 px-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:px-6 sm:pt-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
+      >
+        <h2 id="guest-add-song-title" class="text-center text-[17px] font-semibold leading-snug text-black">
           Add my song
         </h2>
 
-        <div v-if="addSongStep === 1" class="flex flex-col gap-4">
-          <p id="guest-add-song-step1" class="text-base text-slate-700">
-            Find a video in the YouTube app or site, tap
-            <span class="font-semibold">Share</span>
-            , then
-            <span class="font-semibold">Copy link</span>
-            . When you’re ready, continue and paste that link here.
-          </p>
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div
+          v-if="addSongStep === 1"
+          class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15)]"
+        >
+          <div class="px-4 py-4">
+            <p id="guest-add-song-step1" class="text-[15px] leading-relaxed text-[#3C3C43]">
+              Find a video in the YouTube app or site, tap
+              <span class="font-semibold text-black">Share</span>
+              , then
+              <span class="font-semibold text-black">Copy link</span>
+              . When you’re ready, continue and paste that link here.
+            </p>
+          </div>
+          <div class="flex flex-col gap-px bg-[#C6C6C8] p-0">
             <a
-              class="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-base font-semibold text-slate-900 underline-offset-2 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+              class="flex min-h-[44px] items-center justify-center bg-white px-4 text-center text-[17px] font-normal text-[#007AFF] active:bg-[#E5E5EA]"
               href="https://www.youtube.com"
               target="_blank"
               rel="noopener noreferrer"
@@ -196,7 +238,7 @@ function submitPasteEnqueue() {
             </a>
             <button
               type="button"
-              class="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold text-[#FF3B30] active:bg-[#E5E5EA]"
               @click="goToPasteStep"
             >
               Continue
@@ -204,30 +246,32 @@ function submitPasteEnqueue() {
           </div>
         </div>
 
-        <div v-else class="flex flex-col gap-3" aria-describedby="guest-add-song-step2-hint">
-          <p id="guest-add-song-step2-hint" class="text-base text-slate-700">
-            Paste the link you copied from YouTube (Share → Copy link).
-          </p>
-          <label for="guest-add-song-paste" class="text-sm font-semibold text-slate-800">
-            YouTube link
-          </label>
-          <input
-            id="guest-add-song-paste"
-            v-model="pasteInput"
-            type="text"
-            inputmode="url"
-            autocomplete="off"
-            maxlength="2048"
-            class="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
-            :disabled="!canRequestEnqueue"
-            @keydown.enter.prevent="submitPasteEnqueue"
-          />
-          <p v-if="pasteValidationError" class="text-sm text-red-700" role="status" aria-live="polite">
-            {{ pasteValidationError }}
-          </p>
+        <div v-else class="flex flex-col gap-4" aria-describedby="guest-add-song-step2-hint">
+          <div class="overflow-hidden rounded-[10px] bg-white px-4 py-4 shadow-[0_0.5px_0_rgba(0,0,0,0.15)]">
+            <p id="guest-add-song-step2-hint" class="text-[15px] leading-relaxed text-[#3C3C43]">
+              Paste the link you copied from YouTube (Share → Copy link).
+            </p>
+            <label for="guest-add-song-paste" class="mt-4 block text-[13px] font-semibold uppercase tracking-wide text-[#6D6D72]">
+              YouTube link
+            </label>
+            <input
+              id="guest-add-song-paste"
+              v-model="pasteInput"
+              type="text"
+              inputmode="url"
+              autocomplete="off"
+              maxlength="2048"
+              class="mt-2 min-h-[44px] w-full rounded-[10px] border border-[#C6C6C8] bg-white px-3 text-[17px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25"
+              :disabled="!canRequestEnqueue"
+              @keydown.enter.prevent="submitPasteEnqueue"
+            />
+            <p v-if="pasteValidationError" class="mt-2 text-[15px] text-[#FF3B30]" role="status" aria-live="polite">
+              {{ pasteValidationError }}
+            </p>
+          </div>
           <button
             type="button"
-            class="min-h-11 w-full rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+            class="flex min-h-[50px] w-full items-center justify-center rounded-[12px] bg-[#FF3B30] px-4 text-[17px] font-semibold text-white shadow-sm transition-colors active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:bg-[#C7C7CC]"
             :disabled="!canRequestEnqueue || !pasteInput.trim()"
             @click="submitPasteEnqueue"
           >
@@ -235,10 +279,10 @@ function submitPasteEnqueue() {
           </button>
         </div>
 
-        <div class="flex justify-end border-t border-slate-100 pt-2">
+        <div class="flex justify-center border-t border-[#C6C6C8] pt-2">
           <button
             type="button"
-            class="min-h-10 rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+            class="min-h-[44px] w-full rounded-[10px] px-4 text-[17px] font-semibold text-[#007AFF] hover:bg-white/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
             @click="closeAddSongModal"
           >
             Cancel
@@ -246,5 +290,5 @@ function submitPasteEnqueue() {
         </div>
       </div>
     </dialog>
-  </section>
+  </GuestShell>
 </template>
