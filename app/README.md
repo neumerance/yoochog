@@ -4,7 +4,7 @@ Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 
 
 ## GitHub Pages (project site)
 
-CI deploys the production build from `master`; see the root doc **[docs/github-pages.md](../docs/github-pages.md)** for the workflow, one-time GitHub settings, and permissions.
+CI deploys the production build from `master` when **GitHub Actions** is available. If Actions is blocked, run **`npm run deploy:gh-pages`** from this directory (after **`npm install`**) to push **`dist/`** to the **`gh-pages`** branch; then set the repo’s **Pages** source to that branch. Details: **[docs/github-pages.md](../docs/github-pages.md)**.
 
 - Production **`npm run build`** also emits **`dist/404.html`** (a copy of `index.html`) so GitHub Pages serves the Vue app shell for deep links and refreshes. See **Deep links / SPA routing** in that doc for behavior and tradeoffs versus hash-based routing.
 

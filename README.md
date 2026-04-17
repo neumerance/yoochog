@@ -37,7 +37,7 @@ Example public URL (project site):
 
 **https://neumerance.github.io/yoochog/**
 
-For the workflow, one-time GitHub **Settings** (Pages source, permissions), and how SPA routing / `404.html` work on Pages, see **[`docs/github-pages.md`](docs/github-pages.md)**.
+For the workflow, one-time GitHub **Settings** (Pages source, permissions), and how SPA routing / `404.html` work on Pages, see **[`docs/github-pages.md`](docs/github-pages.md)**. Use **GitHub Actions** when available; if Actions is blocked, build locally and run **`npm run deploy:gh-pages`** from **`app/`**, then set Pages to **Deploy from branch `gh-pages` / `(root)`** (see that doc).
 
 ### Join URL (guests)
 

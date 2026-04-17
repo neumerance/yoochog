@@ -8,6 +8,7 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build && node scripts/copy-github-pages-404.mjs",
+    "deploy:gh-pages": "npm run build && gh-pages -d dist",
     "type-check": "vue-tsc --build",
     "test": "vitest run"
   },
@@ -31,7 +32,8 @@
     "vite": "^8.0.3",
     "vite-plugin-vue-devtools": "^8.1.1",
     "vitest": "^3.2.4",
-    "vue-tsc": "^3.2.6"
+    "vue-tsc": "^3.2.6",
+    "gh-pages": "^6.3.0"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

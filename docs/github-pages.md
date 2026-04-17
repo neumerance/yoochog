@@ -14,21 +14,41 @@ On every **push to `master`** (the current default branch), or when the workflow
 4. Upload `app/dist` as the **GitHub Pages** deployment artifact.
 5. Deploy that artifact with GitHub’s official **`actions/deploy-pages`** job.
 
-No long-lived `gh-pages` branch is used for build output.
+If **GitHub Actions** is unavailable (e.g. billing), publish the same **`app/dist`** output using a dedicated **`gh-pages`** branch and **Deploy from a branch** (see [below](#deploy-without-github-actions-gh-pages-branch)).
 
-**GitHub Actions availability:** Runs require Actions to be enabled and the owning **user or organization billing account** to be in good standing. If a run fails immediately with an annotation such as *account is locked due to a billing issue*, fix billing under GitHub **Settings → Billing** (user or org) before expecting green deploys.
+**GitHub Actions availability:** Runs require Actions to be enabled and the owning **user or organization billing account** to be in good standing. If a run fails immediately with an annotation such as *account is locked due to a billing issue*, use the **`gh-pages`** branch flow below or fix billing under GitHub **Settings → Billing** (user or org).
 
-## Why artifact + official deploy (not `gh-pages` branch)
+## Ways to publish
 
-| Approach | Notes |
-|----------|--------|
-| **Artifact + `deploy-pages` (this repo)** | Build output is produced in CI, uploaded as a Pages artifact, and published by GitHub. Keeps the default branch free of generated assets; matches GitHub’s recommended path for **custom build steps**. |
-| **`gh-pages` branch** | Can work for static dumps, but duplicates generated files in git history and is easy to desync from `master`. |
+| Approach | When to use |
+|----------|-------------|
+| **GitHub Actions** + `deploy-pages` | Default: CI builds **`app/`** and publishes **`app/dist`** as a Pages artifact. No generated assets on `master`. |
+| **`gh-pages` branch** (`npm run deploy:gh-pages`) | Actions blocked or disabled: build locally; the script pushes **`dist/` contents to the root** of remote branch **`gh-pages`**. In **Pages**, choose **Deploy from a branch** → **`gh-pages`** → **`/ (root)`**. |
+
+GitHub’s branch UI only offers **`/(root)`** or **`/docs`** on the chosen branch. It **cannot** target **`app/dist`**. This repo’s root [`docs/`](../docs/) folder is **ADR / markdown**, not the Vue build—do **not** point Pages at **`/docs`** for the app. Use **Actions**, or a **`gh-pages`** branch whose **root** is the static site.
+
+## Deploy without GitHub Actions (gh-pages branch)
+
+1. **Configure the production build** — Copy [`app/.env.example`](../app/.env.example) to **`app/.env.local`** and set **`VITE_*`** (same as any local production build; values are inlined into the bundle).
+
+2. **Publish the `gh-pages` branch** — From **`app/`**:
+
+   ```bash
+   npm run deploy:gh-pages
+   ```
+
+   This runs **`npm run build`** (including `404.html` for SPA fallback), then uses the [`gh-pages`](https://github.com/tschaub/gh-pages) CLI to commit the contents of **`app/dist/`** at the **root** of branch **`gh-pages`** and **`git push`** to **`origin`**. You need push access to the repository.
+
+3. **Point GitHub Pages at that branch** — **Settings** → **Pages** → **Build and deployment** → **Source:** **Deploy from a branch** → Branch **`gh-pages`**, folder **`/ (root)`** → **Save**.
+
+The build copies [`app/public/.nojekyll`](../app/public/.nojekyll) into **`dist/`** so GitHub Pages does not run Jekyll over the static files.
 
 ## One-time repository settings
 
-1. **Pages source:** GitHub → **Settings** → **Pages** → **Build and deployment** → **Source:** **GitHub Actions**.  
-   (If this is not set, the workflow’s deploy job will not publish a site.)
+1. **Pages source — pick one:**
+
+   - **GitHub Actions** — **Settings** → **Pages** → **Source:** **GitHub Actions**. Required for the [workflow](#what-runs-in-ci) to publish.  
+   - **Deploy from a branch** — Use only with branch **`gh-pages`** and **`/ (root)`** after running **`npm run deploy:gh-pages`** (see above). Do **not** select a random feature branch that still has the full monorepo layout.
 
 2. **Workflow permissions:** This workflow sets top-level `permissions` for the `GITHUB_TOKEN`:
 
