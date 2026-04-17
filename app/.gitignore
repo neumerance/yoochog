@@ -9,7 +9,8 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
-dist
+# Vite production build output (never commit; CI and local `npm run build` produce this)
+dist/
 dist-ssr
 coverage
 
