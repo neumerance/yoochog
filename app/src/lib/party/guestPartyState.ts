@@ -33,6 +33,8 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
       }
     case 'enqueue_request':
       return prev
+    case 'end_current_playback_request':
+      return prev
     case 'heartbeat':
       return prev
   }

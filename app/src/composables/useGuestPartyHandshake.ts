@@ -4,7 +4,11 @@ import type { Ref } from 'vue'
 import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
 import { loadGuestQueueSnapshot, saveGuestQueueSnapshot } from '@/lib/party/guestQueuePersistence'
 import { applyGuestPartyMessage } from '@/lib/party/guestPartyState'
-import { parsePartyMessage, PARTY_MESSAGE_SCHEMA_VERSION } from '@/lib/party/partyMessages'
+import {
+  parsePartyMessage,
+  PARTY_MESSAGE_SCHEMA_VERSION,
+  serializePartyMessage,
+} from '@/lib/party/partyMessages'
 import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import {
@@ -217,6 +221,19 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     sendPartyRaw(raw)
   }
 
+  function requestEndCurrentPlayback(requesterGuestId: string) {
+    if (!sendPartyRaw) {
+      return
+    }
+    sendPartyRaw(
+      serializePartyMessage({
+        v: PARTY_MESSAGE_SCHEMA_VERSION,
+        type: 'end_current_playback_request',
+        requesterGuestId,
+      }),
+    )
+  }
+
   return {
     status,
     error,
@@ -225,6 +242,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     queueSnapshot,
     lastEnqueueError,
     requestEnqueue,
+    requestEndCurrentPlayback,
     canRequestEnqueue: computed(() => status.value === 'connected'),
   }
 }

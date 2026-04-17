@@ -29,10 +29,9 @@ export interface UseYoutubePlayerOptions {
    */
   autoplay?: MaybeRefOrGetter<boolean>
   /**
-   * After a one-time user gesture (e.g. tap “Sound on”), set this to true. The composable will
-   * call `unMute()` and apply `sessionVolume` on ready and whenever playback enters PLAYING, so
-   * queue changes (`loadVideoById`) stay audible without using the player chrome.
-   * Browsers still require that first gesture before sound can play; there is no way around that.
+   * After a user gesture (e.g. “Start Singing”), set this to true. The composable calls
+   * `unMute()` and applies `sessionVolume` on ready and when playback enters PLAYING.
+   * When false, the player is kept **muted** (including after `loadVideoById`).
    */
   audioSessionUnlocked?: MaybeRefOrGetter<boolean>
   /** 0–100, applied when `audioSessionUnlocked` is true. Default 100. */
@@ -68,6 +67,11 @@ export function useYoutubePlayer(
 
   const applySessionAudio = (p: YT.Player) => {
     if (!toValue(options.audioSessionUnlocked)) {
+      try {
+        p.mute()
+      } catch {
+        // Player may be torn down mid-call.
+      }
       return
     }
     const raw = toValue(options.sessionVolume ?? 100)
@@ -127,6 +131,8 @@ export function useYoutubePlayer(
         player.value.loadVideoById({ videoId: id })
         if (toValue(options.audioSessionUnlocked)) {
           player.value.playVideo()
+        } else {
+          player.value.mute()
         }
       } catch {
         // Player may be torn down mid-call.
