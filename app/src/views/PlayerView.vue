@@ -1,6 +1,24 @@
 <template>
   <div class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden px-2 py-1 sm:px-3">
     <div
+      v-if="showMigrationNotice"
+      class="mb-2 shrink-0 rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-base leading-relaxed text-amber-950"
+      role="status"
+    >
+      <p class="mb-4">
+        Guest access has moved to
+        <strong>Join</strong>
+        links (<code class="rounded bg-amber-100 px-1 py-0.5 text-sm">/join/…</code>).
+      </p>
+      <button
+        type="button"
+        class="inline-flex min-h-11 min-w-[8rem] items-center justify-center rounded-md border border-amber-300 bg-amber-100/80 px-4 text-base font-semibold text-amber-950 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+        @click="dismissMigrationNotice"
+      >
+        Dismiss
+      </button>
+    </div>
+    <div
       class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,25vw)] lg:gap-3"
     >
       <section
@@ -115,6 +133,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
@@ -127,6 +146,26 @@ import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersistence'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
+
+const route = useRoute()
+const router = useRouter()
+const showMigrationNotice = ref(route.query.migrated === 'client')
+
+watch(
+  () => route.query.migrated,
+  (migrated) => {
+    if (migrated === 'client') {
+      showMigrationNotice.value = true
+    }
+  },
+)
+
+function dismissMigrationNotice() {
+  showMigrationNotice.value = false
+  if (route.query.migrated === 'client') {
+    router.replace({ path: '/', query: {} })
+  }
+}
 
 const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
 
