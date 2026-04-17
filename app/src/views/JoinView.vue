@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
@@ -29,9 +29,12 @@ const {
   error: handshakeError,
   isSignalingConfigured,
   queueSnapshot,
+  sessionAdminPeerId,
+  localPartyPeerId,
   lastEnqueueError,
   requestEnqueue,
   requestEndCurrentPlayback,
+  requestRemoveRow,
   canRequestEnqueue,
 } = useGuestPartyHandshake(sessionId)
 
@@ -90,8 +93,70 @@ function isMyQueueRow(index: number): boolean {
   return s.requesterGuestIds[index] === mine
 }
 
-/** True when this guest owns the now-playing row (non-null owner); used for “end” affordance. */
+/** First party peer (from host snapshot); used for admin-only actions. */
+const isSessionAdmin = computed(() => {
+  const admin = sessionAdminPeerId.value
+  const peer = localPartyPeerId.value
+  return admin !== null && peer !== null && admin === peer
+})
+
+/** Saved display name (re-read after save / when connecting). */
+const guestDisplayName = ref<string | null>(null)
+
+function refreshGuestDisplayName() {
+  guestDisplayName.value = readGuestDisplayName()
+}
+
+const guestDisplayNameLabel = computed(() => {
+  const n = guestDisplayName.value?.trim()
+  return n && n.length > 0 ? n : 'Guest'
+})
+
+const guestAvatarInitials = computed(() => {
+  const n = guestDisplayName.value?.trim()
+  if (!n) {
+    return 'G'
+  }
+  const parts = n.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    const a = parts[0]![0]
+    const b = parts[1]![0]
+    if (a && b) {
+      return (a + b).toUpperCase()
+    }
+  }
+  return n.slice(0, 2).toUpperCase()
+})
+
+watch(handshakeStatus, (s) => {
+  if (s === 'connected') {
+    refreshGuestDisplayName()
+  }
+})
+
+/**
+ * Stop current track: **session admin** (any now-playing row) **or** **owner** of that row only.
+ * Host: `resolveSessionAdminEndPlaybackRequest`.
+ */
 const canShowEndNowPlaying = computed(() => {
+  if (!canRequestEnqueue.value) {
+    return false
+  }
+  const s = queueSnapshot.value
+  if (!s || s.currentIndex === null || s.ids.length === 0) {
+    return false
+  }
+  if (isSessionAdmin.value) {
+    return true
+  }
+  return isMyQueueRow(s.currentIndex)
+})
+
+/**
+ * Remove a future (non-current) row: **session admin** (any row) **or** **owner** of that row.
+ * Now-playing row uses “End for everyone” instead.
+ */
+function canShowRemoveQueueRow(index: number): boolean {
   if (!canRequestEnqueue.value) {
     return false
   }
@@ -99,8 +164,14 @@ const canShowEndNowPlaying = computed(() => {
   if (!s || s.currentIndex === null) {
     return false
   }
-  return isMyQueueRow(s.currentIndex)
-})
+  if (index === s.currentIndex) {
+    return false
+  }
+  if (isSessionAdmin.value) {
+    return true
+  }
+  return isMyQueueRow(index)
+}
 
 function openEndSongDialog() {
   endSongDialog.value?.showModal()
@@ -121,6 +192,14 @@ function confirmEndSong() {
   }
   requestEndCurrentPlayback(getOrCreatePartyGuestRequesterId(sid))
   closeEndSongDialog()
+}
+
+function onRemoveQueueRow(index: number) {
+  const sid = sessionId.value
+  if (!sid) {
+    return
+  }
+  requestRemoveRow(index, getOrCreatePartyGuestRequesterId(sid))
 }
 
 function onAddSongBarTap() {
@@ -167,6 +246,7 @@ function submitGuestName() {
     guestNameError.value = 'Could not save. Check browser storage settings.'
     return
   }
+  refreshGuestDisplayName()
   guestNameDialog.value?.close()
   openAddSongModalAfterName()
 }
@@ -232,6 +312,7 @@ async function submitPasteEnqueue() {
 }
 
 onMounted(() => {
+  refreshGuestDisplayName()
   if (!readPrivacyNoticeDismissed()) {
     void nextTick(() => privacyNoticeSheet.value?.open())
   }
@@ -252,18 +333,47 @@ onMounted(() => {
       />
     </header>
 
-    <!-- Grouped “cell”: connection status -->
+    <!-- Connection status + WebRTC (left); you / avatar / name (right when connected) -->
     <div
       class="shrink-0 overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
       aria-live="polite"
     >
-      <div class="px-4 py-3 text-[15px] leading-snug text-[#3C3C43]">
-        <HandshakeStatusStrip
-          :status="handshakeStatus"
-          :status-label="statusLabel"
-          :error="handshakeError"
-          :is-signaling-configured="isSignalingConfigured"
-        />
+      <div class="flex items-center gap-3 px-4 py-3">
+        <div class="min-w-0 flex-1 text-[15px] leading-snug text-[#3C3C43]">
+          <HandshakeStatusStrip
+            :status="handshakeStatus"
+            :status-label="statusLabel"
+            :error="handshakeError"
+            :is-signaling-configured="isSignalingConfigured"
+          />
+        </div>
+        <div
+          v-if="handshakeStatus === 'connected'"
+          class="flex min-w-0 shrink-0 items-center gap-2 border-l border-[#C6C6C8] pl-3"
+          role="region"
+          :aria-label="isSessionAdmin ? 'You are the session admin' : 'Your display name'"
+        >
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold leading-none text-white tabular-nums"
+            :class="
+              isSessionAdmin
+                ? 'bg-[#FF3B30] shadow-[0_1px_2px_rgba(255,59,48,0.35)] ring-2 ring-[#FF3B30]/20 ring-offset-1 ring-offset-white'
+                : 'bg-[#007AFF] shadow-[0_1px_2px_rgba(0,122,255,0.25)]'
+            "
+            aria-hidden="true"
+          >
+            {{ guestAvatarInitials }}
+          </div>
+          <div class="min-w-0 max-w-[11rem]">
+            <p class="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-black">
+              {{ guestDisplayNameLabel }}<span
+                v-if="isSessionAdmin"
+                class="font-medium text-[#6D6D72]"
+              >
+                — Admin</span>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -363,6 +473,14 @@ onMounted(() => {
                   >
                     <rect x="5" y="5" width="14" height="14" rx="1.5" fill="white" />
                   </svg>
+                </button>
+                <button
+                  v-if="canShowRemoveQueueRow(index)"
+                  type="button"
+                  class="shrink-0 rounded-lg px-2 py-1.5 text-[13px] font-semibold leading-tight text-[#FF3B30] transition-colors active:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30]"
+                  @click="onRemoveQueueRow(index)"
+                >
+                  Remove
                 </button>
                 <span
                   v-if="index === queueSnapshot?.currentIndex"

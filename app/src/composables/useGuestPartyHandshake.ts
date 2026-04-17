@@ -26,6 +26,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const status = ref<HandshakeUiState>('idle')
   const error = ref<string | null>(null)
   const queueSnapshot = ref<HostVideoQueueSnapshot | null>(null)
+  const sessionAdminPeerId = ref<string | null>(null)
+  const localPartyPeerId = ref<string | null>(null)
   const lastEnqueueError = ref<string | null>(null)
   let enqueueErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let sendPartyRaw: ((raw: string) => void) | null = null
@@ -112,6 +114,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       sendPartyRaw = null
       error.value = null
       queueSnapshot.value = id ? loadGuestQueueSnapshot(id) : null
+      sessionAdminPeerId.value = null
+      localPartyPeerId.value = null
       lastEnqueueError.value = null
 
       if (id !== prevSessionId.value) {
@@ -159,10 +163,15 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
             return
           }
           const next = applyGuestPartyMessage(
-            { snapshot: queueSnapshot.value, lastEnqueueError: lastEnqueueError.value },
+            {
+              snapshot: queueSnapshot.value,
+              sessionAdminPeerId: sessionAdminPeerId.value,
+              lastEnqueueError: lastEnqueueError.value,
+            },
             msg,
           )
           queueSnapshot.value = next.snapshot
+          sessionAdminPeerId.value = next.sessionAdminPeerId
           lastEnqueueError.value = next.lastEnqueueError
           if (next.snapshot && sessionId.value) {
             saveGuestQueueSnapshot(sessionId.value, next.snapshot)
@@ -172,6 +181,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           scheduleReconnectFromLoss()
         },
       })
+      localPartyPeerId.value = r.localPartyPeerId
       sendPartyRaw = r.sendPartyRaw
       activeDispose = () => {
         ac.abort()
@@ -234,15 +244,32 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     )
   }
 
+  function requestRemoveRow(rowIndex: number, requesterGuestId: string) {
+    if (!sendPartyRaw) {
+      return
+    }
+    sendPartyRaw(
+      serializePartyMessage({
+        v: PARTY_MESSAGE_SCHEMA_VERSION,
+        type: 'remove_queue_row_request',
+        rowIndex,
+        requesterGuestId,
+      }),
+    )
+  }
+
   return {
     status,
     error,
     statusLabel,
     isSignalingConfigured: computed(() => hasSignaling),
     queueSnapshot,
+    sessionAdminPeerId,
+    localPartyPeerId,
     lastEnqueueError,
     requestEnqueue,
     requestEndCurrentPlayback,
+    requestRemoveRow,
     canRequestEnqueue: computed(() => status.value === 'connected'),
   }
 }

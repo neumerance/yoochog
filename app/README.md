@@ -116,6 +116,8 @@ Each **logical guest** may have **at most one** row in the queue at a time (incl
 
 **Queue list on the wire:** `queue_snapshot` in [ADR 0002](../docs/adr/0002-party-data-channel-wire-protocol-v1.md) lists **video ids in playback order** for the **current song and what is still up next** — not a log of finished tracks. The host trims consumed rows as playback moves; `currentIndex` is `0` on the first remaining row when the list is non-empty. Guests render the same compact snapshot after each broadcast (and normalize older cached snapshots on load when needed).
 
+**Session admin:** The first guest whose party data channel opens is **session admin** (next in join order when they disconnect). **Ending the current track** or **removing a non-playing row** is allowed for the session admin **or** the guest who requested that row (logical `requesterGuestId`). The host enforces this and includes `sessionAdminPeerId` on each `queue_snapshot`. See [ADR 0005](../docs/adr/0005-session-admin-party-v1.md).
+
 ### YouTube queue titles (optional)
 
 Guest enqueue can resolve **video titles** via the **YouTube Data API v3** (`videos.list`) using a **browser-restricted API key** in **`app/.env.local`**:

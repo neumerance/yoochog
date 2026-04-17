@@ -5,7 +5,7 @@ import { applyGuestPartyMessage } from './guestPartyState'
 describe('applyGuestPartyMessage', () => {
   it('updates snapshot on queue_snapshot', () => {
     const next = applyGuestPartyMessage(
-      { snapshot: null, lastEnqueueError: null },
+      { snapshot: null, sessionAdminPeerId: null, lastEnqueueError: null },
       {
         v: 1,
         type: 'queue_snapshot',
@@ -14,6 +14,7 @@ describe('applyGuestPartyMessage', () => {
         titles: ['Song'],
         requestedBys: ['Sam'],
         requesterGuestIds: ['g1'],
+        sessionAdminPeerId: 'admin-1',
       },
     )
     expect(next.snapshot?.ids).toEqual(['a'])
@@ -21,11 +22,12 @@ describe('applyGuestPartyMessage', () => {
     expect(next.snapshot?.requestedBys).toEqual(['Sam'])
     expect(next.snapshot?.requesterGuestIds).toEqual(['g1'])
     expect(next.snapshot?.currentIndex).toBe(0)
+    expect(next.sessionAdminPeerId).toBe('admin-1')
   })
 
   it('normalizes legacy queue_snapshot rows before current playhead', () => {
     const next = applyGuestPartyMessage(
-      { snapshot: null, lastEnqueueError: null },
+      { snapshot: null, sessionAdminPeerId: null, lastEnqueueError: null },
       {
         v: 1,
         type: 'queue_snapshot',
@@ -34,6 +36,7 @@ describe('applyGuestPartyMessage', () => {
         titles: ['A', 'B'],
         requestedBys: [null, null],
         requesterGuestIds: [null, null],
+        sessionAdminPeerId: null,
       },
     )
     expect(next.snapshot?.ids).toEqual(['bbbbbbbbbbb'])
@@ -50,6 +53,7 @@ describe('applyGuestPartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
+      sessionAdminPeerId: 'a' as string | null,
       lastEnqueueError: null as string | null,
     }
     const next = applyGuestPartyMessage(prev, {
@@ -59,6 +63,7 @@ describe('applyGuestPartyMessage', () => {
     })
     expect(next.lastEnqueueError).toBe('bad id')
     expect(next.snapshot).toEqual(prev.snapshot)
+    expect(next.sessionAdminPeerId).toBe('a')
   })
 
   it('leaves state unchanged on heartbeat', () => {
@@ -70,6 +75,7 @@ describe('applyGuestPartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
+      sessionAdminPeerId: null as string | null,
       lastEnqueueError: 'prior' as string | null,
     }
     const next = applyGuestPartyMessage(prev, {

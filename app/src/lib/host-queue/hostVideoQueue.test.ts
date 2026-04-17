@@ -223,4 +223,39 @@ describe('createHostVideoQueue', () => {
       expect(s1.ids).not.toBe(s2.ids)
     })
   })
+
+  describe('removeAt', () => {
+    it('rejects when empty or index out of range', () => {
+      const q = createHostVideoQueue()
+      expect(q.removeAt(0)).toBe(false)
+      q.append([row('a')])
+      expect(q.removeAt(1)).toBe(false)
+      expect(q.removeAt(-1)).toBe(false)
+    })
+
+    it('removes a non-current row without changing the playing id', () => {
+      const q = createHostVideoQueue()
+      q.append([row('a'), row('b'), row('c')])
+      expect(q.currentVideoId()).toBe('a')
+      expect(q.removeAt(2)).toBe(true)
+      expect(q.getSnapshot().ids).toEqual(['a', 'b'])
+      expect(q.currentVideoId()).toBe('a')
+    })
+
+    it('removes the current row and advances to the next when one exists', () => {
+      const q = createHostVideoQueue()
+      q.append([row('a'), row('b')])
+      expect(q.removeAt(0)).toBe(true)
+      expect(q.currentVideoId()).toBe('b')
+      expect(q.getSnapshot().ids).toEqual(['b'])
+    })
+
+    it('removes the only row and idles the queue', () => {
+      const q = createHostVideoQueue()
+      q.append([row('a')])
+      expect(q.removeAt(0)).toBe(true)
+      expect(q.isEmpty()).toBe(true)
+      expect(q.currentVideoId()).toBeUndefined()
+    })
+  })
 })

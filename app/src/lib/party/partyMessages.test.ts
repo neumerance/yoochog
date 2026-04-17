@@ -24,13 +24,31 @@ describe('isPlausibleYoutubeVideoId', () => {
 
 describe('parsePartyMessage', () => {
   it('round-trips queue_snapshot with metadata', () => {
-    const msg = queueSnapshotToMessage({
-      ids: ['a', 'b'],
-      titles: [null, 'T'],
-      requestedBys: ['x', null],
-      requesterGuestIds: ['g1', null],
-      currentIndex: 0,
-    })
+    const msg = queueSnapshotToMessage(
+      {
+        ids: ['a', 'b'],
+        titles: [null, 'T'],
+        requestedBys: ['x', null],
+        requesterGuestIds: ['g1', null],
+        currentIndex: 0,
+      },
+      null,
+    )
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('round-trips queue_snapshot with sessionAdminPeerId', () => {
+    const msg = queueSnapshotToMessage(
+      {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
+      },
+      '550e8400-e29b-41d4-a716-446655440000',
+    )
     const raw = serializePartyMessage(msg)
     expect(parsePartyMessage(raw)).toEqual(msg)
   })
@@ -50,6 +68,7 @@ describe('parsePartyMessage', () => {
       titles: [null],
       requestedBys: [null],
       requesterGuestIds: [null],
+      sessionAdminPeerId: null,
     })
   })
 
@@ -89,6 +108,7 @@ describe('parsePartyMessage', () => {
       expect(p.titles).toEqual([])
       expect(p.requestedBys).toEqual([])
       expect(p.requesterGuestIds).toEqual([])
+      expect(p.sessionAdminPeerId).toBeNull()
     }
   })
 
@@ -216,6 +236,40 @@ describe('parsePartyMessage', () => {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'end_current_playback_request',
       requesterGuestId: 'x'.repeat(PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH + 1),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips remove_queue_row_request', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'remove_queue_row_request' as const,
+      rowIndex: 2,
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('accepts remove_queue_row_request without requesterGuestId (normalized to null)', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'remove_queue_row_request',
+      rowIndex: 0,
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'remove_queue_row_request',
+      rowIndex: 0,
+      requesterGuestId: null,
+    })
+  })
+
+  it('rejects remove_queue_row_request with negative rowIndex', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'remove_queue_row_request',
+      rowIndex: -1,
     })
     expect(parsePartyMessage(raw)).toBeNull()
   })

@@ -24,6 +24,8 @@ export type PartyMessage =
       titles: (string | null)[]
       requestedBys: (string | null)[]
       requesterGuestIds: (string | null)[]
+      /** Signaling peer id of the session admin guest, or `null` when none (e.g. no guests). */
+      sessionAdminPeerId: string | null
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -36,6 +38,13 @@ export type PartyMessage =
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'end_current_playback_request'
+      requesterGuestId: string | null
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'remove_queue_row_request'
+      rowIndex: number
+      /** Logical guest id (same as enqueue); host matches `requesterGuestIds[rowIndex]`. */
       requesterGuestId: string | null
     }
   | {
@@ -176,11 +185,28 @@ function parseParallelMetadata(
   return { titles, requestedBys }
 }
 
+function parseNullableSessionAdminPeerId(value: unknown): string | null | 'invalid' {
+  if (value === undefined || value === null) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    return 'invalid'
+  }
+  const t = value.trim()
+  if (t.length === 0) {
+    return null
+  }
+  if (t.length > PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH) {
+    return 'invalid'
+  }
+  return t
+}
+
 function parseSnapshotPayload(
   v: unknown,
 ): Pick<
   PartyMessage & { type: 'queue_snapshot' },
-  'ids' | 'currentIndex' | 'titles' | 'requestedBys' | 'requesterGuestIds'
+  'ids' | 'currentIndex' | 'titles' | 'requestedBys' | 'requesterGuestIds' | 'sessionAdminPeerId'
 > | null {
   if (typeof v !== 'object' || v === null) {
     return null
@@ -200,9 +226,21 @@ function parseSnapshotPayload(
     return null
   }
   if (ids.length === 0) {
-    return o.currentIndex === null
-      ? { ids, currentIndex: null, titles: [], requestedBys: [], requesterGuestIds: [] }
-      : null
+    if (o.currentIndex !== null) {
+      return null
+    }
+    const sessionAdminPeerIdEmpty = parseNullableSessionAdminPeerId(o.sessionAdminPeerId)
+    if (sessionAdminPeerIdEmpty === 'invalid') {
+      return null
+    }
+    return {
+      ids,
+      currentIndex: null,
+      titles: [],
+      requestedBys: [],
+      requesterGuestIds: [],
+      sessionAdminPeerId: sessionAdminPeerIdEmpty,
+    }
   }
   if (o.currentIndex === null) {
     return null
@@ -224,12 +262,18 @@ function parseSnapshotPayload(
     return null
   }
 
+  const sessionAdminPeerId = parseNullableSessionAdminPeerId(o.sessionAdminPeerId)
+  if (sessionAdminPeerId === 'invalid') {
+    return null
+  }
+
   return {
     ids,
     currentIndex: o.currentIndex,
     titles: meta.titles,
     requestedBys: meta.requestedBys,
     requesterGuestIds,
+    sessionAdminPeerId,
   }
 }
 
@@ -267,6 +311,7 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       titles: snap.titles,
       requestedBys: snap.requestedBys,
       requesterGuestIds: snap.requesterGuestIds,
+      sessionAdminPeerId: snap.sessionAdminPeerId,
     }
   }
   if (o.type === 'enqueue_request') {
@@ -309,6 +354,21 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       requesterGuestId,
     }
   }
+  if (o.type === 'remove_queue_row_request') {
+    if (!isNonNegativeInteger(o.rowIndex)) {
+      return null
+    }
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid') {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'remove_queue_row_request',
+      rowIndex: o.rowIndex,
+      requesterGuestId,
+    }
+  }
   if (o.type === 'enqueue_rejected') {
     if (typeof o.reason !== 'string' || o.reason.length > 500) {
       return null
@@ -325,7 +385,10 @@ export function serializePartyMessage(msg: PartyMessage): string {
   return JSON.stringify(msg)
 }
 
-export function queueSnapshotToMessage(snapshot: HostVideoQueueSnapshot): PartyMessage {
+export function queueSnapshotToMessage(
+  snapshot: HostVideoQueueSnapshot,
+  sessionAdminPeerId: string | null = null,
+): PartyMessage {
   return {
     v: PARTY_MESSAGE_SCHEMA_VERSION,
     type: 'queue_snapshot',
@@ -334,5 +397,6 @@ export function queueSnapshotToMessage(snapshot: HostVideoQueueSnapshot): PartyM
     titles: [...snapshot.titles],
     requestedBys: [...snapshot.requestedBys],
     requesterGuestIds: [...snapshot.requesterGuestIds],
+    sessionAdminPeerId,
   }
 }
