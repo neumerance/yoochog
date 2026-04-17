@@ -110,6 +110,7 @@
           class="flex min-h-0 flex-1 flex-col p-[clamp(0.65rem,1.75cqi,1.25rem)] text-slate-700 text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)]"
         >
           <h2
+            v-if="activeVideoId"
             class="shrink-0 pb-[clamp(0.35rem,1cqi,0.75rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.9375rem,0.35rem+2.4cqi,1.875rem)]"
           >
             Now playing
