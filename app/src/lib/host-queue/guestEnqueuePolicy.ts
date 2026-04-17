@@ -6,7 +6,7 @@ export const ENQUEUE_REJECTED_DUPLICATE_VIDEO =
 
 /** Guest-visible message when this guest already has a song in the queue (including now playing). */
 export const ENQUEUE_REJECTED_ALREADY_HAS_REQUEST =
-  'You already have a song in the queue.'
+  "You've already got a song in the queue. You can add another after it's played or skipped."
 
 /** True when `videoId` already appears anywhere in the host queue snapshot (including now playing). */
 export function isVideoIdInHostQueue(
