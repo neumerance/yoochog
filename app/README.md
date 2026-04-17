@@ -88,6 +88,8 @@ Use keys from the PubNub admin portal (dev app). Production should use **Access 
 
 **Manual check:** Run **`npm run dev`** in **`app/`**, open **Host** (player route) and **Guest** at **`/join/<sessionId>`** with the **same** session id (QR / join link). You should see **“Establishing handshake”** then **Connected** when the WebRTC peer connection reaches `connected`. Use two browser tabs or profiles with the same `.env.local`.
 
+**Reconnect / background behavior:** See **[`docs/realtime-recovery.md`](../docs/realtime-recovery.md)** for what happens after network drops or when the tab was backgrounded ~1 minute (guest recovery, backoff limits, and when to refresh).
+
 **If the browser console shows `403` on `pndsn.com` subscribe or publish:** PubNub is rejecting the request. Common fixes:
 
 1. Use **Publish Key** and **Subscribe Key** from the **same keyset** (same app in the Admin portal)—do not mix keys from different apps.

@@ -3,6 +3,7 @@ export type HandshakeUiState =
   | 'missing_config'
   | 'connecting_signaling'
   | 'establishing_handshake'
+  | 'reconnecting'
   | 'connected'
   | 'failed'
 
@@ -16,6 +17,8 @@ export function handshakeStatusLabel(state: HandshakeUiState): string {
       return 'Connecting to signaling…'
     case 'establishing_handshake':
       return 'Establishing handshake'
+    case 'reconnecting':
+      return 'Reconnecting…'
     case 'connected':
       return 'Connected'
     case 'failed':
