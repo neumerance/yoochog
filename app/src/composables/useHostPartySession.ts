@@ -29,8 +29,11 @@ export function useHostPartySession(
 ) {
   const status = ref<HandshakeUiState>('idle')
   const error = ref<string | null>(null)
-  /** Guest signaling peer ids in party-channel open order (first = session admin). */
-  const joinedGuestOrder = ref<string[]>([])
+  /**
+   * Logical guest id of the session admin (first `guest_identify` or first enqueue in the session).
+   * Kept when that guest disconnects so they remain admin after reconnect.
+   */
+  const sessionAdminGuestId = ref<string | null>(null)
   let dispose: (() => void) | null = null
 
   const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
@@ -41,16 +44,11 @@ export function useHostPartySession(
   let broadcastParty: ((raw: string) => void) | null = null
   let sendPartyToGuest: ((guestId: string, raw: string) => void) | null = null
 
-  function sessionAdminPeerId(): string | null {
-    const order = joinedGuestOrder.value
-    return order.length > 0 ? order[0]! : null
-  }
-
   function pushSnapshotToEveryone() {
     if (!broadcastParty) {
       return
     }
-    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminPeerId())
+    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminGuestId.value)
     broadcastParty(serializePartyMessage(msg))
   }
 
@@ -58,8 +56,16 @@ export function useHostPartySession(
     if (!sendPartyToGuest) {
       return
     }
-    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminPeerId())
+    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminGuestId.value)
     sendPartyToGuest(guestId, serializePartyMessage(msg))
+  }
+
+  function ensureSessionAdminFromLogicalId(id: string | null) {
+    if (!id || sessionAdminGuestId.value !== null) {
+      return
+    }
+    sessionAdminGuestId.value = id
+    pushSnapshotToEveryone()
   }
 
   function sendReject(guestId: string, reason: string) {
@@ -76,7 +82,12 @@ export function useHostPartySession(
 
   function handleGuestRaw(guestId: string, raw: string) {
     const msg = parsePartyMessage(raw)
+    if (msg?.type === 'guest_identify') {
+      ensureSessionAdminFromLogicalId(msg.requesterGuestId)
+      return
+    }
     if (msg?.type === 'enqueue_request') {
+      ensureSessionAdminFromLogicalId(msg.requesterGuestId)
       const resolution = resolveGuestEnqueueRequest({
         snapshot: queue.getSnapshot(),
         videoId: msg.videoId,
@@ -96,7 +107,7 @@ export function useHostPartySession(
     if (msg?.type === 'end_current_playback_request') {
       const resolution = resolveSessionAdminEndPlaybackRequest({
         snapshot: queue.getSnapshot(),
-        sessionAdminPeerId: sessionAdminPeerId(),
+        sessionAdminGuestId: sessionAdminGuestId.value,
         peerGuestId: guestId,
         parsedRequesterGuestId: msg.requesterGuestId,
       })
@@ -110,7 +121,7 @@ export function useHostPartySession(
     if (msg?.type === 'remove_queue_row_request') {
       const resolution = resolveSessionAdminRemoveRowRequest({
         snapshot: queue.getSnapshot(),
-        sessionAdminPeerId: sessionAdminPeerId(),
+        sessionAdminGuestId: sessionAdminGuestId.value,
         peerGuestId: guestId,
         rowIndex: msg.rowIndex,
         parsedRequesterGuestId: msg.requesterGuestId,
@@ -155,7 +166,7 @@ export function useHostPartySession(
       dispose = null
       broadcastParty = null
       sendPartyToGuest = null
-      joinedGuestOrder.value = []
+      sessionAdminGuestId.value = null
       error.value = null
 
       if (!hasSignaling) {
@@ -179,13 +190,9 @@ export function useHostPartySession(
           error.value = m
         },
         onPartyChannelOpen: (guestId) => {
-          if (!joinedGuestOrder.value.includes(guestId)) {
-            joinedGuestOrder.value = [...joinedGuestOrder.value, guestId]
-          }
           pushSnapshotToGuest(guestId)
         },
-        onGuestConnectionLost: (guestId) => {
-          joinedGuestOrder.value = joinedGuestOrder.value.filter((x) => x !== guestId)
+        onGuestConnectionLost: () => {
           pushSnapshotToEveryone()
         },
         onPartyMessage: (guestId, raw) => {

@@ -27,12 +27,12 @@ function snap(
 }
 
 describe('resolveSessionAdminEndPlaybackRequest', () => {
-  it('allows when peer is session admin and something is playing', () => {
+  it('allows when requester logical id is session admin and something is playing', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a', 'b'], [null, null], 0),
-      sessionAdminPeerId: 'admin-peer',
-      peerGuestId: 'admin-peer',
-      parsedRequesterGuestId: null,
+      sessionAdminGuestId: 'admin-g1',
+      peerGuestId: 'signaling-x',
+      parsedRequesterGuestId: 'admin-g1',
     })
     expect(r).toEqual({ ok: true })
   })
@@ -40,9 +40,9 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('allows session admin to end legacy row (null owner)', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a'], [null], 0),
-      sessionAdminPeerId: 'admin-peer',
-      peerGuestId: 'admin-peer',
-      parsedRequesterGuestId: null,
+      sessionAdminGuestId: 'admin-g1',
+      peerGuestId: 'signaling-x',
+      parsedRequesterGuestId: 'admin-g1',
     })
     expect(r).toEqual({ ok: true })
   })
@@ -50,7 +50,7 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('allows owner when not admin (logical id matches row)', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a'], ['g1'], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'other-guest',
       parsedRequesterGuestId: 'g1',
     })
@@ -60,7 +60,7 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('uses peerGuestId when parsed requester id is null and row matches peer', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a'], ['peer-1'], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'peer-1',
       parsedRequesterGuestId: null,
     })
@@ -70,7 +70,7 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('rejects non-admin non-owner', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a'], ['g1'], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'other',
       parsedRequesterGuestId: 'g2',
     })
@@ -80,7 +80,7 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('rejects legacy row for non-admin', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a'], [null], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'other',
       parsedRequesterGuestId: null,
     })
@@ -90,7 +90,7 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('rejects empty queue', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap([], [], null),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'admin-peer',
       parsedRequesterGuestId: null,
     })
@@ -100,7 +100,7 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
   it('rejects when currentIndex is null with rows', () => {
     const r = resolveSessionAdminEndPlaybackRequest({
       snapshot: snap(['a'], ['g1'], null),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'admin-peer',
       parsedRequesterGuestId: null,
     })
@@ -112,10 +112,10 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('allows admin with valid index', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap(['a', 'b'], [null, null], 0),
-      sessionAdminPeerId: 'admin-peer',
-      peerGuestId: 'admin-peer',
+      sessionAdminGuestId: 'admin-g1',
+      peerGuestId: 'sig-y',
       rowIndex: 1,
-      parsedRequesterGuestId: null,
+      parsedRequesterGuestId: 'admin-g1',
     })
     expect(r).toEqual({ ok: true })
   })
@@ -123,10 +123,10 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('allows admin to remove legacy row', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap(['a', 'b'], [null, 'g2'], 0),
-      sessionAdminPeerId: 'admin-peer',
-      peerGuestId: 'admin-peer',
+      sessionAdminGuestId: 'admin-g1',
+      peerGuestId: 'sig-y',
       rowIndex: 1,
-      parsedRequesterGuestId: null,
+      parsedRequesterGuestId: 'admin-g1',
     })
     expect(r).toEqual({ ok: true })
   })
@@ -134,7 +134,7 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('allows owner when not admin', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap(['a', 'b'], ['x', 'g1'], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'other-guest',
       rowIndex: 1,
       parsedRequesterGuestId: 'g1',
@@ -145,7 +145,7 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('rejects non-admin non-owner', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap(['a', 'b'], ['x', 'g1'], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'other',
       rowIndex: 1,
       parsedRequesterGuestId: 'g2',
@@ -156,7 +156,7 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('rejects legacy row for non-admin', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap(['a', 'b'], ['x', null], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'other',
       rowIndex: 1,
       parsedRequesterGuestId: null,
@@ -167,7 +167,7 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('rejects bad row index', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap(['a'], [null], 0),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'admin-peer',
       rowIndex: 3,
       parsedRequesterGuestId: null,
@@ -178,7 +178,7 @@ describe('resolveSessionAdminRemoveRowRequest', () => {
   it('rejects empty queue', () => {
     const r = resolveSessionAdminRemoveRowRequest({
       snapshot: snap([], [], null),
-      sessionAdminPeerId: 'admin-peer',
+      sessionAdminGuestId: 'admin-peer',
       peerGuestId: 'admin-peer',
       rowIndex: 0,
       parsedRequesterGuestId: null,

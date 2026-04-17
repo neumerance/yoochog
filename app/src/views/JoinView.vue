@@ -33,8 +33,7 @@ const {
   error: handshakeError,
   isSignalingConfigured,
   queueSnapshot,
-  sessionAdminPeerId,
-  localPartyPeerId,
+  sessionAdminGuestId,
   lastEnqueueError,
   requestEnqueue,
   requestEndCurrentPlayback,
@@ -103,11 +102,15 @@ function isMyQueueRow(index: number): boolean {
   return s.requesterGuestIds[index] === mine
 }
 
-/** First party peer (from host snapshot); used for admin-only actions. */
+/** First guest in the session (stable logical id from host); used for admin-only actions. */
 const isSessionAdmin = computed(() => {
-  const admin = sessionAdminPeerId.value
-  const peer = localPartyPeerId.value
-  return admin !== null && peer !== null && admin === peer
+  const sid = sessionId.value
+  if (!sid) {
+    return false
+  }
+  const admin = sessionAdminGuestId.value
+  const mine = getOrCreatePartyGuestRequesterId(sid)
+  return admin !== null && mine === admin
 })
 
 /** Saved display name (re-read after save / when connecting). */
@@ -544,7 +547,7 @@ onMounted(() => {
         class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
       >
         <h2 id="guest-name-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black">
-          Your name
+          Your nickname
         </h2>
         <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
           <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
@@ -552,14 +555,14 @@ onMounted(() => {
           </p>
           <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
             <label for="guest-display-name-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
-              Display name
+              Nickname
             </label>
             <input
               id="guest-display-name-input"
               v-model="guestNameInput"
               type="text"
-              autocomplete="name"
-              maxlength="64"
+              autocomplete="nickname"
+              maxlength="10"
               class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
               @keydown.enter.prevent="submitGuestName"
             />

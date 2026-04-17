@@ -28,25 +28,27 @@ export type SessionAdminResolution = { ok: true } | { ok: false; reason: string 
 
 /**
  * Host-only: whether the guest may end the current playback early (“stop current”), matching natural
- * end-of-track semantics on success. Allowed when the peer is the **session admin** **or** the
+ * end-of-track semantics on success. Allowed when the requester is the **session admin** **or** the
  * **owner** of the now-playing row (`requesterGuestIds[current]` matches `parsedRequesterGuestId ??
  * peerGuestId`). Session admin may also end legacy rows with no stored owner.
  */
 export function resolveSessionAdminEndPlaybackRequest(input: {
   snapshot: HostVideoQueueSnapshot
-  /** First connected guest peer id, or `null` when the roster is empty. */
-  sessionAdminPeerId: string | null
-  /** WebRTC signaling `clientId` for this guest connection. */
+  /** Logical guest id of the session admin (first guest in the session), or `null` when unset. */
+  sessionAdminGuestId: string | null
+  /** WebRTC signaling `clientId` for this guest connection (owner fallback when body omits id). */
   peerGuestId: string
   /** Parsed from `end_current_playback_request`; enqueue-style logical id when set. */
   parsedRequesterGuestId: string | null
 }): SessionAdminResolution {
-  const { snapshot, sessionAdminPeerId, peerGuestId, parsedRequesterGuestId } = input
+  const { snapshot, sessionAdminGuestId, peerGuestId, parsedRequesterGuestId } = input
   if (snapshot.ids.length === 0 || snapshot.currentIndex === null) {
     return { ok: false, reason: SESSION_ADMIN_REJECTED_NOTHING_PLAYING }
   }
 
-  const isAdmin = sessionAdminPeerId !== null && peerGuestId === sessionAdminPeerId
+  const effectiveRequester = parsedRequesterGuestId ?? peerGuestId
+  const isAdmin =
+    sessionAdminGuestId !== null && effectiveRequester === sessionAdminGuestId
   if (isAdmin) {
     return { ok: true }
   }
@@ -70,18 +72,20 @@ export function resolveSessionAdminEndPlaybackRequest(input: {
  */
 export function resolveSessionAdminRemoveRowRequest(input: {
   snapshot: HostVideoQueueSnapshot
-  sessionAdminPeerId: string | null
+  sessionAdminGuestId: string | null
   peerGuestId: string
   rowIndex: number
   parsedRequesterGuestId: string | null
 }): SessionAdminResolution {
-  const { snapshot, sessionAdminPeerId, peerGuestId, rowIndex, parsedRequesterGuestId } = input
+  const { snapshot, sessionAdminGuestId, peerGuestId, rowIndex, parsedRequesterGuestId } = input
   const n = snapshot.ids.length
   if (n === 0 || !Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= n) {
     return { ok: false, reason: REMOVE_ROW_REJECTED_BAD_INDEX }
   }
 
-  const isAdmin = sessionAdminPeerId !== null && peerGuestId === sessionAdminPeerId
+  const effectiveRequester = parsedRequesterGuestId ?? peerGuestId
+  const isAdmin =
+    sessionAdminGuestId !== null && effectiveRequester === sessionAdminGuestId
   if (isAdmin) {
     return { ok: true }
   }

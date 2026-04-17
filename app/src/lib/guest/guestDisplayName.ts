@@ -1,4 +1,5 @@
-import { PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH } from '@/lib/party/partyMessages'
+/** Max length for the guest nickname / display label (UI and persisted name). */
+export const GUEST_DISPLAY_NAME_MAX_LENGTH = 10
 
 export const GUEST_DISPLAY_NAME_STORAGE_KEY = 'yoochog.guestDisplayName'
 
@@ -41,7 +42,7 @@ export function validateGuestDisplayName(raw: string): string | null {
   if (t.length === 0) {
     return null
   }
-  if (t.length > PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH) {
+  if (t.length > GUEST_DISPLAY_NAME_MAX_LENGTH) {
     return null
   }
   return t

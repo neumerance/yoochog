@@ -7,8 +7,8 @@ import type { PartyMessage } from './partyMessages'
 
 export type GuestPartyUiState = {
   snapshot: HostVideoQueueSnapshot | null
-  /** From the latest `queue_snapshot`; `null` when unknown or no admin. */
-  sessionAdminPeerId: string | null
+  /** Logical guest id of the session admin from `queue_snapshot.sessionAdminPeerId`; `null` if unset. */
+  sessionAdminGuestId: string | null
   lastEnqueueError: string | null
 }
 
@@ -26,13 +26,13 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
           requesterGuestIds: msg.requesterGuestIds,
           currentIndex: msg.currentIndex,
         }),
-        sessionAdminPeerId: msg.sessionAdminPeerId,
+        sessionAdminGuestId: msg.sessionAdminPeerId,
         lastEnqueueError: prev.lastEnqueueError,
       }
     case 'enqueue_rejected':
       return {
         snapshot: prev.snapshot,
-        sessionAdminPeerId: prev.sessionAdminPeerId,
+        sessionAdminGuestId: prev.sessionAdminGuestId,
         lastEnqueueError: msg.reason,
       }
     case 'enqueue_request':
@@ -42,6 +42,8 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
     case 'remove_queue_row_request':
       return prev
     case 'heartbeat':
+      return prev
+    case 'guest_identify':
       return prev
   }
 }

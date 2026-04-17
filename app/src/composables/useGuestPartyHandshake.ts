@@ -9,6 +9,7 @@ import {
   PARTY_MESSAGE_SCHEMA_VERSION,
   serializePartyMessage,
 } from '@/lib/party/partyMessages'
+import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import {
@@ -26,7 +27,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const status = ref<HandshakeUiState>('idle')
   const error = ref<string | null>(null)
   const queueSnapshot = ref<HostVideoQueueSnapshot | null>(null)
-  const sessionAdminPeerId = ref<string | null>(null)
+  const sessionAdminGuestId = ref<string | null>(null)
   const localPartyPeerId = ref<string | null>(null)
   const lastEnqueueError = ref<string | null>(null)
   let enqueueErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
@@ -114,7 +115,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       sendPartyRaw = null
       error.value = null
       queueSnapshot.value = id ? loadGuestQueueSnapshot(id) : null
-      sessionAdminPeerId.value = null
+      sessionAdminGuestId.value = null
       localPartyPeerId.value = null
       lastEnqueueError.value = null
 
@@ -156,6 +157,18 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         },
         onPartyChannelOpen: () => {
           lastEnqueueError.value = null
+          const sid = sessionId.value
+          if (!sid || !sendPartyRaw) {
+            return
+          }
+          const rid = getOrCreatePartyGuestRequesterId(sid)
+          sendPartyRaw(
+            serializePartyMessage({
+              v: PARTY_MESSAGE_SCHEMA_VERSION,
+              type: 'guest_identify',
+              requesterGuestId: rid,
+            }),
+          )
         },
         onPartyMessage: (raw) => {
           const msg = parsePartyMessage(raw)
@@ -165,13 +178,13 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           const next = applyGuestPartyMessage(
             {
               snapshot: queueSnapshot.value,
-              sessionAdminPeerId: sessionAdminPeerId.value,
+              sessionAdminGuestId: sessionAdminGuestId.value,
               lastEnqueueError: lastEnqueueError.value,
             },
             msg,
           )
           queueSnapshot.value = next.snapshot
-          sessionAdminPeerId.value = next.sessionAdminPeerId
+          sessionAdminGuestId.value = next.sessionAdminGuestId
           lastEnqueueError.value = next.lastEnqueueError
           if (next.snapshot && sessionId.value) {
             saveGuestQueueSnapshot(sessionId.value, next.snapshot)
@@ -264,7 +277,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     statusLabel,
     isSignalingConfigured: computed(() => hasSignaling),
     queueSnapshot,
-    sessionAdminPeerId,
+    sessionAdminGuestId,
     localPartyPeerId,
     lastEnqueueError,
     requestEnqueue,

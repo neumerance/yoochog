@@ -24,7 +24,10 @@ export type PartyMessage =
       titles: (string | null)[]
       requestedBys: (string | null)[]
       requesterGuestIds: (string | null)[]
-      /** Signaling peer id of the session admin guest, or `null` when none (e.g. no guests). */
+      /**
+       * Stable logical guest id (`requesterGuestId`) of the session admin — the first guest to
+       * identify in the session. Same JSON field name as early builds; not a signaling peer id.
+       */
       sessionAdminPeerId: string | null
     }
   | {
@@ -55,6 +58,11 @@ export type PartyMessage =
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'heartbeat'
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'guest_identify'
+      requesterGuestId: string
     }
 
 /** YouTube video id: 11 chars from [A-Za-z0-9_-]. */
@@ -377,6 +385,17 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
   }
   if (o.type === 'heartbeat') {
     return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'heartbeat' }
+  }
+  if (o.type === 'guest_identify') {
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid' || requesterGuestId === null) {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'guest_identify',
+      requesterGuestId,
+    }
   }
   return null
 }
