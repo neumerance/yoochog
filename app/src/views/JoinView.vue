@@ -64,9 +64,17 @@ function onAddSongDialogClose() {
   void nextTick(() => addSongTriggerRef.value?.focus())
 }
 
+const YOUTUBE_OPEN_URL = 'https://www.youtube.com'
+
 function goToPasteStep() {
   addSongStep.value = 2
   void nextTick(() => document.getElementById('guest-add-song-paste')?.focus())
+}
+
+/** Opens YouTube in a new tab and advances to the paste-link step. */
+function continueFromStep1() {
+  window.open(YOUTUBE_OPEN_URL, '_blank', 'noopener,noreferrer')
+  goToPasteStep()
 }
 
 function submitPasteEnqueue() {
@@ -202,92 +210,85 @@ function submitPasteEnqueue() {
 
     <dialog
       ref="addSongDialog"
-      class="w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-[14px] border-0 bg-[#F2F2F7] p-0 text-black shadow-2xl backdrop:bg-black/45"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
       aria-labelledby="guest-add-song-title"
       aria-modal="true"
       @close="onAddSongDialogClose"
     >
+      <!-- iOS alert-style sheet: grouped white actions + separate Cancel pill on system gray -->
       <div
-        class="flex max-h-[min(90vh,32rem)] flex-col gap-4 px-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:px-6 sm:pt-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
       >
-        <h2 id="guest-add-song-title" class="text-center text-[17px] font-semibold leading-snug text-black">
+        <h2 id="guest-add-song-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black">
           Add my song
         </h2>
 
         <div
           v-if="addSongStep === 1"
-          class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15)]"
+          class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]"
         >
-          <div class="px-4 py-4">
-            <p id="guest-add-song-step1" class="text-[15px] leading-relaxed text-[#3C3C43]">
-              Find a video in the YouTube app or site, tap
-              <span class="font-semibold text-black">Share</span>
-              , then
-              <span class="font-semibold text-black">Copy link</span>
-              . When you’re ready, continue and paste that link here.
-            </p>
-          </div>
-          <div class="flex flex-col gap-px bg-[#C6C6C8] p-0">
-            <a
-              class="flex min-h-[44px] items-center justify-center bg-white px-4 text-center text-[17px] font-normal text-[#007AFF] active:bg-[#E5E5EA]"
-              href="https://www.youtube.com"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open YouTube
-            </a>
+          <p id="guest-add-song-step1" class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+            Find a video in the YouTube app or site, tap
+            <span class="font-semibold text-black">Share</span>
+            , then
+            <span class="font-semibold text-black">Copy link</span>
+            . When you’re ready, continue and paste that link here.
+          </p>
+          <div class="border-t border-[#C6C6C8]">
             <button
               type="button"
-              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold text-[#FF3B30] active:bg-[#E5E5EA]"
-              @click="goToPasteStep"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30]"
+              @click="continueFromStep1"
             >
               Continue
             </button>
           </div>
         </div>
 
-        <div v-else class="flex flex-col gap-4" aria-describedby="guest-add-song-step2-hint">
-          <div class="overflow-hidden rounded-[10px] bg-white px-4 py-4 shadow-[0_0.5px_0_rgba(0,0,0,0.15)]">
-            <p id="guest-add-song-step2-hint" class="text-[15px] leading-relaxed text-[#3C3C43]">
+        <div v-else class="flex flex-col gap-2.5" aria-describedby="guest-add-song-step2-hint">
+          <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
+            <p id="guest-add-song-step2-hint" class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
               Paste the link you copied from YouTube (Share → Copy link).
             </p>
-            <label for="guest-add-song-paste" class="mt-4 block text-[13px] font-semibold uppercase tracking-wide text-[#6D6D72]">
-              YouTube link
-            </label>
-            <input
-              id="guest-add-song-paste"
-              v-model="pasteInput"
-              type="text"
-              inputmode="url"
-              autocomplete="off"
-              maxlength="2048"
-              class="mt-2 min-h-[44px] w-full rounded-[10px] border border-[#C6C6C8] bg-white px-3 text-[17px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25"
-              :disabled="!canRequestEnqueue"
-              @keydown.enter.prevent="submitPasteEnqueue"
-            />
-            <p v-if="pasteValidationError" class="mt-2 text-[15px] text-[#FF3B30]" role="status" aria-live="polite">
-              {{ pasteValidationError }}
-            </p>
+            <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
+              <label for="guest-add-song-paste" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
+                YouTube link
+              </label>
+              <input
+                id="guest-add-song-paste"
+                v-model="pasteInput"
+                type="text"
+                inputmode="url"
+                autocomplete="off"
+                maxlength="2048"
+                class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+                :disabled="!canRequestEnqueue"
+                @keydown.enter.prevent="submitPasteEnqueue"
+              />
+              <p v-if="pasteValidationError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status" aria-live="polite">
+                {{ pasteValidationError }}
+              </p>
+            </div>
+            <div class="border-t border-[#C6C6C8]">
+              <button
+                type="button"
+                class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white"
+                :disabled="!canRequestEnqueue || !pasteInput.trim()"
+                @click="submitPasteEnqueue"
+              >
+                Enqueue
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            class="flex min-h-[50px] w-full items-center justify-center rounded-[12px] bg-[#FF3B30] px-4 text-[17px] font-semibold text-white shadow-sm transition-colors active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:bg-[#C7C7CC]"
-            :disabled="!canRequestEnqueue || !pasteInput.trim()"
-            @click="submitPasteEnqueue"
-          >
-            Enqueue
-          </button>
         </div>
 
-        <div class="flex justify-center border-t border-[#C6C6C8] pt-2">
-          <button
-            type="button"
-            class="min-h-[44px] w-full rounded-[10px] px-4 text-[17px] font-semibold text-[#007AFF] hover:bg-white/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
-            @click="closeAddSongModal"
-          >
-            Cancel
-          </button>
-        </div>
+        <button
+          type="button"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          @click="closeAddSongModal"
+        >
+          Cancel
+        </button>
       </div>
     </dialog>
   </GuestShell>
