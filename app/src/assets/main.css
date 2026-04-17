@@ -1,20 +1,37 @@
 @import 'tailwindcss';
 
 @layer base {
+  html,
+  body {
+    @apply m-0 p-0;
+  }
+
   body {
     @apply min-h-screen antialiased text-slate-900 bg-slate-50;
   }
 
-  body.player-route {
+  body.viewport-locked {
     @apply min-h-0 h-dvh max-h-dvh overflow-hidden overscroll-none;
   }
 
-  body.player-route #app {
+  body.viewport-locked #app {
     @apply flex h-full min-h-0 flex-col;
   }
 }
 
 @layer utilities {
+  /**
+   * iOS Safari / WebView: momentum scroll, no scroll-chaining to the page,
+   * vertical pan only (avoids horizontal swipe fighting the list).
+   */
+  .ios-scroll {
+    touch-action: pan-y;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* Matches prior guest px-4 / py-10 rhythm, or safe-area inset when larger */
   .guest-shell-padding {
     padding-left: max(1rem, env(safe-area-inset-left, 0px));

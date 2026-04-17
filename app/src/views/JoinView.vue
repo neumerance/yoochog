@@ -321,9 +321,9 @@ onMounted(() => {
 
 <template>
   <GuestShell
-    class="flex h-[100dvh] max-h-[100dvh] flex-col gap-5 overflow-hidden !pb-0 bg-[#F2F2F7] text-[17px] leading-[1.29] antialiased [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',sans-serif]"
+    class="flex h-full min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden !pb-0 bg-[#F2F2F7] text-[17px] leading-[1.29] antialiased [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',sans-serif]"
   >
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-5">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
     <header class="flex shrink-0 justify-center pb-2 pt-1">
       <img
         :src="logoUrl"
@@ -415,7 +415,7 @@ onMounted(() => {
 
         <ol
           v-else
-          class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+          class="ios-scroll flex min-h-0 w-full min-w-0 flex-1 flex-col"
           aria-label="Playback queue"
         >
           <li
@@ -497,7 +497,7 @@ onMounted(() => {
     </div>
 
     <div
-      class="shrink-0 border-t border-[#C6C6C8] bg-[#FAFAFA] px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
+      class="mb-[10dvh] shrink-0 border-t border-[#C6C6C8] bg-[#FAFAFA] px-3 pt-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+1rem))]"
     >
       <button
         ref="addSongTriggerRef"
