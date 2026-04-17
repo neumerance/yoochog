@@ -54,7 +54,7 @@ Reserved **environment variable names** for WebRTC-related configuration. These 
 | Area | Placeholder names (examples) |
 |------|------------------------------|
 | **Signaling** | **Primary:** `VITE_PUBNUB_PUBLISH_KEY` + `VITE_PUBNUB_SUBSCRIBE_KEY` (PubNub, one channel per party). **Optional:** `VITE_SIGNALING_URL` (local `signaling-dev` relay when PubNub keys are omitted). See [`app/README.md`](app/README.md) and [ADR 0001](docs/adr/0001-webrtc-signaling.md). |
-| **TURN** (TURN/STUN / ICE server configuration) | `VITE_TURN_URLS` and/or additional `VITE_TURN_*` names as needed |
+| **ICE** (STUN + optional TURN for WebRTC) | `VITE_STUN_URLS` (comma-separated `stun:` / `stuns:` URLs; optional; default public STUN when unset). `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL` for relay — see [`app/README.md`](app/README.md) |
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.
 
