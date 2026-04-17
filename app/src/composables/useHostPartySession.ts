@@ -3,6 +3,10 @@ import type { Ref } from 'vue'
 
 import type { HostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import {
+  ENQUEUE_REJECTED_DUPLICATE_VIDEO,
+  isVideoIdInHostQueue,
+} from '@/lib/host-queue/guestEnqueuePolicy'
+import {
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
@@ -64,6 +68,10 @@ export function useHostPartySession(
   function handleGuestRaw(guestId: string, raw: string) {
     const msg = parsePartyMessage(raw)
     if (msg?.type === 'enqueue_request') {
+      if (isVideoIdInHostQueue(msg.videoId, queue.getSnapshot())) {
+        sendReject(guestId, ENQUEUE_REJECTED_DUPLICATE_VIDEO)
+        return
+      }
       queue.append([
         {
           videoId: msg.videoId,

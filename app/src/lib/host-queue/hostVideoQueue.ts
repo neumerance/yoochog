@@ -6,9 +6,10 @@
  *
  * - **Empty queue:** `currentIndex` is `null`; `currentVideoId()` is `undefined`; `advance()` and
  *   `stepBack()` return `false`.
- * - **append:** Appends copies to the end in order. Duplicate IDs are allowed. If the queue was
- *   empty before append, current moves to index `0`. If the queue was non-empty, the current index
- *   is unchanged.
+ * - **append:** Appends copies to the end in order. The structure still allows duplicate IDs (e.g.
+ *   legacy persisted snapshots); **guest enqueue** enforces at most one row per id at the host
+ *   boundary (see `guestEnqueuePolicy`). If the queue was empty before append, current moves to
+ *   index `0`. If the queue was non-empty, the current index is unchanged.
  * - **replace:** Replaces the entire list with a copy. Current becomes `0` when the new list is
  *   non-empty; otherwise empty state (no current).
  * - **clear:** Removes all rows; no current item.
@@ -73,7 +74,7 @@ export interface HostVideoQueue {
   stepBack: () => boolean
   /**
    * Returns a read-only snapshot: ordered IDs and current index for list rendering.
-   * Duplicate IDs appear as separate rows; use row index (not id alone) as the key.
+   * Duplicate IDs may appear as separate rows in legacy data; use row index (not id alone) as the key.
    */
   getSnapshot: () => HostVideoQueueSnapshot
 }

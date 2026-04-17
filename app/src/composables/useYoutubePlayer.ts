@@ -18,8 +18,8 @@ export interface UseYoutubePlayerOptions {
    */
   videoId: MaybeRefOrGetter<string | undefined>
   /**
-   * Bumps whenever the queue advances even if `videoId` repeats (duplicate ids in queue).
-   * Omit to only react to `videoId` changes.
+   * Bumps whenever the queue advances even if `videoId` repeats (e.g. legacy queue rows with the
+   * same id). Guest enqueue dedupes new adds; omit to only react to `videoId` changes.
    */
   playbackSequence?: MaybeRefOrGetter<number>
   /**

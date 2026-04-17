@@ -23,7 +23,26 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const error = ref<string | null>(null)
   const queueSnapshot = ref<HostVideoQueueSnapshot | null>(null)
   const lastEnqueueError = ref<string | null>(null)
+  let enqueueErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let sendPartyRaw: ((raw: string) => void) | null = null
+
+  function clearEnqueueErrorDismissTimer() {
+    if (enqueueErrorDismissTimer) {
+      clearTimeout(enqueueErrorDismissTimer)
+      enqueueErrorDismissTimer = null
+    }
+  }
+
+  watch(lastEnqueueError, (msg) => {
+    clearEnqueueErrorDismissTimer()
+    if (!msg) {
+      return
+    }
+    enqueueErrorDismissTimer = setTimeout(() => {
+      lastEnqueueError.value = null
+      enqueueErrorDismissTimer = null
+    }, 8000)
+  })
 
   const reconnectTrigger = ref(0)
   let failureCount = 0
@@ -168,6 +187,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   )
 
   onUnmounted(() => {
+    clearEnqueueErrorDismissTimer()
     clearBackoff()
     activeDispose?.()
     activeDispose = null
