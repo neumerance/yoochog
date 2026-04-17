@@ -14,12 +14,12 @@
           decoding="async"
         />
         <h2
-          class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(1.0625rem,2.5cqi+0.35rem,2.25rem)]"
+          class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(1.25rem,0.55rem+2.8cqi,2.75rem)]"
         >
           Join in from your phone
         </h2>
         <p
-          class="w-full leading-relaxed text-indigo-900/90 text-[length:clamp(0.8125rem,1.8cqi+0.2rem,1.375rem)]"
+          class="w-full leading-relaxed text-indigo-900/90 text-[length:clamp(1rem,0.45rem+2.4cqi,1.875rem)]"
         >
           Scan with a phone camera or QR app—opens this sing-along in the browser, no signup.
         </p>
@@ -56,13 +56,13 @@
         </div>
         <p
           v-else-if="qrError"
-          class="w-full text-center leading-snug text-red-700 text-[length:clamp(0.8125rem,1.8cqi+0.2rem,1.5rem)]"
+          class="w-full text-center leading-snug text-red-700 text-[length:clamp(1rem,0.45rem+2.4cqi,1.875rem)]"
         >
           {{ qrError }}
         </p>
         <p
           v-else
-          class="flex aspect-square w-[clamp(10rem,82cqi,27rem)] max-w-full items-center justify-center text-center text-slate-500 text-[length:clamp(0.8125rem,1.8cqi+0.2rem,1.25rem)]"
+          class="flex aspect-square w-[clamp(10rem,82cqi,27rem)] max-w-full items-center justify-center text-center text-slate-500 text-[length:clamp(1rem,0.45rem+2.4cqi,1.75rem)]"
           aria-live="polite"
         >
           Preparing QR…

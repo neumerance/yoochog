@@ -75,7 +75,7 @@
       >
         <div
           v-if="embedSetupError || skipMessage"
-          class="shrink-0 border-b border-red-200 bg-red-50 p-[clamp(0.65rem,1.75cqi,1.25rem)] leading-snug text-red-950 text-[length:clamp(0.8125rem,1.6cqi+0.25rem,1.75rem)]"
+          class="shrink-0 border-b border-red-200 bg-red-50 p-[clamp(0.65rem,1.75cqi,1.25rem)] leading-snug text-red-950 text-[length:clamp(1.0625rem,0.45rem+2.8cqi,2.125rem)]"
           role="alert"
         >
           <p v-if="embedSetupError" class="font-semibold">{{ embedSetupError }}</p>
@@ -94,11 +94,11 @@
         />
 
         <div
-          class="shrink-0 border-b border-slate-200 bg-slate-50 px-[clamp(0.5rem,1.5cqi,1.75rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] text-slate-800 text-[length:clamp(0.6875rem,1.4cqi+0.2rem,1.375rem)]"
+          class="shrink-0 border-b border-slate-200 bg-slate-50 px-[clamp(0.5rem,1.5cqi,1.75rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] text-slate-800 text-[length:clamp(1rem,0.4rem+2.5cqi,1.875rem)]"
           aria-live="polite"
         >
           <HandshakeStatusStrip
-            class="[&_svg]:h-[clamp(0.9rem,2cqi,1.5rem)] [&_svg]:w-[clamp(0.9rem,2cqi,1.5rem)]"
+            class="[&_span[aria-hidden=true]]:h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:w-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.65rem,1.5cqi,1rem)] [&_svg]:h-[clamp(1rem,2.2cqi,1.75rem)] [&_svg]:w-[clamp(1rem,2.2cqi,1.75rem)]"
             :status="handshakeStatus"
             :status-label="handshakeStatusLabel"
             :error="handshakeError"
@@ -107,10 +107,10 @@
         </div>
 
         <div
-          class="flex min-h-0 flex-1 flex-col p-[clamp(0.65rem,1.75cqi,1.25rem)] text-slate-700 text-[length:clamp(0.8125rem,1.55cqi+0.25rem,1.5rem)]"
+          class="flex min-h-0 flex-1 flex-col p-[clamp(0.65rem,1.75cqi,1.25rem)] text-slate-700 text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)]"
         >
           <h2
-            class="shrink-0 pb-[clamp(0.35rem,1cqi,0.75rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.65rem,1.2cqi+0.2rem,1.375rem)]"
+            class="shrink-0 pb-[clamp(0.35rem,1cqi,0.75rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.9375rem,0.35rem+2.4cqi,1.875rem)]"
           >
             Now playing
           </h2>
@@ -122,7 +122,7 @@
               v-for="(rowId, index) in queueSnapshot.ids"
               :key="`${index}-${rowId}`"
               :aria-current="index === queueSnapshot.currentIndex ? 'true' : undefined"
-              class="flex min-w-0 shrink-0 items-start justify-between gap-[clamp(0.35rem,1cqi,0.75rem)] px-[clamp(0.65rem,1.5cqi,1.5rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] leading-snug text-[length:clamp(0.8125rem,1.55cqi+0.25rem,1.5rem)]"
+              class="flex min-w-0 shrink-0 items-start justify-between gap-[clamp(0.35rem,1cqi,0.75rem)] px-[clamp(0.65rem,1.5cqi,1.5rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] leading-snug text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)]"
               :class="
                 index === queueSnapshot.currentIndex
                   ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
@@ -144,7 +144,7 @@
                 </p>
                 <p
                   v-if="queueSnapshot.requestedBys[index]"
-                  class="mt-[clamp(0.2rem,0.6cqi,0.5rem)] min-w-0 truncate text-left leading-[1.45] text-[length:clamp(0.65rem,1.2cqi+0.2rem,1.125rem)]"
+                  class="mt-[clamp(0.2rem,0.6cqi,0.5rem)] min-w-0 truncate text-left leading-[1.45] text-[length:clamp(0.9375rem,0.35rem+2.2cqi,1.625rem)]"
                 >
                   <span class="font-medium text-slate-600">Requested by </span>
                   <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>
@@ -152,7 +152,7 @@
               </div>
               <span
                 v-if="index === queueSnapshot.currentIndex"
-                class="shrink-0 rounded-md bg-red-600 px-[clamp(0.35rem,1cqi,0.75rem)] py-[clamp(0.15rem,0.5cqi,0.35rem)] font-semibold uppercase tracking-wide text-white text-[length:clamp(0.65rem,1.2cqi+0.2rem,1.125rem)]"
+                class="shrink-0 rounded-md bg-red-600 px-[clamp(0.35rem,1cqi,0.75rem)] py-[clamp(0.15rem,0.5cqi,0.35rem)] font-semibold uppercase tracking-wide text-white text-[length:clamp(0.875rem,0.3rem+2cqi,1.375rem)]"
               >
                 Playing
               </span>
@@ -161,7 +161,7 @@
         </div>
 
         <footer
-          class="mt-auto shrink-0 border-t border-slate-100 px-[clamp(0.5rem,1.5cqi,1.25rem)] py-[clamp(0.35rem,1cqi,0.75rem)] text-right text-slate-500 text-[length:clamp(0.6rem,1.1cqi+0.15rem,1rem)]"
+          class="mt-auto shrink-0 border-t border-slate-100 px-[clamp(0.5rem,1.5cqi,1.25rem)] py-[clamp(0.35rem,1cqi,0.75rem)] text-right text-slate-500 text-[length:clamp(0.875rem,0.3rem+1.8cqi,1.25rem)]"
         >
           Made by KuyaJon with ❤️
         </footer>

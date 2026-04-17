@@ -1,12 +1,14 @@
 <template>
   <div
-    class="flex h-full w-full flex-col items-center justify-center gap-0 bg-slate-900/95 p-0 text-center text-slate-100"
+    class="flex h-full w-full flex-col items-center justify-center gap-[clamp(0.75rem,0.5rem+1vmin,1.75rem)] bg-slate-900/95 px-[clamp(1rem,2vmin+0.75rem,3rem)] py-0 text-center text-slate-100"
   >
-    <p class="text-2xl font-semibold tracking-tight sm:text-3xl xl:text-[3.375rem] xl:tracking-tight">
+    <p
+      class="max-w-[min(42rem,92%)] font-semibold tracking-tight text-[length:clamp(1.75rem,1.1rem+2.2vmin,4.5rem)]"
+    >
       {{ title }}
     </p>
     <p
-      class="max-w-lg text-lg leading-relaxed text-slate-300 sm:text-xl xl:max-w-2xl xl:text-[2.25rem] xl:leading-relaxed"
+      class="max-w-[min(36rem,88%)] leading-relaxed text-slate-300 text-[length:clamp(1.125rem,0.7rem+1.35vmin,2.75rem)]"
     >
       {{ subtitle }}
     </p>
