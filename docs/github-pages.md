@@ -6,7 +6,7 @@ This repository ships the Vue app in `app/` to **GitHub Pages** as a **project s
 
 Workflow: [`.github/workflows/deploy-github-pages.yml`](../.github/workflows/deploy-github-pages.yml).
 
-On every **push to `master`** (the current default branch):
+On every **push to `master`** (the current default branch), or when the workflow is **run manually** (`workflow_dispatch`, e.g. `gh workflow run`):
 
 1. Check out the repository.
 2. Install Node **20** (matches `app/package.json` `engines`: `^20.19.0 || >=22.12.0`).
@@ -37,6 +37,54 @@ No long-lived `gh-pages` branch is used for build output.
    Forks or new repos need the same **Actions** and **Pages** features enabled; forks may not deploy Pages from Actions depending on org policy.
 
 3. **Default branch:** The workflow triggers on **`master`**. If the default branch is renamed, update the `on.push.branches` list in the workflow file.
+
+4. **Build-time `VITE_*` values:** The **Install and build** step reads repository **Secrets** and **Variables** (names match [`app/.env.example`](../app/.env.example)). Values are compiled into the client bundle—treat them like any public web config. TURN credential stays on **Secrets** only.
+
+## GitHub CLI (`gh`)
+
+Run these from a clone of this repo (or pass `-R owner/repo`). Requires [`gh` auth](https://cli.github.com/manual/gh_auth_login).
+
+### Set repository secrets (sensitive)
+
+Pipe or read the value (avoid putting secrets in shell history when possible):
+
+```bash
+printf '%s' 'YOUR_VALUE' | gh secret set VITE_PUBNUB_PUBLISH_KEY
+printf '%s' 'YOUR_VALUE' | gh secret set VITE_PUBNUB_SUBSCRIBE_KEY
+# Optional — same pattern for other keys in app/.env.example, e.g.:
+# printf '%s' 'YOUR_VALUE' | gh secret set VITE_TURN_CREDENTIAL
+```
+
+### Set repository variables (non-sensitive optional config)
+
+```bash
+gh variable set VITE_SIGNALING_URL --body 'https://example.com'
+gh variable set VITE_YOUTUBE_API_KEY --body 'YOUR_KEY'
+```
+
+Use **either** a secret **or** a variable for optional keys where the workflow supports fallback (`VITE_SIGNALING_URL`, ICE/YouTube as documented in the workflow file).
+
+### List what is configured
+
+```bash
+gh secret list
+gh variable list
+```
+
+### Trigger a build and deploy
+
+The workflow also runs on **push to `master`**. To run it without a new commit:
+
+```bash
+gh workflow run deploy-github-pages.yml --ref master
+```
+
+Inspect or watch the latest run:
+
+```bash
+gh run list --workflow=deploy-github-pages.yml --limit 5
+gh run watch <run-id>
+```
 
 ## Public URL shape
 

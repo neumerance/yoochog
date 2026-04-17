@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,6 +31,16 @@ jobs:
 
       - name: Install and build
         working-directory: app
+        env:
+          # Set via `gh secret set` / `gh variable set` (see docs/github-pages.md). Vite inlines at build time.
+          VITE_PUBNUB_PUBLISH_KEY: ${{ secrets.VITE_PUBNUB_PUBLISH_KEY }}
+          VITE_PUBNUB_SUBSCRIBE_KEY: ${{ secrets.VITE_PUBNUB_SUBSCRIBE_KEY }}
+          VITE_SIGNALING_URL: ${{ secrets.VITE_SIGNALING_URL || vars.VITE_SIGNALING_URL }}
+          VITE_STUN_URLS: ${{ secrets.VITE_STUN_URLS || vars.VITE_STUN_URLS }}
+          VITE_TURN_URLS: ${{ secrets.VITE_TURN_URLS || vars.VITE_TURN_URLS }}
+          VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME || vars.VITE_TURN_USERNAME }}
+          VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY || vars.VITE_YOUTUBE_API_KEY }}
         run: |
           npm ci
           npm run build
