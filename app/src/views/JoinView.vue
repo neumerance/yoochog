@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
+import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 
 const route = useRoute()
 const sessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
@@ -20,7 +21,11 @@ const {
   canRequestEnqueue,
 } = useGuestPartyHandshake(sessionId)
 
-const enqueueInput = ref('')
+const addSongDialog = ref<HTMLDialogElement | null>(null)
+const addSongTriggerRef = ref<HTMLButtonElement | null>(null)
+const addSongStep = ref<1 | 2>(1)
+const pasteInput = ref('')
+const pasteValidationError = ref<string | null>(null)
 
 const nowPlayingId = computed(() => {
   const s = queueSnapshot.value
@@ -30,8 +35,46 @@ const nowPlayingId = computed(() => {
   return s.ids[s.currentIndex] ?? null
 })
 
-function submitEnqueue() {
-  requestEnqueue(enqueueInput.value)
+function youtubeWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+}
+
+function openAddSongModal() {
+  addSongStep.value = 1
+  pasteInput.value = ''
+  pasteValidationError.value = null
+  addSongDialog.value?.showModal()
+  void nextTick(() => {
+    const root = addSongDialog.value
+    root?.querySelector<HTMLElement>('button, [href]')?.focus()
+  })
+}
+
+function closeAddSongModal() {
+  addSongDialog.value?.close()
+}
+
+function onAddSongDialogClose() {
+  addSongStep.value = 1
+  pasteInput.value = ''
+  pasteValidationError.value = null
+  void nextTick(() => addSongTriggerRef.value?.focus())
+}
+
+function goToPasteStep() {
+  addSongStep.value = 2
+  void nextTick(() => document.getElementById('guest-add-song-paste')?.focus())
+}
+
+function submitPasteEnqueue() {
+  pasteValidationError.value = null
+  const id = extractYoutubeVideoId(pasteInput.value)
+  if (!id) {
+    pasteValidationError.value = "That doesn't look like a valid YouTube link."
+    return
+  }
+  requestEnqueue(id)
+  closeAddSongModal()
 }
 </script>
 
@@ -79,7 +122,7 @@ function submitEnqueue() {
           v-for="(rowId, index) in queueSnapshot?.ids ?? []"
           :key="`${index}-${rowId}`"
           :aria-current="index === queueSnapshot?.currentIndex ? 'true' : undefined"
-          class="flex items-start justify-between gap-2 px-3 py-3 text-base leading-snug"
+          class="flex flex-col gap-2 px-3 py-3 text-base leading-snug sm:flex-row sm:items-start sm:justify-between sm:gap-3"
           :class="
             index === queueSnapshot?.currentIndex
               ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
@@ -90,42 +133,118 @@ function submitEnqueue() {
             <span class="mr-2 tabular-nums text-slate-400 select-none">{{ index + 1 }}.</span>
             {{ rowId }}
           </span>
-          <span
-            v-if="index === queueSnapshot?.currentIndex"
-            class="shrink-0 rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white"
-          >
-            Playing
-          </span>
+          <div class="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+            <a
+              class="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 underline-offset-2 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+              :href="youtubeWatchUrl(rowId)"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open on YouTube
+            </a>
+            <span
+              v-if="index === queueSnapshot?.currentIndex"
+              class="inline-flex rounded-md bg-red-600 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-white"
+            >
+              Playing
+            </span>
+          </div>
         </li>
       </ol>
-    </div>
 
-    <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
-      <label for="guest-enqueue-id" class="block text-sm font-semibold text-slate-800">
-        Request a video (YouTube id)
-      </label>
-      <p class="mt-1 text-sm text-slate-600">Paste an 11-character video id. The host decides what plays.</p>
-      <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          id="guest-enqueue-id"
-          v-model="enqueueInput"
-          type="text"
-          maxlength="64"
-          autocomplete="off"
-          placeholder="e.g. dQw4w9WgXcQ"
-          class="min-h-11 w-full min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-base text-slate-900 shadow-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 disabled:cursor-not-allowed disabled:bg-slate-100"
-          :disabled="!canRequestEnqueue"
-          @keydown.enter.prevent="submitEnqueue"
-        />
+      <div class="border-t border-slate-200 pt-4">
         <button
+          ref="addSongTriggerRef"
           type="button"
-          class="min-h-11 shrink-0 rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-          :disabled="!canRequestEnqueue || !enqueueInput.trim()"
-          @click="submitEnqueue"
+          class="min-h-11 w-full rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
+          :disabled="!canRequestEnqueue"
+          @click="openAddSongModal"
         >
-          Request
+          Add my song
         </button>
       </div>
     </div>
+
+    <dialog
+      ref="addSongDialog"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-black/50"
+      aria-labelledby="guest-add-song-title"
+      aria-modal="true"
+      @close="onAddSongDialogClose"
+    >
+      <div class="flex max-h-[min(90vh,32rem)] flex-col gap-4 p-4 sm:p-6">
+        <h2 id="guest-add-song-title" class="text-lg font-bold text-slate-900">
+          Add my song
+        </h2>
+
+        <div v-if="addSongStep === 1" class="flex flex-col gap-4">
+          <p id="guest-add-song-step1" class="text-base text-slate-700">
+            Find a video in the YouTube app or site, tap
+            <span class="font-semibold">Share</span>
+            , then
+            <span class="font-semibold">Copy link</span>
+            . When you’re ready, continue and paste that link here.
+          </p>
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <a
+              class="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-base font-semibold text-slate-900 underline-offset-2 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+              href="https://www.youtube.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open YouTube
+            </a>
+            <button
+              type="button"
+              class="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+              @click="goToPasteStep"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="flex flex-col gap-3" aria-describedby="guest-add-song-step2-hint">
+          <p id="guest-add-song-step2-hint" class="text-base text-slate-700">
+            Paste the link you copied from YouTube (Share → Copy link).
+          </p>
+          <label for="guest-add-song-paste" class="text-sm font-semibold text-slate-800">
+            YouTube link
+          </label>
+          <input
+            id="guest-add-song-paste"
+            v-model="pasteInput"
+            type="text"
+            inputmode="url"
+            autocomplete="off"
+            maxlength="2048"
+            class="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            :disabled="!canRequestEnqueue"
+            @keydown.enter.prevent="submitPasteEnqueue"
+          />
+          <p v-if="pasteValidationError" class="text-sm text-red-700" role="status" aria-live="polite">
+            {{ pasteValidationError }}
+          </p>
+          <button
+            type="button"
+            class="min-h-11 w-full rounded-md bg-red-600 px-4 py-2 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+            :disabled="!canRequestEnqueue || !pasteInput.trim()"
+            @click="submitPasteEnqueue"
+          >
+            Enqueue
+          </button>
+        </div>
+
+        <div class="flex justify-end border-t border-slate-100 pt-2">
+          <button
+            type="button"
+            class="min-h-10 rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+            @click="closeAddSongModal"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </dialog>
   </section>
 </template>
