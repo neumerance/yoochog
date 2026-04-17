@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isPlausibleYoutubeVideoId,
   parsePartyMessage,
+  PARTY_MESSAGE_MAX_RAW_BYTES,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
   serializePartyMessage,
@@ -86,5 +87,56 @@ describe('parsePartyMessage', () => {
       type: 'enqueue_request',
       videoId: 'dQw4w9WgXcQ',
     })
+  })
+
+  it('round-trips enqueue_rejected', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_rejected' as const,
+      reason: 'Queue full',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('rejects enqueue_rejected with overlong reason', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_rejected',
+      reason: 'x'.repeat(501),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects enqueue_rejected with non-string reason', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_rejected',
+      reason: 42,
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips heartbeat', () => {
+    const msg = { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'heartbeat' as const }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('parses heartbeat with extra JSON keys ignored', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'heartbeat',
+      future: 1,
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'heartbeat',
+    })
+  })
+
+  it('rejects raw string over max length', () => {
+    const raw = 'x'.repeat(PARTY_MESSAGE_MAX_RAW_BYTES + 1)
+    expect(parsePartyMessage(raw)).toBeNull()
   })
 })

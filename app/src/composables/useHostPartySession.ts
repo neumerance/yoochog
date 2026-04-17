@@ -68,7 +68,11 @@ export function useHostPartySession(
       bumpQueue()
       return
     }
-    if (msg?.type === 'queue_snapshot' || msg?.type === 'enqueue_rejected') {
+    if (
+      msg?.type === 'queue_snapshot' ||
+      msg?.type === 'enqueue_rejected' ||
+      msg?.type === 'heartbeat'
+    ) {
       return
     }
     if (msg) {

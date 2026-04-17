@@ -67,3 +67,4 @@ The host experience stores a **random, unguessable** id per browser tab (UUID-st
 - [`app/README.md`](app/README.md) — Vue app details and subpath verification
 - [`docs/github-pages.md`](docs/github-pages.md) — full GitHub Pages setup
 - [`docs/adr/0001-webrtc-signaling.md`](docs/adr/0001-webrtc-signaling.md) — signaling transport, `sessionId` → room mapping, and `VITE_SIGNALING_URL` (Epic 4)
+- [`docs/adr/0002-party-data-channel-wire-protocol-v1.md`](docs/adr/0002-party-data-channel-wire-protocol-v1.md) — party data channel JSON protocol v1 (`yoochog-party` wire format, Epic 4)

@@ -3,7 +3,8 @@ import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
 /** Wire format version; bump when breaking JSON shape. */
 export const PARTY_MESSAGE_SCHEMA_VERSION = 1 as const
 
-const MAX_RAW_BYTES = 256_000
+/** Max accepted raw JSON string length before parse (see ADR 0002). */
+export const PARTY_MESSAGE_MAX_RAW_BYTES = 256_000
 
 export type PartyMessage =
   | {
@@ -21,6 +22,10 @@ export type PartyMessage =
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'enqueue_rejected'
       reason: string
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'heartbeat'
     }
 
 /** YouTube video id: 11 chars from [A-Za-z0-9_-]. */
@@ -75,7 +80,7 @@ function parseSnapshotPayload(
  * Does not throw.
  */
 export function parsePartyMessage(raw: string): PartyMessage | null {
-  if (raw.length > MAX_RAW_BYTES) {
+  if (raw.length > PARTY_MESSAGE_MAX_RAW_BYTES) {
     return null
   }
   let parsed: unknown
@@ -118,6 +123,9 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       return null
     }
     return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'enqueue_rejected', reason: o.reason }
+  }
+  if (o.type === 'heartbeat') {
+    return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'heartbeat' }
   }
   return null
 }
