@@ -28,8 +28,9 @@ After signaling establishes the WebRTC session, peers exchange **application dat
 | `type` | Role | Payload (v1) |
 |--------|------|----------------|
 | `queue_snapshot` | Host → guest(s) | **`ids`**: ordered list of video id strings (max 500 entries, each id max 64 chars). **`currentIndex`**: non-negative integer index into `ids`, or **`null`** only when **`ids`** is empty (empty queue, nothing playing). |
-| `enqueue_request` | Guest → host | **`videoId`**: string, trimmed; must match a plausible YouTube id (11 chars `[A-Za-z0-9_-]`). |
-| `enqueue_rejected` | Host → guest | **`reason`**: human-readable string, max 500 chars (e.g. invalid id, or video already in the queue — see guest enqueue policy / [#37](https://github.com/neumerance/yoochog/issues/37)). |
+| `enqueue_request` | Guest → host | **`videoId`**: string, trimmed; must match a plausible YouTube id (11 chars `[A-Za-z0-9_-]`). Optional metadata fields per [ADR 0003](./0003-party-queue-metadata-v1.md) / [ADR 0004](./0004-party-queue-guest-ownership-v1.md). |
+| `end_current_playback_request` | Guest → host | **`requesterGuestId`**: optional string or `null` (same length rules as enqueue); logical guest id for ownership. Host validates that this guest owns the **now playing** row (see [ADR 0004](./0004-party-queue-guest-ownership-v1.md)); on failure replies with `enqueue_rejected` + **`reason`**. On success the host advances the queue like a natural `ENDED` and broadcasts `queue_snapshot` ([#70](https://github.com/neumerance/yoochog/issues/70)). |
+| `enqueue_rejected` | Host → guest | **`reason`**: human-readable string, max 500 chars (e.g. invalid id, or video already in the queue — see guest enqueue policy / [#37](https://github.com/neumerance/yoochog/issues/37)). Also used when an `end_current_playback_request` is rejected. |
 | `heartbeat` | Either direction | **No additional required fields** beyond `v` and `type`. Semantics in v1: **liveness only**; receivers **must not** change queue state or enqueue error state when applying guest UI updates (see `applyGuestPartyMessage`). |
 
 ### Forward compatibility and safe handling

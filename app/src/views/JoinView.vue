@@ -31,6 +31,7 @@ const {
   queueSnapshot,
   lastEnqueueError,
   requestEnqueue,
+  requestEndCurrentPlayback,
   canRequestEnqueue,
 } = useGuestPartyHandshake(sessionId)
 
@@ -40,6 +41,7 @@ const guestNameError = ref<string | null>(null)
 
 const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
 
+const endSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongTriggerRef = ref<HTMLButtonElement | null>(null)
 const addSongStep = ref<1 | 2>(1)
@@ -86,6 +88,39 @@ function isMyQueueRow(index: number): boolean {
   }
   const mine = getOrCreatePartyGuestRequesterId(sessionId.value)
   return s.requesterGuestIds[index] === mine
+}
+
+/** True when this guest owns the now-playing row (non-null owner); used for “end” affordance. */
+const canShowEndNowPlaying = computed(() => {
+  if (!canRequestEnqueue.value) {
+    return false
+  }
+  const s = queueSnapshot.value
+  if (!s || s.currentIndex === null) {
+    return false
+  }
+  return isMyQueueRow(s.currentIndex)
+})
+
+function openEndSongDialog() {
+  endSongDialog.value?.showModal()
+  void nextTick(() => {
+    endSongDialog.value?.querySelector<HTMLElement>('button, [href]')?.focus()
+  })
+}
+
+function closeEndSongDialog() {
+  endSongDialog.value?.close()
+}
+
+function confirmEndSong() {
+  const sid = sessionId.value
+  if (!sid) {
+    closeEndSongDialog()
+    return
+  }
+  requestEndCurrentPlayback(getOrCreatePartyGuestRequesterId(sid))
+  closeEndSongDialog()
 }
 
 function onAddSongBarTap() {
@@ -310,7 +345,16 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
-              <div class="flex shrink-0 items-center justify-end pt-0.5">
+              <div class="flex shrink-0 items-center justify-end gap-2 pt-0.5">
+                <button
+                  v-if="index === queueSnapshot?.currentIndex && canShowEndNowPlaying"
+                  type="button"
+                  class="min-h-[44px] shrink-0 rounded-full border border-[#FF3B30] bg-white px-3 py-1.5 text-[13px] font-semibold leading-4 text-[#FF3B30] shadow-sm transition-colors active:bg-[rgba(255,59,48,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30]"
+                  aria-label="End this song for everyone"
+                  @click="openEndSongDialog"
+                >
+                  End
+                </button>
                 <span
                   v-if="index === queueSnapshot?.currentIndex"
                   class="inline-flex items-center rounded-full bg-[#FF3B30] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
@@ -484,6 +528,45 @@ onMounted(() => {
           type="button"
           class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
           @click="closeAddSongModal"
+        >
+          Cancel
+        </button>
+      </div>
+    </dialog>
+
+    <dialog
+      ref="endSongDialog"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      aria-labelledby="guest-end-song-title"
+      aria-modal="true"
+    >
+      <div
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+      >
+        <h2
+          id="guest-end-song-title"
+          class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
+        >
+          End this song?
+        </h2>
+        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
+          <p class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+            This stops playback for everyone and continues like the song finished on its own.
+          </p>
+          <div class="border-t border-[#C6C6C8]">
+            <button
+              type="button"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30]"
+              @click="confirmEndSong"
+            >
+              End
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          @click="closeEndSongDialog"
         >
           Cancel
         </button>

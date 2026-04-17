@@ -189,6 +189,37 @@ describe('parsePartyMessage', () => {
     expect(parsePartyMessage(raw)).toBeNull()
   })
 
+  it('round-trips end_current_playback_request with requesterGuestId', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'end_current_playback_request' as const,
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('accepts end_current_playback_request without requesterGuestId (normalized to null)', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'end_current_playback_request',
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'end_current_playback_request',
+      requesterGuestId: null,
+    })
+  })
+
+  it('rejects end_current_playback_request with overlong requesterGuestId', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'end_current_playback_request',
+      requesterGuestId: 'x'.repeat(PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH + 1),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
   it('rejects queue_snapshot when requesterGuestIds length mismatches ids', () => {
     const raw = JSON.stringify({
       v: PARTY_MESSAGE_SCHEMA_VERSION,

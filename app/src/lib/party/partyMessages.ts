@@ -35,6 +35,11 @@ export type PartyMessage =
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'end_current_playback_request'
+      requesterGuestId: string | null
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'enqueue_rejected'
       reason: string
     }
@@ -290,6 +295,17 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       videoId,
       title,
       requestedBy,
+      requesterGuestId,
+    }
+  }
+  if (o.type === 'end_current_playback_request') {
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid') {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'end_current_playback_request',
       requesterGuestId,
     }
   }

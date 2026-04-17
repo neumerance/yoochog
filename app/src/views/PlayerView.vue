@@ -152,6 +152,7 @@ const queue = createHostVideoQueue()
 const queueTick = ref(0)
 /** Bumps only when the current playback row changes (advance/skip), not on enqueue — avoids restarting the iframe on append. */
 const playerSyncTick = ref(0)
+const idleVariant = ref<'empty' | 'ended' | null>(null)
 
 function bumpQueue() {
   queueTick.value++
@@ -159,6 +160,20 @@ function bumpQueue() {
   if (id) {
     saveHostQueue(id, queue.getSnapshot())
   }
+}
+
+function applyNaturalPlaybackEnd() {
+  const action = onPlaybackEnded(queue.hasNext())
+  if (action.kind === 'advance') {
+    idleVariant.value = null
+    queue.advance()
+    playerSyncTick.value++
+    bumpQueue()
+    return
+  }
+  queue.clear()
+  bumpQueue()
+  idleVariant.value = 'ended'
 }
 
 watch(
@@ -181,9 +196,7 @@ const {
   statusLabel: handshakeStatusLabel,
   error: handshakeError,
   isSignalingConfigured,
-} = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue)
-
-const idleVariant = ref<'empty' | 'ended' | null>(null)
+} = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue, applyNaturalPlaybackEnd)
 const skipMessage = ref<string | null>(null)
 const embedSetupError = ref<string | null>(null)
 
@@ -251,17 +264,7 @@ const { player, isReady } = useYoutubePlayer(playerContainer, {
 })
 
 function handlePlaybackEnded() {
-  const action = onPlaybackEnded(queue.hasNext())
-  if (action.kind === 'advance') {
-    idleVariant.value = null
-    queue.advance()
-    playerSyncTick.value++
-    bumpQueue()
-    return
-  }
-  queue.clear()
-  bumpQueue()
-  idleVariant.value = 'ended'
+  applyNaturalPlaybackEnd()
 }
 
 function handlePlaybackError() {

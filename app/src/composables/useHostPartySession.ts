@@ -2,6 +2,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { HostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
+import { resolveEndCurrentPlaybackRequest } from '@/lib/host-queue/guestEndPlaybackPolicy'
 import { resolveGuestEnqueueRequest } from '@/lib/host-queue/guestEnqueuePolicy'
 import {
   parsePartyMessage,
@@ -21,6 +22,7 @@ export function useHostPartySession(
   queue: HostVideoQueue,
   queueTick: Ref<number>,
   bumpQueue: () => void,
+  onGuestEndedCurrentPlayback?: () => void,
 ) {
   const status = ref<HandshakeUiState>('idle')
   const error = ref<string | null>(null)
@@ -79,6 +81,19 @@ export function useHostPartySession(
       }
       queue.append([resolution.item])
       bumpQueue()
+      return
+    }
+    if (msg?.type === 'end_current_playback_request') {
+      const resolution = resolveEndCurrentPlaybackRequest({
+        snapshot: queue.getSnapshot(),
+        parsedRequesterGuestId: msg.requesterGuestId,
+        peerGuestId: guestId,
+      })
+      if (!resolution.ok) {
+        sendReject(guestId, resolution.reason)
+        return
+      }
+      onGuestEndedCurrentPlayback?.()
       return
     }
     if (
