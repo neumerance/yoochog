@@ -109,7 +109,7 @@ import { computed, ref, watch } from 'vue'
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
-import { useHostPartyHandshake } from '@/composables/useHostPartyHandshake'
+import { useHostPartySession } from '@/composables/useHostPartySession'
 import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
 import { DEMO_HOST_QUEUE_IDS } from '@/constants/sampleVideo'
@@ -117,12 +117,6 @@ import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
 
 const { hostSessionId } = useHostSessionId()
-const {
-  status: handshakeStatus,
-  statusLabel: handshakeStatusLabel,
-  error: handshakeError,
-  isSignalingConfigured,
-} = useHostPartyHandshake(hostSessionId)
 
 const queue = createHostVideoQueue()
 const queueTick = ref(0)
@@ -132,6 +126,13 @@ function bumpQueue() {
 }
 
 queue.append([...DEMO_HOST_QUEUE_IDS])
+
+const {
+  status: handshakeStatus,
+  statusLabel: handshakeStatusLabel,
+  error: handshakeError,
+  isSignalingConfigured,
+} = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue)
 
 const idleVariant = ref<'empty' | 'ended' | null>(null)
 const skipMessage = ref<string | null>(null)

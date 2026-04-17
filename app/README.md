@@ -75,31 +75,9 @@ npm install
 npm run dev
 ```
 
-### Signaling (real-time handshake, dev)
+### Signaling (PubNub — primary)
 
-Epic 4 uses a **separate** WebSocket signaling service (not GitHub Pages). This repo includes a small **dev relay** under [`signaling-dev/`](../signaling-dev/) (see `server.mjs` and `package.json`) that matches the client’s JSON envelope (`join`, `signal`, room id `yoochog:party:<sessionId>` per [ADR 0001](../docs/adr/0001-webrtc-signaling.md)).
-
-1. In one terminal, start the relay (default port **8787**):
-
-   ```sh
-   cd signaling-dev
-   npm install
-   npm start
-   ```
-
-2. In **`app/`**, create **`.env.local`** (not committed) with the **name-only** placeholder:
-
-   ```sh
-   VITE_SIGNALING_URL=http://localhost:8787
-   ```
-
-3. Run **`npm run dev`** in **`app/`**, open **Host** at `/player` and **Guest** at `/join/<sessionId>` using the **same** opaque party id as the host (QR / join link). You should see **“Establishing handshake”** then **Connected** when the WebRTC peer connection reaches `connected`.
-
-**Manual check:** Two browser tabs (or profiles) with the same `VITE_SIGNALING_URL` and matching session id; DevTools → Network shows an open WebSocket to the signaling URL.
-
-### Signaling via PubNub (hosted)
-
-The app can use **[PubNub](https://www.pubnub.com/)** pub/sub on **one channel per party** (same string as ADR 0001: `yoochog:party:<sessionId>`). If both keys are set in **`.env.local`**, they take priority over `VITE_SIGNALING_URL`.
+**PubNub is the main signaling transport** for this app: WebRTC offers/answers and ICE flow over PubNub pub/sub on **one channel per party** (room id `yoochog:party:<sessionId>` per [ADR 0001](../docs/adr/0001-webrtc-signaling.md)). The client chooses PubNub when **both** keys are set in **`app/.env.local`** (see [`signalingFactory`](src/lib/signaling/signalingFactory.ts)).
 
 ```sh
 VITE_PUBNUB_PUBLISH_KEY=your-publish-key
@@ -108,11 +86,25 @@ VITE_PUBNUB_SUBSCRIBE_KEY=your-subscribe-key
 
 Use keys from the PubNub admin portal (dev app). Production should use **Access Manager** / token auth instead of long-lived publish keys in clients; this wiring is suitable for **development and demos**.
 
+**Manual check:** Run **`npm run dev`** in **`app/`**, open **Host** (player route) and **Guest** at **`/join/<sessionId>`** with the **same** session id (QR / join link). You should see **“Establishing handshake”** then **Connected** when the WebRTC peer connection reaches `connected`. Use two browser tabs or profiles with the same `.env.local`.
+
 **If the browser console shows `403` on `pndsn.com` subscribe or publish:** PubNub is rejecting the request. Common fixes:
 
 1. Use **Publish Key** and **Subscribe Key** from the **same keyset** (same app in the Admin portal)—do not mix keys from different apps.
 2. For **local development**, turn **Access Manager** **off** on that keyset (when PAM is on with no grants, clients get 403). Alternatively keep PAM on and configure grants for your channels.
 3. Confirm the keyset is **active** and **Pub/Sub** is allowed for the client.
+
+### Optional: local WebSocket relay (not primary)
+
+For **offline** work or debugging the signaling envelope without PubNub, this repo includes a small **dev relay** under [`signaling-dev/`](../signaling-dev/) (`server.mjs`). It is **not** the product’s main path—use it only when you omit PubNub keys and set:
+
+```sh
+VITE_SIGNALING_URL=http://localhost:8787
+```
+
+Start the relay (`cd signaling-dev && npm install && npm start`, default port **8787**). If both PubNub keys **and** `VITE_SIGNALING_URL` are set, **PubNub is used**; unset the PubNub keys to force the WebSocket client.
+
+**Manual check (relay only):** DevTools → Network may show an open WebSocket to the relay URL.
 
 ### Type-Check, Compile and Minify for Production
 

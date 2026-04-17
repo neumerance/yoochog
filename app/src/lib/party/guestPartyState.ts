@@ -1,0 +1,31 @@
+import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
+
+import type { PartyMessage } from './partyMessages'
+
+export type GuestPartyUiState = {
+  snapshot: HostVideoQueueSnapshot | null
+  lastEnqueueError: string | null
+}
+
+/**
+ * Applies an incoming host→guest party message to guest UI state.
+ */
+export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessage): GuestPartyUiState {
+  switch (msg.type) {
+    case 'queue_snapshot':
+      return {
+        snapshot: {
+          ids: Object.freeze([...msg.ids]),
+          currentIndex: msg.currentIndex,
+        },
+        lastEnqueueError: prev.lastEnqueueError,
+      }
+    case 'enqueue_rejected':
+      return {
+        snapshot: prev.snapshot,
+        lastEnqueueError: msg.reason,
+      }
+    case 'enqueue_request':
+      return prev
+  }
+}

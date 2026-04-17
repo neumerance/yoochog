@@ -2,6 +2,8 @@ import type { PartySignalingTransport } from '@/lib/signaling/PartySignalingTran
 import type { SignalPayload } from '@/lib/signaling/protocol'
 import { createSignalingTransport } from '@/lib/signaling/signalingFactory'
 import { signalingRoomId } from '@/lib/signaling/roomId'
+import { broadcastToPartyDataChannels, PARTY_CHANNEL_LABEL } from '@/lib/party/broadcastPartyDataChannels'
+import { removeGuestPeer } from '@/lib/party/partyPeerCleanup'
 import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import { DEFAULT_DEV_ICE_SERVERS } from '@/lib/webrtc/defaultIceServers'
 import { waitForIceGatheringComplete } from '@/lib/webrtc/iceGathering'
@@ -10,6 +12,36 @@ import { waitForPeerConnectionConnected } from '@/lib/webrtc/waitForConnected'
 export type PartyHandshakeCallbacks = {
   onStatus: (s: HandshakeUiState) => void
   onError: (message: string) => void
+}
+
+export type HostPartyHandshakeOptions = {
+  sessionId: string
+  signal: AbortSignal
+  /** Reliable, ordered SCTP; used for small JSON control messages (queue snapshots, enqueue). */
+  onPartyChannelOpen?: (guestId: string) => void
+  /** Raw UTF-8 payload from the guest's party channel (parse in the app layer). */
+  onPartyMessage?: (guestId: string, raw: string) => void
+  /** One guest's WebRTC/signaling step failed; other guests are unaffected. */
+  onGuestPeerFailed?: (guestId: string, message: string) => void
+} & PartyHandshakeCallbacks
+
+export type HostPartyHandshakeHandle = {
+  dispose: () => void
+  sendPartyToGuest: (guestId: string, raw: string) => void
+  broadcastParty: (raw: string) => void
+}
+
+export type GuestPartyHandshakeOptions = {
+  sessionId: string
+  signal: AbortSignal
+  onPartyChannelOpen?: () => void
+  onPartyMessage?: (raw: string) => void
+} & PartyHandshakeCallbacks
+
+export type GuestPartyHandshakeHandle = {
+  dispose: () => void
+  /** Sends a UTF-8 string on the host-created party channel when open. */
+  sendPartyRaw: (raw: string) => void
 }
 
 async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortSignal): Promise<string> {
@@ -44,12 +76,7 @@ async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortS
 /**
  * Host: one RTCPeerConnection per guest; offer/answer with ICE in SDP (non-trickle for dev stability).
  */
-export function runHostPartyHandshake(
-  options: {
-    sessionId: string
-    signal: AbortSignal
-  } & PartyHandshakeCallbacks,
-): { dispose: () => void } {
+export function runHostPartyHandshake(options: HostPartyHandshakeOptions): HostPartyHandshakeHandle {
   const clientId = crypto.randomUUID()
   const signaling = createSignalingTransport({
     signalingBaseUrl: import.meta.env.VITE_SIGNALING_URL,
@@ -58,16 +85,36 @@ export function runHostPartyHandshake(
   })
   const room = signalingRoomId(options.sessionId)
   const pcs = new Map<string, RTCPeerConnection>()
+  const partyChannels = new Map<string, RTCDataChannel>()
   const unsubscribes: Array<() => void> = []
   let reportedConnected = false
+
+  function removeGuest(guestId: string) {
+    removeGuestPeer(guestId, pcs, partyChannels)
+  }
+
+  function sendPartyToGuest(guestId: string, raw: string) {
+    const ch = partyChannels.get(guestId)
+    if (!ch || ch.readyState !== 'open') {
+      return
+    }
+    try {
+      ch.send(raw)
+    } catch {
+      // Channel may be closing.
+    }
+  }
+
+  function broadcastParty(raw: string) {
+    broadcastToPartyDataChannels(partyChannels, raw)
+  }
 
   const dispose = () => {
     unsubscribes.forEach((u) => u())
     signaling.close()
-    for (const pc of pcs.values()) {
-      pc.close()
+    for (const id of [...pcs.keys()]) {
+      removeGuest(id)
     }
-    pcs.clear()
   }
 
   options.signal.addEventListener(
@@ -89,6 +136,12 @@ export function runHostPartyHandshake(
       options.onError(e instanceof Error ? e.message : 'Signaling failed.')
       dispose()
       return
+    }
+
+    signaling.onPeerLeft = (leftId) => {
+      if (pcs.has(leftId)) {
+        removeGuest(leftId)
+      }
     }
 
     signaling.onSignal = ({ from, payload }) => {
@@ -120,9 +173,9 @@ export function runHostPartyHandshake(
           await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp })
         }
       } catch (e) {
-        options.onStatus('failed')
-        options.onError(e instanceof Error ? e.message : 'Handshake failed.')
-        dispose()
+        const message = e instanceof Error ? e.message : 'Handshake failed.'
+        options.onGuestPeerFailed?.(from, message)
+        removeGuest(from)
       }
     }
 
@@ -135,7 +188,26 @@ export function runHostPartyHandshake(
       }
       const pc = new RTCPeerConnection({ iceServers: DEFAULT_DEV_ICE_SERVERS })
       pcs.set(guestId, pc)
-      pc.createDataChannel('yoochog-handshake')
+
+      const dc = pc.createDataChannel(PARTY_CHANNEL_LABEL, { ordered: true })
+      partyChannels.set(guestId, dc)
+
+      dc.onopen = () => {
+        options.onPartyChannelOpen?.(guestId)
+      }
+      dc.onmessage = (ev) => {
+        options.onPartyMessage?.(guestId, String(ev.data))
+      }
+
+      pc.onconnectionstatechange = () => {
+        const st = pc.connectionState
+        if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+          if (pcs.get(guestId) === pc) {
+            removeGuest(guestId)
+          }
+        }
+      }
+
       try {
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
@@ -148,25 +220,20 @@ export function runHostPartyHandshake(
           options.onStatus('connected')
         }
       } catch (e) {
-        options.onStatus('failed')
-        options.onError(e instanceof Error ? e.message : 'Handshake failed.')
-        dispose()
+        const message = e instanceof Error ? e.message : 'Handshake failed.'
+        options.onGuestPeerFailed?.(guestId, message)
+        removeGuest(guestId)
       }
     }
   })()
 
-  return { dispose }
+  return { dispose, sendPartyToGuest, broadcastParty }
 }
 
 /**
  * Guest: waits for host, answers host offer, waits until the peer connection is connected.
  */
-export function runGuestPartyHandshake(
-  options: {
-    sessionId: string
-    signal: AbortSignal
-  } & PartyHandshakeCallbacks,
-): { dispose: () => void } {
+export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): GuestPartyHandshakeHandle {
   const clientId = crypto.randomUUID()
   const signaling = createSignalingTransport({
     signalingBaseUrl: import.meta.env.VITE_SIGNALING_URL,
@@ -175,10 +242,28 @@ export function runGuestPartyHandshake(
   })
   const room = signalingRoomId(options.sessionId)
   let pc: RTCPeerConnection | null = null
+  let partyDc: RTCDataChannel | null = null
   const preSignal: Array<{ from: string; payload: SignalPayload }> = []
+
+  const sendPartyRaw = (raw: string) => {
+    if (!partyDc || partyDc.readyState !== 'open') {
+      return
+    }
+    try {
+      partyDc.send(raw)
+    } catch {
+      // ignore
+    }
+  }
 
   const dispose = () => {
     signaling.close()
+    try {
+      partyDc?.close()
+    } catch {
+      // ignore
+    }
+    partyDc = null
     pc?.close()
     pc = null
   }
@@ -202,8 +287,18 @@ export function runGuestPartyHandshake(
       await signaling.join(room, clientId, 'guest')
       const hostId = await findHostPeerId(signaling, options.signal)
       pc = new RTCPeerConnection({ iceServers: DEFAULT_DEV_ICE_SERVERS })
-      pc.ondatachannel = () => {
-        // Keeps the SCTP side alive for connectionState to reach connected.
+      pc.ondatachannel = (ev) => {
+        if (ev.channel.label !== PARTY_CHANNEL_LABEL) {
+          return
+        }
+        partyDc = ev.channel
+        partyDc.binaryType = 'blob'
+        partyDc.onopen = () => {
+          options.onPartyChannelOpen?.()
+        }
+        partyDc.onmessage = (e) => {
+          options.onPartyMessage?.(String(e.data))
+        }
       }
 
       let handshakeFinished = false
@@ -239,5 +334,5 @@ export function runGuestPartyHandshake(
     }
   })()
 
-  return { dispose }
+  return { dispose, sendPartyRaw }
 }
