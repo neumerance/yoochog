@@ -218,7 +218,12 @@ const queueTick = ref(0)
 /** Bumps only when the current playback row changes (advance/skip), not on enqueue — avoids restarting the iframe on append. */
 const playerSyncTick = ref(0)
 const idleVariant = ref<'empty' | 'ended' | null>(null)
-/** After each new now-playing row, host taps again to unlock audio (next singer can prepare). */
+/**
+ * False until the host taps “Start Singing” (browser autoplay policy). Stays true when the queue
+ * advances to the next track after a natural end, embed error skip, or guest “end song” (same as
+ * natural end). Reset when the queue is empty after the last song ends or errors, or on first paint
+ * with a persisted queue (initial ref is false).
+ */
 const audioSessionUnlocked = ref(false)
 /** Reset when advancing tracks so the next “Start Singing” seek+play runs once per song. */
 const didSeekOnFirstUnlock = ref(false)
@@ -235,8 +240,6 @@ function applyNaturalPlaybackEnd() {
   const action = onPlaybackEnded(queue.hasNext())
   if (action.kind === 'advance') {
     idleVariant.value = null
-    // Lock session before queue/video id updates so loadVideoById sees muted state (avoid flush ordering).
-    audioSessionUnlocked.value = false
     didSeekOnFirstUnlock.value = false
     queue.advance()
     playerSyncTick.value++
@@ -246,6 +249,8 @@ function applyNaturalPlaybackEnd() {
   queue.clear()
   bumpQueue()
   idleVariant.value = 'ended'
+  audioSessionUnlocked.value = false
+  didSeekOnFirstUnlock.value = false
 }
 
 watch(
@@ -329,7 +334,6 @@ function handlePlaybackError() {
   if (action.kind === 'advance') {
     skipMessage.value = 'That one hid from us — skipping ahead.'
     idleVariant.value = null
-    audioSessionUnlocked.value = false
     didSeekOnFirstUnlock.value = false
     queue.advance()
     playerSyncTick.value++
@@ -340,6 +344,8 @@ function handlePlaybackError() {
   queue.clear()
   bumpQueue()
   idleVariant.value = 'ended'
+  audioSessionUnlocked.value = false
+  didSeekOnFirstUnlock.value = false
   window.setTimeout(() => {
     skipMessage.value = null
   }, 4500)
