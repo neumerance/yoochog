@@ -9,7 +9,8 @@ export type SignalingEnvOptions = {
 }
 
 /**
- * Prefer PubNub when both keys are set; otherwise WebSocket relay via `VITE_SIGNALING_URL`.
+ * **Primary:** PubNub when both keys are set (normal production and dev for this app).
+ * **Fallback:** WebSocket relay via `VITE_SIGNALING_URL` when PubNub keys are incomplete (e.g. local `signaling-dev`).
  */
 export function createSignalingTransport(options: SignalingEnvOptions): PartySignalingTransport {
   const pub = options.pubnubPublishKey?.trim()

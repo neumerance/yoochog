@@ -24,6 +24,8 @@ Use a **WebSocket-oriented signaling path** for exchanging WebRTC signaling mess
 
 The static site **does not** host long-lived WebSockets; the signaling service runs **outside** the GitHub Pages deployment.
 
+**Yoochog (this repository):** **PubNub** is the **primary** signaling implementation—configure **`VITE_PUBNUB_PUBLISH_KEY`** and **`VITE_PUBNUB_SUBSCRIBE_KEY`**. The optional **`VITE_SIGNALING_URL`** WebSocket relay under **`signaling-dev/`** exists for local/offline testing when those keys are not set; when both PubNub keys are present, the app selects PubNub (see `app/src/lib/signaling/signalingFactory.ts`).
+
 ### `sessionId` → signaling room mapping
 
 Define a single normative **signaling room id** string:

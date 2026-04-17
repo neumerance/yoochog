@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  isPlausibleYoutubeVideoId,
+  parsePartyMessage,
+  PARTY_MESSAGE_SCHEMA_VERSION,
+  queueSnapshotToMessage,
+  serializePartyMessage,
+} from './partyMessages'
+
+describe('isPlausibleYoutubeVideoId', () => {
+  it('accepts 11-char ids', () => {
+    expect(isPlausibleYoutubeVideoId('dQw4w9WgXcQ')).toBe(true)
+  })
+  it('rejects wrong length', () => {
+    expect(isPlausibleYoutubeVideoId('short')).toBe(false)
+    expect(isPlausibleYoutubeVideoId('dQw4w9WgXcQextra')).toBe(false)
+  })
+})
+
+describe('parsePartyMessage', () => {
+  it('round-trips queue_snapshot', () => {
+    const msg = queueSnapshotToMessage({
+      ids: ['a', 'b'],
+      currentIndex: 0,
+    })
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('accepts empty queue snapshot', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: [],
+      currentIndex: null,
+    })
+    const p = parsePartyMessage(raw)
+    expect(p?.type === 'queue_snapshot' && p.ids.length === 0 && p.currentIndex === null).toBe(true)
+  })
+
+  it('rejects empty queue with non-null current index', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: [],
+      currentIndex: 0,
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects unknown type', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'ping',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects malformed JSON', () => {
+    expect(parsePartyMessage('not json')).toBeNull()
+  })
+
+  it('rejects wrong schema version', () => {
+    const raw = JSON.stringify({ v: 99, type: 'queue_snapshot', ids: [], currentIndex: null })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects enqueue_request with invalid video id', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'nope',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('accepts valid enqueue_request', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'enqueue_request',
+      videoId: 'dQw4w9WgXcQ',
+    })
+  })
+})
