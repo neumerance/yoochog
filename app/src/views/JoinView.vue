@@ -12,6 +12,7 @@ import {
   saveGuestDisplayName,
   validateGuestDisplayName,
 } from '@/lib/guest/guestDisplayName'
+import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
 import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
@@ -56,6 +57,15 @@ function queueRowRequester(index: number): string | null {
     return null
   }
   return s.requestedBys[index] ?? null
+}
+
+function isMyQueueRow(index: number): boolean {
+  const s = queueSnapshot.value
+  if (!s || !sessionId.value) {
+    return false
+  }
+  const mine = getOrCreatePartyGuestRequesterId(sessionId.value)
+  return s.requesterGuestIds[index] === mine
 }
 
 function openAddSongModal() {
@@ -143,7 +153,8 @@ async function submitPasteEnqueue() {
   isEnqueueSubmitting.value = true
   try {
     const title = await fetchYoutubeVideoTitle(id)
-    requestEnqueue(id, title, guestName)
+    const requesterId = getOrCreatePartyGuestRequesterId(sessionId.value)
+    requestEnqueue(id, title, guestName, requesterId)
     closeAddSongModal()
   } finally {
     isEnqueueSubmitting.value = false
@@ -239,6 +250,12 @@ async function submitPasteEnqueue() {
                     >
                       <span class="font-medium">Requested by </span>
                       <span class="font-bold text-black">{{ queueRowRequester(index) }}</span>
+                    </p>
+                    <p
+                      v-if="isMyQueueRow(index)"
+                      class="mt-1 min-w-0 text-left text-[13px] font-medium leading-[1.35] text-[#8E8E93]"
+                    >
+                      Your request
                     </p>
                   </div>
                 </div>

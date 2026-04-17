@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
-import { ENQUEUE_REJECTED_DUPLICATE_VIDEO, isVideoIdInHostQueue } from './guestEnqueuePolicy'
+import {
+  ENQUEUE_REJECTED_ALREADY_HAS_REQUEST,
+  ENQUEUE_REJECTED_DUPLICATE_VIDEO,
+  guestAlreadyHasRequestInQueue,
+  isVideoIdInHostQueue,
+  resolveGuestEnqueueRequest,
+} from './guestEnqueuePolicy'
 import type { HostVideoQueueSnapshot } from './hostVideoQueue'
 
-function snap(ids: string[]): HostVideoQueueSnapshot {
+function snap(
+  ids: string[],
+  requesterGuestIds?: (string | null)[] | null,
+): HostVideoQueueSnapshot {
+  const rgi =
+    requesterGuestIds ?? ids.map(() => null as string | null)
   return {
     ids,
     titles: ids.map(() => null),
     requestedBys: ids.map(() => null),
+    requesterGuestIds: rgi,
     currentIndex: ids.length === 0 ? null : 0,
   }
 }
@@ -16,6 +28,11 @@ describe('guestEnqueuePolicy', () => {
   it('exposes stable guest-visible duplicate rejection copy', () => {
     expect(ENQUEUE_REJECTED_DUPLICATE_VIDEO).toMatch(/already/i)
     expect(ENQUEUE_REJECTED_DUPLICATE_VIDEO.length).toBeGreaterThan(0)
+  })
+
+  it('exposes stable guest-visible one-song-per-guest rejection copy', () => {
+    expect(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST).toMatch(/already/i)
+    expect(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST.length).toBeGreaterThan(0)
   })
 
   describe('isVideoIdInHostQueue', () => {
@@ -37,6 +54,76 @@ describe('guestEnqueuePolicy', () => {
 
     it('returns true when id appears twice in the snapshot (legacy duplicate rows)', () => {
       expect(isVideoIdInHostQueue('same', snap(['same', 'same']))).toBe(true)
+    })
+  })
+
+  describe('guestAlreadyHasRequestInQueue', () => {
+    it('returns false when owner id is absent from rows', () => {
+      expect(guestAlreadyHasRequestInQueue('g1', snap(['a', 'b'], [null, null]))).toBe(false)
+    })
+
+    it('returns true when owner id matches any row including now playing', () => {
+      expect(guestAlreadyHasRequestInQueue('g1', snap(['a', 'b'], ['g1', null]))).toBe(true)
+      expect(guestAlreadyHasRequestInQueue('g2', snap(['a', 'b'], ['g1', 'g2']))).toBe(true)
+    })
+  })
+
+  describe('resolveGuestEnqueueRequest', () => {
+    it('rejects duplicate video before one-song-per-guest', () => {
+      const r = resolveGuestEnqueueRequest({
+        snapshot: snap(['dQw4w9WgXcQ'], ['g1']),
+        videoId: 'dQw4w9WgXcQ',
+        title: null,
+        requestedBy: null,
+        parsedRequesterGuestId: 'g1',
+        peerGuestId: 'peer',
+      })
+      expect(r.ok).toBe(false)
+      if (!r.ok) {
+        expect(r.reason).toBe(ENQUEUE_REJECTED_DUPLICATE_VIDEO)
+      }
+    })
+
+    it('rejects second song from same guest when duplicate does not apply', () => {
+      const r = resolveGuestEnqueueRequest({
+        snapshot: snap(['aaaaaaaaaaa'], ['g1']),
+        videoId: 'dQw4w9WgXcQ',
+        title: null,
+        requestedBy: null,
+        parsedRequesterGuestId: 'g1',
+        peerGuestId: 'peer',
+      })
+      expect(r.ok).toBe(false)
+      if (!r.ok) {
+        expect(r.reason).toBe(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST)
+      }
+    })
+
+    it('allows enqueue after owner row is gone', () => {
+      const r = resolveGuestEnqueueRequest({
+        snapshot: snap(['aaaaaaaaaaa'], ['g2']),
+        videoId: 'dQw4w9WgXcQ',
+        title: null,
+        requestedBy: null,
+        parsedRequesterGuestId: 'g1',
+        peerGuestId: 'peer',
+      })
+      expect(r.ok).toBe(true)
+    })
+
+    it('uses peerGuestId when parsed requester id is null', () => {
+      const r = resolveGuestEnqueueRequest({
+        snapshot: snap([]),
+        videoId: 'dQw4w9WgXcQ',
+        title: null,
+        requestedBy: null,
+        parsedRequesterGuestId: null,
+        peerGuestId: 'peer-1',
+      })
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.item.requesterGuestId).toBe('peer-1')
+      }
     })
   })
 })

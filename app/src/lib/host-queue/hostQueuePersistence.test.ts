@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  hostQueueStorageKey,
   loadHostQueue,
   saveHostQueue,
   snapshotToItems,
@@ -42,6 +43,7 @@ describe('hostQueuePersistence', () => {
       ids: ['dQw4w9WgXcQ', 'jNQXAC9IVRw'],
       titles: ['A', null],
       requestedBys: ['Sam', null],
+      requesterGuestIds: ['g1', null],
       currentIndex: 0,
     }
     saveHostQueue('session-1', snap)
@@ -50,6 +52,25 @@ describe('hostQueuePersistence', () => {
       ids: snap.ids,
       titles: snap.titles,
       requestedBys: snap.requestedBys,
+      requesterGuestIds: snap.requesterGuestIds,
+      currentIndex: 0,
+    })
+  })
+
+  it('loads legacy JSON without requesterGuestIds as null owners', () => {
+    const legacy = JSON.stringify({
+      ids: ['dQw4w9WgXcQ'],
+      titles: ['T'],
+      requestedBys: ['Sam'],
+      currentIndex: 0,
+    })
+    store[hostQueueStorageKey('legacy-session')] = legacy
+    const loaded = loadHostQueue('legacy-session')
+    expect(loaded).toEqual({
+      ids: ['dQw4w9WgXcQ'],
+      titles: ['T'],
+      requestedBys: ['Sam'],
+      requesterGuestIds: [null],
       currentIndex: 0,
     })
   })
@@ -60,6 +81,7 @@ describe('hostQueuePersistence', () => {
       ids: ['aaaaaaaaaaa'],
       titles: ['T'],
       requestedBys: ['R'],
+      requesterGuestIds: ['g1'],
       currentIndex: 0,
     })
     q.replace(items)
@@ -67,6 +89,7 @@ describe('hostQueuePersistence', () => {
       ids: ['aaaaaaaaaaa'],
       titles: ['T'],
       requestedBys: ['R'],
+      requesterGuestIds: ['g1'],
       currentIndex: 0,
     })
   })

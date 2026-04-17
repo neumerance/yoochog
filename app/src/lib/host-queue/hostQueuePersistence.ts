@@ -11,6 +11,7 @@ export function snapshotToItems(snapshot: HostVideoQueueSnapshot): HostVideoQueu
     videoId,
     title: snapshot.titles[i] ?? null,
     requestedBy: snapshot.requestedBys[i] ?? null,
+    requesterGuestId: snapshot.requesterGuestIds[i] ?? null,
   }))
 }
 
@@ -28,6 +29,7 @@ export function saveHostQueue(sessionId: string, snapshot: HostVideoQueueSnapsho
         ids: [...snapshot.ids],
         titles: [...snapshot.titles],
         requestedBys: [...snapshot.requestedBys],
+        requesterGuestIds: [...snapshot.requesterGuestIds],
         currentIndex: snapshot.currentIndex,
       }),
     )
@@ -40,6 +42,7 @@ function isValidSnapshot(o: unknown): o is {
   ids: string[]
   titles: unknown[]
   requestedBys: unknown[]
+  requesterGuestIds?: unknown[]
   currentIndex: number | null
 } {
   if (typeof o !== 'object' || o === null) {
@@ -53,6 +56,12 @@ function isValidSnapshot(o: unknown): o is {
     return false
   }
   if (x.ids.length !== x.titles.length || x.ids.length !== x.requestedBys.length) {
+    return false
+  }
+  if (
+    x.requesterGuestIds !== undefined &&
+    (!Array.isArray(x.requesterGuestIds) || x.requesterGuestIds.length !== x.ids.length)
+  ) {
     return false
   }
   if (x.currentIndex !== null && typeof x.currentIndex !== 'number') {
@@ -88,16 +97,21 @@ export function loadHostQueue(sessionId: string): HostVideoQueueSnapshot | null 
     }
     const titles: (string | null)[] = []
     const requestedBys: (string | null)[] = []
+    const requesterGuestIds: (string | null)[] = []
     for (let i = 0; i < parsed.ids.length; i++) {
       const ti = parsed.titles[i]
       const ri = parsed.requestedBys[i]
       titles.push(ti === null ? null : typeof ti === 'string' ? ti : null)
       requestedBys.push(ri === null ? null : typeof ri === 'string' ? ri : null)
+      const gi =
+        parsed.requesterGuestIds !== undefined ? parsed.requesterGuestIds[i] : undefined
+      requesterGuestIds.push(gi === null ? null : typeof gi === 'string' ? gi : null)
     }
     return {
       ids: Object.freeze([...parsed.ids]),
       titles: Object.freeze(titles),
       requestedBys: Object.freeze(requestedBys),
+      requesterGuestIds: Object.freeze(requesterGuestIds),
       currentIndex: parsed.currentIndex,
     }
   } catch {

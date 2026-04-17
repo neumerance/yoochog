@@ -43,5 +43,6 @@ Hosts **append** a full queue row `{ videoId, title, requestedBy }` from the par
 ## References
 
 - [ADR 0002](./0002-party-data-channel-wire-protocol-v1.md) — base v1 protocol  
+- [ADR 0004](./0004-party-queue-guest-ownership-v1.md) — per-row **`requesterGuestIds`** and **`enqueue_request.requesterGuestId`**  
 - [`app/src/lib/party/partyMessages.ts`](../../app/src/lib/party/partyMessages.ts) — parse/serialize  
 - [`app/src/lib/host-queue/hostVideoQueue.ts`](../../app/src/lib/host-queue/hostVideoQueue.ts) — in-memory queue rows  

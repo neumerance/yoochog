@@ -12,6 +12,9 @@ export const PARTY_QUEUE_TITLE_MAX_LENGTH = 200
 /** Display name / requester label on wire. */
 export const PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH = 64
 
+/** Logical guest id on wire (UUID from guest session storage or legacy peer id fallback). */
+export const PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH = 64
+
 export type PartyMessage =
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -20,6 +23,7 @@ export type PartyMessage =
       currentIndex: number | null
       titles: (string | null)[]
       requestedBys: (string | null)[]
+      requesterGuestIds: (string | null)[]
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -27,6 +31,7 @@ export type PartyMessage =
       videoId: string
       title: string | null
       requestedBy: string | null
+      requesterGuestId: string | null
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -84,6 +89,44 @@ function parseNullableRequestedBy(value: unknown): string | null | 'invalid' {
   return t
 }
 
+function parseNullableRequesterGuestId(value: unknown): string | null | 'invalid' {
+  if (value === undefined || value === null) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    return 'invalid'
+  }
+  const t = value.trim()
+  if (t.length === 0) {
+    return null
+  }
+  if (t.length > PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH) {
+    return 'invalid'
+  }
+  return t
+}
+
+function parseOptionalRequesterGuestIds(
+  idsLen: number,
+  raw: unknown,
+): (string | null)[] | null {
+  if (raw === undefined) {
+    return Array.from({ length: idsLen }, () => null as string | null)
+  }
+  if (!Array.isArray(raw) || raw.length !== idsLen) {
+    return null
+  }
+  const out: (string | null)[] = []
+  for (let i = 0; i < idsLen; i++) {
+    const ri = parseNullableRequesterGuestId(raw[i])
+    if (ri === 'invalid') {
+      return null
+    }
+    out.push(ri)
+  }
+  return out
+}
+
 function parseParallelMetadata(
   idsLen: number,
   titlesRaw: unknown,
@@ -132,7 +175,7 @@ function parseSnapshotPayload(
   v: unknown,
 ): Pick<
   PartyMessage & { type: 'queue_snapshot' },
-  'ids' | 'currentIndex' | 'titles' | 'requestedBys'
+  'ids' | 'currentIndex' | 'titles' | 'requestedBys' | 'requesterGuestIds'
 > | null {
   if (typeof v !== 'object' || v === null) {
     return null
@@ -152,7 +195,9 @@ function parseSnapshotPayload(
     return null
   }
   if (ids.length === 0) {
-    return o.currentIndex === null ? { ids, currentIndex: null, titles: [], requestedBys: [] } : null
+    return o.currentIndex === null
+      ? { ids, currentIndex: null, titles: [], requestedBys: [], requesterGuestIds: [] }
+      : null
   }
   if (o.currentIndex === null) {
     return null
@@ -169,11 +214,17 @@ function parseSnapshotPayload(
     return null
   }
 
+  const requesterGuestIds = parseOptionalRequesterGuestIds(ids.length, o.requesterGuestIds)
+  if (!requesterGuestIds) {
+    return null
+  }
+
   return {
     ids,
     currentIndex: o.currentIndex,
     titles: meta.titles,
     requestedBys: meta.requestedBys,
+    requesterGuestIds,
   }
 }
 
@@ -210,6 +261,7 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       currentIndex: snap.currentIndex,
       titles: snap.titles,
       requestedBys: snap.requestedBys,
+      requesterGuestIds: snap.requesterGuestIds,
     }
   }
   if (o.type === 'enqueue_request') {
@@ -228,12 +280,17 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     if (requestedBy === 'invalid') {
       return null
     }
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid') {
+      return null
+    }
     return {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'enqueue_request',
       videoId,
       title,
       requestedBy,
+      requesterGuestId,
     }
   }
   if (o.type === 'enqueue_rejected') {
@@ -260,5 +317,6 @@ export function queueSnapshotToMessage(snapshot: HostVideoQueueSnapshot): PartyM
     currentIndex: snapshot.currentIndex,
     titles: [...snapshot.titles],
     requestedBys: [...snapshot.requestedBys],
+    requesterGuestIds: [...snapshot.requesterGuestIds],
   }
 }

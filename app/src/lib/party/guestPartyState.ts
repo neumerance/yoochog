@@ -18,6 +18,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
           ids: Object.freeze([...msg.ids]),
           titles: Object.freeze([...msg.titles]),
           requestedBys: Object.freeze([...msg.requestedBys]),
+          requesterGuestIds: Object.freeze([...msg.requesterGuestIds]),
           currentIndex: msg.currentIndex,
         },
         lastEnqueueError: prev.lastEnqueueError,

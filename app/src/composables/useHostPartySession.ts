@@ -2,10 +2,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { HostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
-import {
-  ENQUEUE_REJECTED_DUPLICATE_VIDEO,
-  isVideoIdInHostQueue,
-} from '@/lib/host-queue/guestEnqueuePolicy'
+import { resolveGuestEnqueueRequest } from '@/lib/host-queue/guestEnqueuePolicy'
 import {
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
@@ -68,17 +65,19 @@ export function useHostPartySession(
   function handleGuestRaw(guestId: string, raw: string) {
     const msg = parsePartyMessage(raw)
     if (msg?.type === 'enqueue_request') {
-      if (isVideoIdInHostQueue(msg.videoId, queue.getSnapshot())) {
-        sendReject(guestId, ENQUEUE_REJECTED_DUPLICATE_VIDEO)
+      const resolution = resolveGuestEnqueueRequest({
+        snapshot: queue.getSnapshot(),
+        videoId: msg.videoId,
+        title: msg.title,
+        requestedBy: msg.requestedBy,
+        parsedRequesterGuestId: msg.requesterGuestId,
+        peerGuestId: guestId,
+      })
+      if (!resolution.ok) {
+        sendReject(guestId, resolution.reason)
         return
       }
-      queue.append([
-        {
-          videoId: msg.videoId,
-          title: msg.title,
-          requestedBy: msg.requestedBy,
-        },
-      ])
+      queue.append([resolution.item])
       bumpQueue()
       return
     }
