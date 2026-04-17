@@ -16,6 +16,8 @@ On every **push to `master`** (the current default branch), or when the workflow
 
 No long-lived `gh-pages` branch is used for build output.
 
+**GitHub Actions availability:** Runs require Actions to be enabled and the owning **user or organization billing account** to be in good standing. If a run fails immediately with an annotation such as *account is locked due to a billing issue*, fix billing under GitHub **Settings → Billing** (user or org) before expecting green deploys.
+
 ## Why artifact + official deploy (not `gh-pages` branch)
 
 | Approach | Notes |
@@ -131,6 +133,7 @@ See [Creating a custom 404 page for your GitHub Pages site](https://docs.github.
 
 ## References
 
+- Related issues: [#76](https://github.com/neumerance/yoochog/issues/76) (GitHub Pages / CI context), [#77](https://github.com/neumerance/yoochog/issues/77) (Secrets/Variables, `workflow_dispatch`, `gh` operator docs)
 - [Configuring a publishing source for GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-github-pages-site) (including **GitHub Actions** as source)
 - [Using custom workflows with GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-github-pages-site#publishing-with-a-custom-github-actions-workflow)
 - [`actions/deploy-pages`](https://github.com/actions/deploy-pages)
