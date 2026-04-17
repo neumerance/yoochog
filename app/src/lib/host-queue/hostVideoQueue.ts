@@ -50,7 +50,7 @@ export interface HostVideoQueueSnapshot {
   titles: readonly (string | null)[]
   /** Parallel to `ids`: requester label or absent (`null`). */
   requestedBys: readonly (string | null)[]
-  /** Parallel to `ids`: logical guest id for ownership / one-song-per-guest policy, or `null`. */
+  /** Parallel to `ids`: logical guest id for ownership / per-guest enqueue cap, or `null`. */
   requesterGuestIds: readonly (string | null)[]
   /**
    * Index of the current item (`0` when non-empty in compact form), or `null` when the queue is

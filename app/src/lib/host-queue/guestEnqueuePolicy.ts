@@ -1,12 +1,15 @@
 import type { HostVideoQueueItem, HostVideoQueueSnapshot } from './hostVideoQueue'
 
+/** Maximum queue rows (including now playing) a single guest may own at once. */
+export const MAX_GUEST_QUEUE_ROWS_PER_GUEST = 2
+
 /** Guest-visible message when the host rejects an enqueue because the video is already queued. */
 export const ENQUEUE_REJECTED_DUPLICATE_VIDEO =
   'That video is already in the queue.'
 
-/** Guest-visible message when this guest already has a song in the queue (including now playing). */
+/** Guest-visible message when this guest already has the maximum number of songs in the queue. */
 export const ENQUEUE_REJECTED_ALREADY_HAS_REQUEST =
-  "You've already got a song in the queue. You can add another after it's played or skipped."
+  "You've already got two songs in the queue. You can add another after one plays or is skipped."
 
 /** True when `videoId` already appears anywhere in the host queue snapshot (including now playing). */
 export function isVideoIdInHostQueue(
@@ -17,19 +20,20 @@ export function isVideoIdInHostQueue(
 }
 
 /**
- * True when any row (including the current track) is owned by `ownerId`.
+ * Counts rows (including the current track) owned by `ownerId`.
  * Rows with `null` owner do not match (legacy saves).
  */
-export function guestAlreadyHasRequestInQueue(
+export function countGuestRequestsInQueue(
   ownerId: string,
   snapshot: HostVideoQueueSnapshot,
-): boolean {
+): number {
+  let n = 0
   for (let i = 0; i < snapshot.ids.length; i++) {
     if (snapshot.requesterGuestIds[i] === ownerId) {
-      return true
+      n++
     }
   }
-  return false
+  return n
 }
 
 export type GuestEnqueueResolution =
@@ -37,7 +41,8 @@ export type GuestEnqueueResolution =
   | { ok: false; reason: string }
 
 /**
- * Duplicate-video check first, then one-song-per-guest. `effectiveOwnerId` is stored on the new row.
+ * Duplicate-video check first, then per-guest row cap (`MAX_GUEST_QUEUE_ROWS_PER_GUEST`).
+ * `effectiveOwnerId` is stored on the new row.
  */
 export function resolveGuestEnqueueRequest(input: {
   snapshot: HostVideoQueueSnapshot
@@ -53,7 +58,10 @@ export function resolveGuestEnqueueRequest(input: {
     return { ok: false, reason: ENQUEUE_REJECTED_DUPLICATE_VIDEO }
   }
   const effectiveOwnerId = input.parsedRequesterGuestId ?? input.peerGuestId
-  if (guestAlreadyHasRequestInQueue(effectiveOwnerId, input.snapshot)) {
+  if (
+    countGuestRequestsInQueue(effectiveOwnerId, input.snapshot) >=
+    MAX_GUEST_QUEUE_ROWS_PER_GUEST
+  ) {
     return { ok: false, reason: ENQUEUE_REJECTED_ALREADY_HAS_REQUEST }
   }
   return {

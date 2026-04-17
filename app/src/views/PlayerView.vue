@@ -104,7 +104,7 @@
                   <span
                     v-if="queueSnapshot.requesterGuestIds[index]"
                     class="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"
-                    title="Guest-requested row (one song per guest)"
+                    title="Guest-requested row (max two songs per guest)"
                     aria-hidden="true"
                   />
                 </p>
