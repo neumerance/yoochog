@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
 
 import GuestShell from '@/components/GuestShell.vue'
+import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
 import {
@@ -14,6 +15,7 @@ import {
 } from '@/lib/guest/guestDisplayName'
 import { ENQUEUE_REJECTED_ALREADY_HAS_REQUEST } from '@/lib/host-queue/guestEnqueuePolicy'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
+import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
 import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
@@ -35,6 +37,8 @@ const {
 const guestNameDialog = ref<HTMLDialogElement | null>(null)
 const guestNameInput = ref('')
 const guestNameError = ref<string | null>(null)
+
+const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
 
 const addSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongTriggerRef = ref<HTMLButtonElement | null>(null)
@@ -191,6 +195,12 @@ async function submitPasteEnqueue() {
     isEnqueueSubmitting.value = false
   }
 }
+
+onMounted(() => {
+  if (!readPrivacyNoticeDismissed()) {
+    void nextTick(() => privacyNoticeSheet.value?.open())
+  }
+})
 </script>
 
 <template>
@@ -479,6 +489,8 @@ async function submitPasteEnqueue() {
         </button>
       </div>
     </dialog>
+
+    <PrivacyNoticeSheet ref="privacyNoticeSheet" />
   </GuestShell>
 </template>
 

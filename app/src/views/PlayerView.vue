@@ -126,12 +126,14 @@
       </aside>
     </div>
   </div>
+  <PrivacyNoticeSheet ref="privacyNoticeSheet" />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
+import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
 import { useHostPartySession } from '@/composables/useHostPartySession'
@@ -139,7 +141,10 @@ import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
 import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersistence'
+import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
+
+const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
 
 const { hostSessionId } = useHostSessionId()
 
@@ -305,5 +310,11 @@ watch([isReady, audioSessionUnlocked], () => {
     // Player may be torn down.
   }
   didSeekOnFirstUnlock.value = true
+})
+
+onMounted(() => {
+  if (!readPrivacyNoticeDismissed()) {
+    void nextTick(() => privacyNoticeSheet.value?.open())
+  }
 })
 </script>
