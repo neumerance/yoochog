@@ -139,7 +139,7 @@
             aria-live="polite"
           >
             <HandshakeStatusStrip
-              class="[&_span[aria-hidden=true]]:h-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_span[aria-hidden=true]]:w-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_svg]:h-[clamp(0.325rem,calc(0.17875rem_+_0.4875vmin_+_0.11375vw),0.73125rem)] [&_svg]:w-[clamp(0.325rem,calc(0.17875rem_+_0.4875vmin_+_0.11375vw),0.73125rem)]"
+              class="[&_span[aria-hidden=true]]:h-[clamp(0.63375rem,calc(0.43875rem_+_0.975vmin_+_0.24375vw),1.21875rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.63375rem,calc(0.43875rem_+_0.975vmin_+_0.24375vw),1.21875rem)] [&_span[aria-hidden=true]]:w-[clamp(0.63375rem,calc(0.43875rem_+_0.975vmin_+_0.24375vw),1.21875rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.63375rem,calc(0.43875rem_+_0.975vmin_+_0.24375vw),1.21875rem)] [&_svg]:h-[clamp(0.975rem,calc(0.53625rem_+_1.4625vmin_+_0.34125vw),2.19375rem)] [&_svg]:w-[clamp(0.975rem,calc(0.53625rem_+_1.4625vmin_+_0.34125vw),2.19375rem)]"
               :status="handshakeStatus"
               :status-label="handshakeStatusLabel"
               :is-signaling-configured="isSignalingConfigured"

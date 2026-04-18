@@ -24,7 +24,7 @@
         <template v-if="props.variant === 'empty'">
           Scan the QR code, grab your go-to karaoke songs on YouTube, and
           <strong class="text-yellow-200">Enqueue</strong>
-          to get the party rolling.
+          to get the party <strong class="text-red-500">chogging!</strong>
         </template>
         <template v-else>
           The queue is clear. Guests can add more anytime from the join page:
@@ -49,6 +49,6 @@ const idleLogoClass =
   'pointer-events-none h-auto w-auto max-h-[min(62.4vmin,59.8vh)] max-w-[min(78vw,80.6vmin)] min-h-0 min-w-0 shrink-0 select-none object-contain object-center'
 
 const idleCopyClass =
-  'pointer-events-none max-w-[min(78vw,92vmin,96%)] font-extrabold uppercase leading-tight tracking-wide text-yellow-300 [-webkit-text-stroke:0.055em_#000] [paint-order:stroke_fill] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)] animate-press-key-cta'
+  'pointer-events-none max-w-[min(78vw,92vmin,96%)] font-extrabold leading-snug text-yellow-300 [-webkit-text-stroke:0.055em_#000] [paint-order:stroke_fill] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)] animate-press-key-cta'
 
 </script>
