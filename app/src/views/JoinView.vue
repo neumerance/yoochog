@@ -2,8 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
-import queueEmptyLogoUrl from '@/assets/images/logo/yoohchog-logo.png'
+import logoUrl from '@/assets/images/logo/logo.png'
 
 import GuestShell from '@/components/GuestShell.vue'
 import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
@@ -462,7 +461,7 @@ onMounted(() => {
           aria-label="Queue is empty"
         >
           <img
-            :src="queueEmptyLogoUrl"
+            :src="logoUrl"
             alt="Yoohchog"
             class="h-auto max-h-[7.5rem] w-auto max-w-[min(100%,14rem)] object-contain object-center"
             decoding="async"

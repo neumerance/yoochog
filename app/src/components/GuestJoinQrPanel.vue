@@ -76,7 +76,7 @@
 import QRCode from 'qrcode'
 import { computed, ref, watch } from 'vue'
 
-import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
+import logoUrl from '@/assets/images/logo/logo.png'
 import { buildGuestJoinUrlFromEnv } from '@/lib/join-url/buildGuestJoinUrl'
 
 /** Large enough for fluid `clamp(…, 82cqi, 27rem)` display on wide TVs. */

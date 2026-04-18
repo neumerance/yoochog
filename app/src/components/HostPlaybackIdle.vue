@@ -1,12 +1,16 @@
 <template>
-  <div class="h-full min-h-0 min-w-0 w-full overflow-hidden">
-    <img
-      :src="logoUrl"
-      alt=""
-      class="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center"
-      decoding="async"
+  <div class="relative h-full min-h-0 min-w-0 w-full overflow-hidden bg-black">
+    <div
+      class="pointer-events-none absolute inset-0 flex items-center justify-center"
       aria-hidden="true"
-    />
+    >
+      <img
+        :src="logoUrl"
+        alt=""
+        class="h-auto w-auto max-h-[50%] max-w-[50%] min-h-0 min-w-0 select-none object-contain object-center"
+        decoding="async"
+      />
+    </div>
     <div
       class="absolute inset-0 flex flex-col items-center justify-center gap-[clamp(0.65rem,0.45rem+1.2vmin,1.5rem)] bg-slate-950/60 px-[clamp(1rem,2vmin+0.75rem,3rem)] py-[clamp(1rem,2vmin,2rem)] text-center text-slate-100 [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]"
       role="status"
@@ -40,7 +44,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import logoUrl from '@/assets/images/logo/yoohchog-logo.png'
+import logoUrl from '@/assets/images/logo/logo.png'
 
 const props = defineProps<{
   variant: 'empty' | 'ended'
