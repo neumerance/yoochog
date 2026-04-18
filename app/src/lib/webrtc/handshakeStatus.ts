@@ -7,23 +7,25 @@ export type HandshakeUiState =
   | 'connected'
   | 'failed'
 
+/**
+ * User-facing connection copy (signaling + WebRTC):
+ * - **Online** — data channel / peer connection is up.
+ * - **Connecting** — signaling or WebRTC handshake in progress.
+ * - **Offline** — not connected (idle), misconfiguration, or failed / retried out.
+ */
 export function handshakeStatusLabel(state: HandshakeUiState): string {
   switch (state) {
-    case 'idle':
-      return ''
-    case 'missing_config':
-      return 'Signaling is not configured. Add PubNub keys or VITE_SIGNALING_URL (see app README).'
-    case 'connecting_signaling':
-      return 'Connecting to signaling…'
-    case 'establishing_handshake':
-      return 'Establishing handshake'
-    case 'reconnecting':
-      return 'Reconnecting…'
     case 'connected':
-      return 'Connected'
+      return 'Online'
+    case 'connecting_signaling':
+    case 'establishing_handshake':
+    case 'reconnecting':
+      return 'Connecting'
+    case 'idle':
+    case 'missing_config':
     case 'failed':
-      return ''
+      return 'Offline'
     default:
-      return ''
+      return 'Offline'
   }
 }

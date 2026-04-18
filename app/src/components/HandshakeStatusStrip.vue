@@ -6,34 +6,35 @@ import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 const props = defineProps<{
   status: HandshakeUiState
   statusLabel: string
-  error: string | null
   isSignalingConfigured: boolean
 }>()
 
 const showGreen = computed(() => props.status === 'connected')
-const showReconnectPulse = computed(() => props.status === 'reconnecting')
-const showRedPulse = computed(
+
+const showConnectingPulse = computed(
   () =>
-    props.status === 'establishing_handshake' || props.status === 'connecting_signaling',
+    props.status === 'connecting_signaling' ||
+    props.status === 'establishing_handshake' ||
+    props.status === 'reconnecting',
+)
+
+/**
+ * Failed, or idle when the label is the default “Offline” (not a join-only override like “Set your nickname…”).
+ */
+const showOfflineBlip = computed(
+  () =>
+    props.status === 'failed' ||
+    (props.status === 'idle' && props.statusLabel === 'Offline'),
 )
 </script>
 
 <template>
-  <div>
+  <div class="min-w-0 max-w-full">
     <template v-if="isSignalingConfigured">
-      <div
-        v-if="statusLabel || error"
-        class="flex gap-2"
-        :class="showGreen ? 'items-center' : 'items-start'"
-      >
+      <div v-if="statusLabel" class="flex min-w-0 items-center gap-2">
         <span
-          v-if="showRedPulse"
-          class="mt-1.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 animate-pulse"
-          aria-hidden="true"
-        />
-        <span
-          v-else-if="showReconnectPulse"
-          class="mt-1.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 animate-pulse"
+          v-if="showConnectingPulse"
+          class="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 animate-pulse"
           aria-hidden="true"
         />
         <span
@@ -41,35 +42,22 @@ const showRedPulse = computed(
           class="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-green-500"
           aria-hidden="true"
         />
+        <span v-else-if="showOfflineBlip" class="relative inline-flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
+          <span
+            class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
+          />
+          <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+        </span>
         <div class="min-w-0 flex-1">
-          <div
-            v-if="showGreen && statusLabel"
-            class="flex flex-wrap items-center gap-x-2 gap-y-1"
-            role="status"
-            aria-label="Connected, WebRTC peer connection active"
-          >
-            <span>{{ statusLabel }}</span>
-            <span class="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="h-4 w-4 shrink-0 text-green-600"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
-                />
-              </svg>
-              <span class="font-medium">WebRTC</span>
-            </span>
-          </div>
-          <p v-else-if="statusLabel">{{ statusLabel }}</p>
-          <p v-if="error" class="mt-1 text-red-800 dark:text-red-300">{{ error }}</p>
+          <p role="status">
+            <template v-if="showConnectingPulse">
+              <span class="inline-flex items-baseline gap-0 whitespace-nowrap">
+                <span>Connecting</span>
+                <span class="handshake-connecting-ellipsis" aria-hidden="true">...</span>
+              </span>
+            </template>
+            <template v-else>{{ statusLabel }}</template>
+          </p>
         </div>
       </div>
     </template>

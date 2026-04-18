@@ -28,7 +28,6 @@ export function useHostPartySession(
   onGuestEndedCurrentPlayback?: () => void,
 ) {
   const status = ref<HandshakeUiState>('idle')
-  const error = ref<string | null>(null)
   /**
    * Logical guest id of the session admin (first `guest_identify` or first enqueue in the session).
    * Kept when that guest disconnects so they remain admin after reconnect.
@@ -167,7 +166,6 @@ export function useHostPartySession(
       broadcastParty = null
       sendPartyToGuest = null
       sessionAdminGuestId.value = null
-      error.value = null
 
       if (!hasSignaling) {
         status.value = 'missing_config'
@@ -187,7 +185,7 @@ export function useHostPartySession(
           status.value = s
         },
         onError: (m) => {
-          error.value = m
+          console.log('[yoochog host handshake]', m)
         },
         onPartyChannelOpen: (guestId) => {
           pushSnapshotToGuest(guestId)
@@ -224,7 +222,6 @@ export function useHostPartySession(
 
   return {
     status,
-    error,
     statusLabel,
     isSignalingConfigured: computed(() => hasSignaling),
   }

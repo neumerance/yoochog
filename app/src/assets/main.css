@@ -86,3 +86,29 @@
 .host-splash-root-leave-to {
   opacity: 0;
 }
+
+/** HandshakeStatusStrip — “Connecting” + cycling ellipsis */
+@keyframes handshake-connecting-ellipsis {
+  0% {
+    max-width: 0;
+  }
+  100% {
+    max-width: 3ch;
+  }
+}
+
+/**
+ * Baseline: `overflow:hidden` on inline-block uses the box bottom as baseline, which
+ * visually centers dots in the line box — keep the clip box to one line tall and
+ * align with surrounding copy.
+ */
+.handshake-connecting-ellipsis {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 0;
+  white-space: nowrap;
+  line-height: 1;
+  height: 1em;
+  vertical-align: baseline;
+  animation: handshake-connecting-ellipsis 1.2s steps(4, end) infinite;
+}

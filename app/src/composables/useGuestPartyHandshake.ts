@@ -25,7 +25,6 @@ import { useTabVisibilityRecovery } from './useTabVisibilityRecovery'
  */
 export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const status = ref<HandshakeUiState>('idle')
-  const error = ref<string | null>(null)
   const queueSnapshot = ref<HostVideoQueueSnapshot | null>(null)
   const sessionAdminGuestId = ref<string | null>(null)
   const localPartyPeerId = ref<string | null>(null)
@@ -84,7 +83,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     }
 
     status.value = 'reconnecting'
-    error.value = null
     clearBackoff()
     activeDispose()
     activeDispose = null
@@ -92,7 +90,10 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
 
     if (shouldStopRetry(failureCount)) {
       status.value = 'failed'
-      error.value = 'Reconnect limit reached. Refresh the page or rejoin.'
+      console.log(
+        '[yoochog guest handshake]',
+        'Reconnect limit reached. Refresh the page or rejoin.',
+      )
       return
     }
 
@@ -113,7 +114,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       activeDispose?.()
       activeDispose = null
       sendPartyRaw = null
-      error.value = null
       queueSnapshot.value = id ? loadGuestQueueSnapshot(id) : null
       sessionAdminGuestId.value = null
       localPartyPeerId.value = null
@@ -153,7 +153,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           }
         },
         onError: (m) => {
-          error.value = m
+          console.log('[yoochog guest handshake]', m)
         },
         onPartyChannelOpen: () => {
           lastEnqueueError.value = null
@@ -273,7 +273,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
 
   return {
     status,
-    error,
     statusLabel,
     isSignalingConfigured: computed(() => hasSignaling),
     queueSnapshot,

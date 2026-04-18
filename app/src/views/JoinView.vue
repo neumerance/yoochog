@@ -48,7 +48,6 @@ const handshakeSessionId = computed(() => (guestNameReady.value ? routeSessionId
 const {
   status: handshakeStatus,
   statusLabel,
-  error: handshakeError,
   isSignalingConfigured,
   queueSnapshot,
   sessionAdminGuestId,
@@ -400,18 +399,19 @@ onMounted(() => {
       />
     </header>
 
-    <!-- Connection status + WebRTC (left); you / avatar / name (right when connected) -->
+    <!-- Connection status (left); you / avatar / name (right when connected) -->
     <div
       class="shrink-0 overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)] dark:bg-slate-900 dark:shadow-black/40"
       aria-live="polite"
     >
       <div class="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3">
-        <div class="flex min-w-0 flex-1 items-center gap-3">
-          <div class="min-w-0 flex-1 text-[15px] leading-snug text-[#3C3C43] dark:text-slate-300">
+        <div class="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+          <div
+            class="min-w-0 flex-1 overflow-hidden text-[15px] leading-snug text-[#3C3C43] dark:text-slate-300"
+          >
             <HandshakeStatusStrip
               :status="handshakeStatus"
               :status-label="joinHandshakeStatusLabel"
-              :error="handshakeError"
               :is-signaling-configured="isSignalingConfigured"
             />
           </div>

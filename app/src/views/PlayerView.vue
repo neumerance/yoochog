@@ -108,7 +108,6 @@
               class="[&_span[aria-hidden=true]]:h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:w-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.65rem,1.5cqi,1rem)] [&_svg]:h-[clamp(1rem,2.2cqi,1.75rem)] [&_svg]:w-[clamp(1rem,2.2cqi,1.75rem)]"
               :status="handshakeStatus"
               :status-label="handshakeStatusLabel"
-              :error="handshakeError"
               :is-signaling-configured="isSignalingConfigured"
             />
           </div>
@@ -316,7 +315,6 @@ watch(
 const {
   status: handshakeStatus,
   statusLabel: handshakeStatusLabel,
-  error: handshakeError,
   isSignalingConfigured,
 } = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue, applyNaturalPlaybackEnd)
 const skipMessage = ref<string | null>(null)

@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { handshakeStatusLabel } from './handshakeStatus'
 
 describe('handshakeStatusLabel', () => {
-  it('maps establishing, reconnecting, and connected', () => {
-    expect(handshakeStatusLabel('establishing_handshake')).toBe('Establishing handshake')
-    expect(handshakeStatusLabel('reconnecting')).toBe('Reconnecting…')
-    expect(handshakeStatusLabel('connected')).toBe('Connected')
-  })
-
-  it('mentions PubNub or VITE_SIGNALING_URL for missing config', () => {
-    expect(handshakeStatusLabel('missing_config')).toContain('PubNub')
+  it('maps to Online, Connecting, or Offline', () => {
+    expect(handshakeStatusLabel('connected')).toBe('Online')
+    expect(handshakeStatusLabel('connecting_signaling')).toBe('Connecting')
+    expect(handshakeStatusLabel('establishing_handshake')).toBe('Connecting')
+    expect(handshakeStatusLabel('reconnecting')).toBe('Connecting')
+    expect(handshakeStatusLabel('idle')).toBe('Offline')
+    expect(handshakeStatusLabel('failed')).toBe('Offline')
+    expect(handshakeStatusLabel('missing_config')).toBe('Offline')
   })
 })
