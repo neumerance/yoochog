@@ -364,6 +364,19 @@ describe('parsePartyMessage', () => {
       type: 'audience_chat_request' as const,
       text: 'Go team',
       requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+      requestedBy: 'Alex',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('round-trips audience_chat_request with null requestedBy', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request' as const,
+      text: 'Hi',
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+      requestedBy: null,
     }
     const raw = serializePartyMessage(msg)
     expect(parsePartyMessage(raw)).toEqual(msg)
@@ -381,6 +394,7 @@ describe('parsePartyMessage', () => {
       type: 'audience_chat_request',
       text: 'hello world',
       requesterGuestId: 'g1',
+      requestedBy: null,
     })
   })
 
@@ -399,6 +413,17 @@ describe('parsePartyMessage', () => {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'audience_chat_request',
       text: 'hi',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects audience_chat_request with overlong requestedBy', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request',
+      text: 'hi',
+      requesterGuestId: 'g1',
+      requestedBy: 'x'.repeat(PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH + 1),
     })
     expect(parsePartyMessage(raw)).toBeNull()
   })

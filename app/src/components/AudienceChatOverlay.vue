@@ -21,17 +21,23 @@
         class="relative min-h-0 w-full flex-1 overflow-x-clip [container-type:inline-size]"
       >
         <!--
-          Absolute at left:0; animation uses 100cqw so the line starts with its left edge at the
-          lane’s right edge (fully off-screen right), then drifts to -100% (fully off-screen left).
-          Percent translateX values are relative to the text box width (CSS transform rules).
+          Format: message - name (name plain white, 40% smaller than message → 0.6em).
+          Animation uses 100cqw / -100% on this box so both move together.
         -->
-        <p
-          class="audience-chat-line absolute left-0 top-1/2 w-max max-w-none whitespace-nowrap py-[0.08em] font-extrabold leading-none tracking-wide text-yellow-300 [-webkit-text-stroke:0.05em_#000] [paint-order:stroke_fill] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)]"
+        <div
+          class="audience-chat-line absolute left-0 top-1/2 inline-flex w-max max-w-none flex-row flex-nowrap items-baseline whitespace-nowrap py-[0.08em] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)]"
           :style="lineStyle(line)"
           @animationend="emit('complete', line.id)"
         >
-          {{ line.text }}
-        </p>
+          <span
+            class="font-extrabold leading-none tracking-wide text-yellow-300 [-webkit-text-stroke:0.05em_#000] [paint-order:stroke_fill] text-[1em]"
+          >
+            {{ line.text }}
+          </span>
+          <span class="font-normal leading-none tracking-normal text-white text-[0.6em]">
+            {{ ' - ' + line.chatterName }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -41,6 +47,8 @@
 export type AudienceChatOverlayLine = {
   id: string
   text: string
+  /** After " - "; plain white, 40% smaller than message (0.6em). */
+  chatterName: string
   durationMs: number
   /** Chosen once on the host when the line is created. */
   fontFamily: string

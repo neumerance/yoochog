@@ -44,7 +44,13 @@ export function useHostPartySession(
   /** Per logical guest id (wire `requesterGuestId`) for audience chat rate limits. */
   const audienceChatGuestState = new Map<string, GuestAudienceChatHostState>()
   const audienceChatLines = ref<
-    Array<{ id: string; text: string; durationMs: number; fontFamily: string }>
+    Array<{
+      id: string
+      text: string
+      chatterName: string
+      durationMs: number
+      fontFamily: string
+    }>
   >([])
   let dispose: (() => void) | null = null
 
@@ -187,9 +193,16 @@ export function useHostPartySession(
         typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
           ? globalThis.crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const chatterName = msg.requestedBy?.trim() || 'Guest'
       const nextLines = [
         ...audienceChatLines.value,
-        { id, text: msg.text, durationMs, fontFamily: pickRandomAudienceChatFontFamily() },
+        {
+          id,
+          text: msg.text,
+          chatterName,
+          durationMs,
+          fontFamily: pickRandomAudienceChatFontFamily(),
+        },
       ]
       while (nextLines.length > AUDIENCE_CHAT_MAX_VISIBLE_LINES) {
         nextLines.shift()

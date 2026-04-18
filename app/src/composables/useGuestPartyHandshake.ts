@@ -19,6 +19,7 @@ import {
   serializePartyMessage,
 } from '@/lib/party/partyMessages'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
+import { readGuestDisplayName } from '@/lib/guest/guestDisplayName'
 import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import {
@@ -342,12 +343,14 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       return { ok: false, reason: CHAT_REJECT_REASON_DUPLICATE }
     }
     const requesterGuestId = getOrCreatePartyGuestRequesterId(sid)
+    const requestedBy = readGuestDisplayName()
     sendPartyRaw(
       serializePartyMessage({
         v: PARTY_MESSAGE_SCHEMA_VERSION,
         type: 'audience_chat_request',
         text: normalized,
         requesterGuestId,
+        requestedBy,
       }),
     )
     lastChatError.value = null

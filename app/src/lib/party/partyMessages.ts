@@ -81,6 +81,8 @@ export type PartyMessage =
       /** Normalized text (trim + collapsed whitespace). */
       text: string
       requesterGuestId: string
+      /** Guest display name for host overlay; same rules as enqueue `requestedBy`. */
+      requestedBy: string | null
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -434,11 +436,16 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     if (!validated.ok) {
       return null
     }
+    const requestedBy = parseNullableRequestedBy(o.requestedBy)
+    if (requestedBy === 'invalid') {
+      return null
+    }
     return {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'audience_chat_request',
       text,
       requesterGuestId,
+      requestedBy,
     }
   }
   if (o.type === 'chat_rejected') {
