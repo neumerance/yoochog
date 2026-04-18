@@ -5,18 +5,47 @@
     role="status"
     aria-live="polite"
   >
-    <div class="mx-auto max-w-md space-y-4">
-      <p class="text-xl font-semibold tracking-tight text-slate-900">
-        Use a larger screen
-      </p>
-      <p class="text-base leading-relaxed text-slate-600">
-        The host view is built for a
-        <strong class="font-semibold text-slate-800">laptop, desktop, or TV</strong>.
-        Open this page on a bigger screen to run your session.
-      </p>
-      <p class="text-sm leading-relaxed text-slate-500">
-        Guests can still use their phones with the join link.
-      </p>
+    <div class="mx-auto flex w-full max-w-md flex-col items-center space-y-5">
+      <img
+        :src="logoUrl"
+        alt=""
+        class="h-auto w-full max-w-[min(19.5rem,100%)] shrink-0 select-none object-contain self-center"
+        decoding="async"
+        aria-hidden="true"
+      />
+      <!-- One tall TV icon: height follows the full text block (title + both paragraphs) -->
+      <div class="flex w-full items-stretch gap-4 text-left">
+        <div
+          class="flex h-full min-h-[6rem] w-[min(32vmin,8rem)] shrink-0 items-center justify-center self-stretch py-0.5"
+          aria-hidden="true"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.25"
+            stroke="currentColor"
+            class="h-full w-auto max-w-full object-contain text-slate-800"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <rect x="3" y="4" width="18" height="12" rx="1.5" fill="none" />
+            <path stroke-linecap="round" d="M12 16v3.5M8.5 21.25h7" fill="none" />
+          </svg>
+        </div>
+        <div class="flex min-w-0 flex-1 flex-col gap-3">
+          <p class="text-xl font-semibold leading-tight tracking-tight text-slate-900">
+            Use a larger screen
+          </p>
+          <p class="text-base leading-relaxed text-slate-600">
+            The host view is built for a
+            <strong class="font-semibold text-slate-800">laptop, desktop, or TV</strong>.
+            Open this page on a bigger screen to run your session.
+          </p>
+          <p class="text-sm leading-relaxed text-slate-500">
+            Guests can still use their phones with the join link.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -211,6 +240,8 @@ import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersistence'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
+
+import logoUrl from '@/assets/images/logo/logo.png'
 
 const route = useRoute()
 const router = useRouter()
