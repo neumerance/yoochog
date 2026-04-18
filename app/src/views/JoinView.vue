@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
+import queueEmptyLogoUrl from '@/assets/images/logo/yoohchog-logo.png'
 
 import GuestShell from '@/components/GuestShell.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
@@ -448,19 +449,27 @@ onMounted(() => {
       >
         <div
           v-if="!(queueSnapshot?.ids?.length)"
-          class="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-12 text-center"
+          class="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center"
           role="status"
           aria-label="Queue is empty"
         >
+          <img
+            :src="queueEmptyLogoUrl"
+            alt="Yoohchog"
+            class="h-auto max-h-[7.5rem] w-auto max-w-[min(100%,14rem)] object-contain object-center"
+            decoding="async"
+          />
           <p
             class="max-w-[17rem] text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
           >
             No songs in the queue yet
           </p>
           <p
-            class="mt-2 max-w-[17rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93]"
+            class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93]"
           >
-            When someone adds a song, it will show up here.
+            Tap <span class="font-semibold text-[#6D6D72]">Add my song</span> below, paste a YouTube
+            link, then tap <span class="font-semibold text-[#6D6D72]">Enqueue</span>—your request
+            appears here for everyone.
           </p>
         </div>
 

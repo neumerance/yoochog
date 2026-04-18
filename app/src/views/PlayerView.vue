@@ -169,6 +169,7 @@
       </aside>
     </div>
   </div>
+  <HostPlayerSplash v-if="showHostSplash" @complete="onHostSplashComplete" />
   <PrivacyNoticeSheet v-if="hostPlayerViewportOk" ref="privacyNoticeSheet" />
 </template>
 
@@ -177,6 +178,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
+import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
@@ -201,6 +203,9 @@ function readHostPlayerViewportOk(): boolean {
 
 const hostPlayerViewportOk = ref(readHostPlayerViewportOk())
 
+/** Full-screen logo splash on first paint when the host viewport is wide enough. */
+const showHostSplash = ref(readHostPlayerViewportOk())
+
 let stopHostViewportListener: (() => void) | null = null
 
 const showMigrationNotice = ref(route.query.migrated === 'client')
@@ -222,6 +227,13 @@ function dismissMigrationNotice() {
 }
 
 const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
+
+function onHostSplashComplete() {
+  showHostSplash.value = false
+  if (!readPrivacyNoticeDismissed()) {
+    void nextTick(() => privacyNoticeSheet.value?.open())
+  }
+}
 
 const { hostSessionId } = useHostSessionId()
 
@@ -396,7 +408,7 @@ watch([isReady, audioSessionUnlocked], () => {
 })
 
 onMounted(() => {
-  if (hostPlayerViewportOk.value && !readPrivacyNoticeDismissed()) {
+  if (!hostPlayerViewportOk.value && !readPrivacyNoticeDismissed()) {
     void nextTick(() => privacyNoticeSheet.value?.open())
   }
 
