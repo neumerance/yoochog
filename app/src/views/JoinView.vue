@@ -6,6 +6,7 @@ import logoUrl from '@/assets/images/logo/yoohchog-logo-v1.png'
 import queueEmptyLogoUrl from '@/assets/images/logo/yoohchog-logo.png'
 
 import GuestShell from '@/components/GuestShell.vue'
+import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
@@ -62,6 +63,9 @@ const guestNameInput = ref('')
 const guestNameError = ref<string | null>(null)
 
 const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
+
+/** Same intro splash as host PlayerView; privacy / nickname flow runs after it finishes. */
+const showJoinSplash = ref(true)
 
 const endSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongDialog = ref<HTMLDialogElement | null>(null)
@@ -310,6 +314,15 @@ function onPrivacyNoticeDismissed() {
   void nextTick(() => tryOpenGuestNameModalIfNeeded())
 }
 
+function onJoinSplashComplete() {
+  showJoinSplash.value = false
+  if (!readPrivacyNoticeDismissed()) {
+    void nextTick(() => privacyNoticeSheet.value?.open())
+  } else {
+    void nextTick(() => tryOpenGuestNameModalIfNeeded())
+  }
+}
+
 function closeAddSongModal() {
   addSongDialog.value?.close()
 }
@@ -363,11 +376,6 @@ async function submitPasteEnqueue() {
 
 onMounted(() => {
   refreshGuestDisplayName()
-  if (!readPrivacyNoticeDismissed()) {
-    void nextTick(() => privacyNoticeSheet.value?.open())
-  } else {
-    void nextTick(() => tryOpenGuestNameModalIfNeeded())
-  }
 })
 </script>
 
@@ -754,6 +762,7 @@ onMounted(() => {
       </div>
     </dialog>
 
+    <HostPlayerSplash v-if="showJoinSplash" @complete="onJoinSplashComplete" />
     <PrivacyNoticeSheet ref="privacyNoticeSheet" @dismissed="onPrivacyNoticeDismissed" />
   </GuestShell>
 </template>
