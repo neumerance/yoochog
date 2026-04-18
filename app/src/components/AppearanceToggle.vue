@@ -1,5 +1,22 @@
+<script setup lang="ts">
+import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
+
+withDefaults(
+  defineProps<{
+    /** ~80% scale for dense footers (e.g. host PlayerView aside). */
+    compact?: boolean
+  }>(),
+  { compact: false },
+)
+
+const { isDark, toggle } = useHostPlayerDarkMode()
+</script>
+
 <template>
-  <div class="inline-flex shrink-0 items-center gap-2">
+  <div
+    class="inline-flex shrink-0 items-center"
+    :class="compact ? 'gap-1.5' : 'gap-2'"
+  >
     <span class="text-slate-600 dark:text-slate-400" aria-hidden="true">
       <svg
         v-if="!isDark"
@@ -8,7 +25,7 @@
         viewBox="0 0 24 24"
         stroke-width="1.5"
         stroke="currentColor"
-        class="h-5 w-5"
+        :class="compact ? 'h-4 w-4' : 'h-5 w-5'"
       >
         <path
           stroke-linecap="round"
@@ -23,7 +40,7 @@
         viewBox="0 0 24 24"
         stroke-width="1.5"
         stroke="currentColor"
-        class="h-5 w-5"
+        :class="compact ? 'h-4 w-4' : 'h-5 w-5'"
       >
         <path
           stroke-linecap="round"
@@ -37,25 +54,23 @@
       role="switch"
       :aria-checked="isDark"
       :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-      class="relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
-      :class="
+      class="relative inline-flex shrink-0 cursor-pointer items-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+      :class="[
+        compact ? 'h-[1.4rem] w-[2.4rem]' : 'h-7 w-12',
         isDark
           ? 'border-slate-500 bg-slate-600'
-          : 'border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700'
-      "
+          : 'border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700',
+      ]"
       @click="toggle"
     >
       <span
-        class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
-        :class="isDark ? 'translate-x-6' : 'translate-x-1'"
+        class="pointer-events-none inline-block rounded-full bg-white shadow transition-transform"
+        :class="[
+          compact ? 'h-4 w-4' : 'h-5 w-5',
+          isDark ? (compact ? 'translate-x-[1.2rem]' : 'translate-x-6') : compact ? 'translate-x-[0.2rem]' : 'translate-x-1',
+        ]"
         aria-hidden="true"
       />
     </button>
   </div>
 </template>
-
-<script setup lang="ts">
-import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
-
-const { isDark, toggle } = useHostPlayerDarkMode()
-</script>

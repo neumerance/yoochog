@@ -86,7 +86,7 @@
           <HostPlaybackIdle v-if="idleVariant" :variant="idleVariant" class="absolute inset-0 z-10" />
           <div
             v-if="activeVideoId && !audioSessionUnlocked"
-            class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(1rem,2vw,2.5rem)] select-none"
+            class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(0.75rem,min(5vmin,5vw),4rem)] select-none"
             role="button"
             tabindex="0"
             aria-label="Press any key or tap to start singing"
@@ -94,8 +94,9 @@
             @keydown.enter.prevent="startSinging"
             @keydown.space.prevent="startSinging"
           >
+            <!-- Same viewport-fluid type scale as HostPlaybackIdle copy (TV / ultrawide). -->
             <p
-              class="pointer-events-none max-w-[min(42rem,96%)] text-center font-extrabold uppercase leading-tight tracking-wide text-yellow-300 [-webkit-text-stroke:2px_#000] [paint-order:stroke_fill] text-[length:clamp(1.125rem,0.55rem+2.2vmin,2.75rem)] animate-press-key-cta"
+              class="pointer-events-none max-w-[min(78vw,92vmin,96%)] text-center font-extrabold uppercase leading-tight tracking-wide text-yellow-300 [-webkit-text-stroke:0.055em_#000] [paint-order:stroke_fill] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)] animate-press-key-cta"
             >
               Press any key to start singing
             </p>
@@ -113,7 +114,7 @@
         <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <div
             v-if="embedSetupError || skipMessage"
-            class="shrink-0 border-b border-red-200 bg-red-50 p-[clamp(0.65rem,1.75cqi,1.25rem)] leading-snug text-red-950 text-[length:clamp(1.0625rem,0.45rem+2.8cqi,2.125rem)] dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100"
+            class="shrink-0 border-b border-red-200 bg-red-50 p-[clamp(0.65rem,calc(0.4rem_+_1.1vmin_+_0.35vw),1.25rem)] leading-snug text-red-950 text-[length:clamp(1.0625rem,calc(0.45rem_+_2.5vmin_+_0.35vw),3.5rem)] dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100"
             role="alert"
           >
             <p v-if="embedSetupError" class="font-semibold">{{ embedSetupError }}</p>
@@ -130,15 +131,15 @@
 
           <GuestJoinQrPanel
             :session-id="hostSessionId"
-            class="shrink-0 px-[clamp(0.35rem,1.15cqi,1.5rem)] pt-[clamp(0.35rem,1.15cqi,1.5rem)]"
+            class="shrink-0 px-[clamp(0.35rem,calc(0.2rem_+_0.85vmin_+_0.2vw),1.5rem)] pt-[clamp(0.35rem,calc(0.2rem_+_0.85vmin_+_0.2vw),1.5rem)]"
           />
 
           <div
-            class="shrink-0 border-b border-slate-200 bg-slate-50 px-[clamp(0.5rem,1.5cqi,1.75rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] text-slate-800 text-[length:clamp(1rem,0.4rem+2.5cqi,1.875rem)] dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-200"
+            class="shrink-0 border-b border-slate-200 bg-slate-50 px-[clamp(0.325rem,calc(0.2275rem_+_0.65vmin_+_0.195vw),1.1375rem)] py-[clamp(0.26rem,calc(0.195rem_+_0.5525vmin_+_0.1625vw),0.8125rem)] text-slate-800 text-[length:clamp(0.65rem,calc(0.26rem_+_1.43vmin_+_0.195vw),1.95rem)] dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-200"
             aria-live="polite"
           >
             <HandshakeStatusStrip
-              class="[&_span[aria-hidden=true]]:h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:w-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.65rem,1.5cqi,1rem)] [&_svg]:h-[clamp(1rem,2.2cqi,1.75rem)] [&_svg]:w-[clamp(1rem,2.2cqi,1.75rem)]"
+              class="[&_span[aria-hidden=true]]:h-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_span[aria-hidden=true]]:w-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.21125rem,calc(0.14625rem_+_0.325vmin_+_0.08125vw),0.40625rem)] [&_svg]:h-[clamp(0.325rem,calc(0.17875rem_+_0.4875vmin_+_0.11375vw),0.73125rem)] [&_svg]:w-[clamp(0.325rem,calc(0.17875rem_+_0.4875vmin_+_0.11375vw),0.73125rem)]"
               :status="handshakeStatus"
               :status-label="handshakeStatusLabel"
               :is-signaling-configured="isSignalingConfigured"
@@ -146,11 +147,11 @@
           </div>
 
           <div
-            class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-[clamp(0.65rem,1.75cqi,1.25rem)] text-slate-700 text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)] dark:text-slate-300"
+            class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-[clamp(0.3185rem,calc(0.196rem_+_0.539vmin_+_0.1715vw),0.6125rem)] text-slate-700 text-[length:clamp(0.520625rem,calc(0.2205rem_+_1.2985vmin_+_0.1715vw),1.715rem)] dark:text-slate-300"
           >
             <h2
               v-if="activeVideoId"
-              class="shrink-0 pb-[clamp(0.35rem,1cqi,0.75rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.9375rem,0.35rem+2.4cqi,1.875rem)] dark:text-white"
+              class="shrink-0 pb-[clamp(0.1715rem,calc(0.1225rem_+_0.3675vmin_+_0.098vw),0.3675rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.459375rem,calc(0.1715rem_+_1.078vmin_+_0.147vw),1.47rem)] dark:text-white"
             >
               Now playing
             </h2>
@@ -162,10 +163,10 @@
               v-for="(rowId, index) in queueSnapshot.ids"
               :key="`${index}-${rowId}`"
               :aria-current="index === queueSnapshot.currentIndex ? 'true' : undefined"
-              class="flex min-w-0 shrink-0 items-start justify-between gap-[clamp(0.35rem,1cqi,0.75rem)] px-[clamp(0.65rem,1.5cqi,1.5rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] leading-snug text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)]"
+              class="flex min-w-0 shrink-0 items-start justify-between gap-[clamp(0.1715rem,calc(0.1225rem_+_0.3675vmin_+_0.098vw),0.3675rem)] px-[clamp(0.3185rem,calc(0.196rem_+_0.49vmin_+_0.1715vw),0.735rem)] py-[clamp(0.196rem,calc(0.147rem_+_0.4165vmin_+_0.1225vw),0.6125rem)] leading-snug text-[length:clamp(0.520625rem,calc(0.2205rem_+_1.2985vmin_+_0.1715vw),1.715rem)]"
               :class="
                 index === queueSnapshot.currentIndex
-                  ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900 dark:bg-red-950/45 dark:ring-red-500 dark:text-slate-100'
+                  ? 'bg-red-50 ring-[0.98px] ring-inset ring-red-400 text-slate-900 dark:bg-red-950/45 dark:ring-red-500 dark:text-slate-100'
                   : 'text-slate-700 dark:text-slate-300'
               "
             >
@@ -174,19 +175,19 @@
                   class="min-w-0 truncate text-left font-semibold leading-snug text-slate-900 dark:text-slate-100"
                 >
                   <span
-                    class="mr-2 tabular-nums font-normal text-slate-400 select-none dark:text-slate-500"
+                    class="mr-[0.245rem] tabular-nums font-normal text-slate-400 select-none dark:text-slate-500"
                   >{{ index + 1 }}.</span>
                   {{ rowTitle(queueSnapshot.titles[index] ?? null) }}
                   <span
                     v-if="queueSnapshot.requesterGuestIds[index]"
-                    class="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"
+                    class="ml-[0.18375rem] inline-block size-[0.18375rem] shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"
                     title="Guest-requested row (max two songs per guest)"
                     aria-hidden="true"
                   />
                 </p>
                 <p
                   v-if="queueSnapshot.requestedBys[index]"
-                  class="mt-[clamp(0.2rem,0.6cqi,0.5rem)] min-w-0 truncate text-left leading-[1.45] text-[length:clamp(0.9375rem,0.35rem+2.2cqi,1.625rem)]"
+                  class="mt-[clamp(0.098rem,calc(0.0735rem_+_0.2205vmin_+_0.0588vw),0.245rem)] min-w-0 truncate text-left leading-[1.45] text-[length:clamp(0.459375rem,calc(0.1715rem_+_0.98vmin_+_0.1372vw),1.3475rem)]"
                 >
                   <span class="font-medium text-slate-600 dark:text-slate-400">Requested by </span>
                   <span class="font-bold text-slate-900 dark:text-slate-100">{{
@@ -196,7 +197,7 @@
               </div>
               <span
                 v-if="index === queueSnapshot.currentIndex"
-                class="shrink-0 rounded-md bg-red-600 px-[clamp(0.35rem,1cqi,0.75rem)] py-[clamp(0.15rem,0.5cqi,0.35rem)] font-semibold uppercase tracking-wide text-white text-[length:clamp(0.875rem,0.3rem+2cqi,1.375rem)]"
+                class="shrink-0 rounded-md bg-red-600 px-[clamp(0.1715rem,calc(0.1225rem_+_0.3675vmin_+_0.098vw),0.3675rem)] py-[clamp(0.0735rem,calc(0.049rem_+_0.196vmin_+_0.0588vw),0.1715rem)] font-semibold uppercase tracking-wide text-white text-[length:clamp(0.42875rem,calc(0.147rem_+_0.9065vmin_+_0.1372vw),1.225rem)]"
               >
                 Playing
               </span>
@@ -206,13 +207,13 @@
         </div>
 
         <footer
-          class="mt-auto shrink-0 border-t border-slate-100 bg-white px-[clamp(0.5rem,1.5cqi,1.25rem)] py-[clamp(0.35rem,1cqi,0.75rem)] text-[length:clamp(0.875rem,0.3rem+1.8cqi,1.25rem)] text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
+          class="mt-auto shrink-0 border-t border-slate-100 bg-white px-[clamp(0.4rem,calc(0.28rem_+_0.8vmin_+_0.24vw),1rem)] py-[clamp(0.28rem,calc(0.2rem_+_0.6vmin_+_0.16vw),0.6rem)] text-[length:clamp(0.7rem,calc(0.24rem_+_1.32vmin_+_0.2vw),1.8rem)] text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
         >
           <div
-            class="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2"
+            class="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-[0.6rem] gap-y-[0.4rem]"
           >
             <p class="m-0 min-w-0 shrink text-left">Made by KuyaJon with ❤️</p>
-            <AppearanceToggle />
+            <AppearanceToggle compact />
           </div>
         </footer>
       </aside>

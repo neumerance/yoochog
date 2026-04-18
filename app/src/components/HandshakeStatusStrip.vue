@@ -31,22 +31,22 @@ const showOfflineBlip = computed(
 <template>
   <div class="min-w-0 max-w-full">
     <template v-if="isSignalingConfigured">
-      <div v-if="statusLabel" class="flex min-w-0 items-center gap-2">
+      <div v-if="statusLabel" class="flex min-w-0 items-center gap-[0.325rem]">
         <span
           v-if="showConnectingPulse"
-          class="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 animate-pulse"
+          class="inline-block size-[0.40625rem] shrink-0 rounded-full bg-amber-500 animate-pulse"
           aria-hidden="true"
         />
         <span
           v-else-if="showGreen"
-          class="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-green-500"
+          class="inline-block size-[0.40625rem] shrink-0 rounded-full bg-green-500"
           aria-hidden="true"
         />
-        <span v-else-if="showOfflineBlip" class="relative inline-flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
+        <span v-else-if="showOfflineBlip" class="relative inline-flex size-[0.40625rem] shrink-0" aria-hidden="true">
           <span
             class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
           />
-          <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+          <span class="relative inline-flex size-[0.40625rem] rounded-full bg-red-500" />
         </span>
         <div class="min-w-0 flex-1">
           <p role="status">
