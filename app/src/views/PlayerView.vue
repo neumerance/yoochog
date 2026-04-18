@@ -84,6 +84,11 @@
             aria-label="YouTube video player"
           />
           <HostPlaybackIdle v-if="idleVariant" :variant="idleVariant" class="absolute inset-0 z-10" />
+          <AudienceChatOverlay
+            v-if="audienceChatLines.length > 0"
+            :lines="audienceChatLines"
+            @complete="removeAudienceChatLine"
+          />
           <div
             v-if="activeVideoId && !audioSessionUnlocked"
             class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(0.75rem,min(5vmin,5vw),4rem)] select-none"
@@ -228,6 +233,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import AppearanceToggle from '@/components/AppearanceToggle.vue'
+import AudienceChatOverlay from '@/components/AudienceChatOverlay.vue'
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
 import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
@@ -353,6 +359,8 @@ const {
   status: handshakeStatus,
   statusLabel: handshakeStatusLabel,
   isSignalingConfigured,
+  audienceChatLines,
+  removeAudienceChatLine,
 } = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue, applyNaturalPlaybackEnd)
 const skipMessage = ref<string | null>(null)
 const embedSetupError = ref<string | null>(null)

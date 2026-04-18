@@ -10,6 +10,8 @@ export type GuestPartyUiState = {
   /** Logical guest id of the session admin from `queue_snapshot.sessionAdminPeerId`; `null` if unset. */
   sessionAdminGuestId: string | null
   lastEnqueueError: string | null
+  /** Host `chat_rejected` reason; cleared on successful send path / auto-dismiss in composable. */
+  lastChatError: string | null
 }
 
 /**
@@ -28,12 +30,21 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         }),
         sessionAdminGuestId: msg.sessionAdminPeerId,
         lastEnqueueError: prev.lastEnqueueError,
+        lastChatError: prev.lastChatError,
       }
     case 'enqueue_rejected':
       return {
         snapshot: prev.snapshot,
         sessionAdminGuestId: prev.sessionAdminGuestId,
         lastEnqueueError: msg.reason,
+        lastChatError: prev.lastChatError,
+      }
+    case 'chat_rejected':
+      return {
+        snapshot: prev.snapshot,
+        sessionAdminGuestId: prev.sessionAdminGuestId,
+        lastEnqueueError: prev.lastEnqueueError,
+        lastChatError: msg.reason,
       }
     case 'enqueue_request':
       return prev
@@ -44,6 +55,8 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
     case 'heartbeat':
       return prev
     case 'guest_identify':
+      return prev
+    case 'audience_chat_request':
       return prev
   }
 }

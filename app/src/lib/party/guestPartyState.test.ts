@@ -5,7 +5,7 @@ import { applyGuestPartyMessage } from './guestPartyState'
 describe('applyGuestPartyMessage', () => {
   it('updates snapshot on queue_snapshot', () => {
     const next = applyGuestPartyMessage(
-      { snapshot: null, sessionAdminGuestId: null, lastEnqueueError: null },
+      { snapshot: null, sessionAdminGuestId: null, lastEnqueueError: null, lastChatError: null },
       {
         v: 1,
         type: 'queue_snapshot',
@@ -27,7 +27,7 @@ describe('applyGuestPartyMessage', () => {
 
   it('normalizes legacy queue_snapshot rows before current playhead', () => {
     const next = applyGuestPartyMessage(
-      { snapshot: null, sessionAdminGuestId: null, lastEnqueueError: null },
+      { snapshot: null, sessionAdminGuestId: null, lastEnqueueError: null, lastChatError: null },
       {
         v: 1,
         type: 'queue_snapshot',
@@ -55,6 +55,7 @@ describe('applyGuestPartyMessage', () => {
       },
       sessionAdminGuestId: 'a' as string | null,
       lastEnqueueError: null as string | null,
+      lastChatError: null as string | null,
     }
     const next = applyGuestPartyMessage(prev, {
       v: 1,
@@ -77,11 +78,35 @@ describe('applyGuestPartyMessage', () => {
       },
       sessionAdminGuestId: null as string | null,
       lastEnqueueError: 'prior' as string | null,
+      lastChatError: null as string | null,
     }
     const next = applyGuestPartyMessage(prev, {
       v: 1,
       type: 'heartbeat',
     })
     expect(next).toEqual(prev)
+  })
+
+  it('records chat_rejected', () => {
+    const prev = {
+      snapshot: {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
+      },
+      sessionAdminGuestId: null as string | null,
+      lastEnqueueError: null as string | null,
+      lastChatError: null as string | null,
+    }
+    const next = applyGuestPartyMessage(prev, {
+      v: 1,
+      type: 'chat_rejected',
+      reason: 'Please wait.',
+    })
+    expect(next.lastChatError).toBe('Please wait.')
+    expect(next.lastEnqueueError).toBeNull()
+    expect(next.snapshot).toEqual(prev.snapshot)
   })
 })
