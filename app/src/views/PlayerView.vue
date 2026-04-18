@@ -71,54 +71,61 @@
       </section>
 
       <aside
-        class="@container flex min-h-0 flex-1 flex-col overflow-hidden lg:h-full lg:min-h-0 lg:min-w-0 lg:w-full"
+        :class="[
+          '@container flex min-h-0 flex-col overflow-hidden bg-white dark:bg-slate-950 lg:h-full lg:min-h-0 lg:max-h-full lg:min-w-0 lg:w-full',
+          hostDarkMode && 'dark',
+        ]"
       >
-        <div
-          v-if="embedSetupError || skipMessage"
-          class="shrink-0 border-b border-red-200 bg-red-50 p-[clamp(0.65rem,1.75cqi,1.25rem)] leading-snug text-red-950 text-[length:clamp(1.0625rem,0.45rem+2.8cqi,2.125rem)]"
-          role="alert"
-        >
-          <p v-if="embedSetupError" class="font-semibold">{{ embedSetupError }}</p>
-          <p
-            v-if="skipMessage"
-            class="leading-snug"
-            :class="embedSetupError ? 'mt-2 border-t border-red-200/80 pt-2' : ''"
+        <!-- Scrolls internally so the footer stays visible at the bottom of this column. -->
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div
+            v-if="embedSetupError || skipMessage"
+            class="shrink-0 border-b border-red-200 bg-red-50 p-[clamp(0.65rem,1.75cqi,1.25rem)] leading-snug text-red-950 text-[length:clamp(1.0625rem,0.45rem+2.8cqi,2.125rem)] dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100"
+            role="alert"
           >
-            {{ skipMessage }}
-          </p>
-        </div>
+            <p v-if="embedSetupError" class="font-semibold">{{ embedSetupError }}</p>
+            <p
+              v-if="skipMessage"
+              class="leading-snug"
+              :class="
+                embedSetupError ? 'mt-2 border-t border-red-200/80 pt-2 dark:border-red-800/60' : ''
+              "
+            >
+              {{ skipMessage }}
+            </p>
+          </div>
 
-        <GuestJoinQrPanel
-          :session-id="hostSessionId"
-          class="shrink-0 px-[clamp(0.35rem,1.15cqi,1.5rem)] pt-[clamp(0.35rem,1.15cqi,1.5rem)]"
-        />
-
-        <div
-          class="shrink-0 border-b border-slate-200 bg-slate-50 px-[clamp(0.5rem,1.5cqi,1.75rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] text-slate-800 text-[length:clamp(1rem,0.4rem+2.5cqi,1.875rem)]"
-          aria-live="polite"
-        >
-          <HandshakeStatusStrip
-            class="[&_span[aria-hidden=true]]:h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:w-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.65rem,1.5cqi,1rem)] [&_svg]:h-[clamp(1rem,2.2cqi,1.75rem)] [&_svg]:w-[clamp(1rem,2.2cqi,1.75rem)]"
-            :status="handshakeStatus"
-            :status-label="handshakeStatusLabel"
-            :error="handshakeError"
-            :is-signaling-configured="isSignalingConfigured"
+          <GuestJoinQrPanel
+            :session-id="hostSessionId"
+            class="shrink-0 px-[clamp(0.35rem,1.15cqi,1.5rem)] pt-[clamp(0.35rem,1.15cqi,1.5rem)]"
           />
-        </div>
 
-        <div
-          class="flex min-h-0 flex-1 flex-col p-[clamp(0.65rem,1.75cqi,1.25rem)] text-slate-700 text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)]"
-        >
-          <h2
-            v-if="activeVideoId"
-            class="shrink-0 pb-[clamp(0.35rem,1cqi,0.75rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.9375rem,0.35rem+2.4cqi,1.875rem)]"
+          <div
+            class="shrink-0 border-b border-slate-200 bg-slate-50 px-[clamp(0.5rem,1.5cqi,1.75rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] text-slate-800 text-[length:clamp(1rem,0.4rem+2.5cqi,1.875rem)] dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-200"
+            aria-live="polite"
           >
-            Now playing
-          </h2>
-          <ol
-            class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto divide-y divide-slate-200"
-            aria-label="Playback queue"
+            <HandshakeStatusStrip
+              class="[&_span[aria-hidden=true]]:h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-h-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:w-[clamp(0.65rem,1.5cqi,1rem)] [&_span[aria-hidden=true]]:min-w-[clamp(0.65rem,1.5cqi,1rem)] [&_svg]:h-[clamp(1rem,2.2cqi,1.75rem)] [&_svg]:w-[clamp(1rem,2.2cqi,1.75rem)]"
+              :status="handshakeStatus"
+              :status-label="handshakeStatusLabel"
+              :error="handshakeError"
+              :is-signaling-configured="isSignalingConfigured"
+            />
+          </div>
+
+          <div
+            class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-[clamp(0.65rem,1.75cqi,1.25rem)] text-slate-700 text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)] dark:text-slate-300"
           >
+            <h2
+              v-if="activeVideoId"
+              class="shrink-0 pb-[clamp(0.35rem,1cqi,0.75rem)] font-bold uppercase tracking-wide text-black text-[length:clamp(0.9375rem,0.35rem+2.4cqi,1.875rem)] dark:text-white"
+            >
+              Now playing
+            </h2>
+            <ol
+              class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain divide-y divide-slate-200 dark:divide-slate-700"
+              aria-label="Playback queue"
+            >
             <li
               v-for="(rowId, index) in queueSnapshot.ids"
               :key="`${index}-${rowId}`"
@@ -126,19 +133,21 @@
               class="flex min-w-0 shrink-0 items-start justify-between gap-[clamp(0.35rem,1cqi,0.75rem)] px-[clamp(0.65rem,1.5cqi,1.5rem)] py-[clamp(0.4rem,1.25cqi,1.25rem)] leading-snug text-[length:clamp(1.0625rem,0.45rem+3cqi,2.125rem)]"
               :class="
                 index === queueSnapshot.currentIndex
-                  ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900'
-                  : 'text-slate-700'
+                  ? 'bg-red-50 ring-2 ring-inset ring-red-400 text-slate-900 dark:bg-red-950/45 dark:ring-red-500 dark:text-slate-100'
+                  : 'text-slate-700 dark:text-slate-300'
               "
             >
               <div class="min-w-0 flex-1">
-                <p class="min-w-0 truncate text-left font-semibold leading-snug text-slate-900">
-                  <span class="mr-2 tabular-nums font-normal text-slate-400 select-none">{{
-                    index + 1
-                  }}.</span>
+                <p
+                  class="min-w-0 truncate text-left font-semibold leading-snug text-slate-900 dark:text-slate-100"
+                >
+                  <span
+                    class="mr-2 tabular-nums font-normal text-slate-400 select-none dark:text-slate-500"
+                  >{{ index + 1 }}.</span>
                   {{ rowTitle(queueSnapshot.titles[index] ?? null) }}
                   <span
                     v-if="queueSnapshot.requesterGuestIds[index]"
-                    class="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"
+                    class="ml-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"
                     title="Guest-requested row (max two songs per guest)"
                     aria-hidden="true"
                   />
@@ -147,8 +156,10 @@
                   v-if="queueSnapshot.requestedBys[index]"
                   class="mt-[clamp(0.2rem,0.6cqi,0.5rem)] min-w-0 truncate text-left leading-[1.45] text-[length:clamp(0.9375rem,0.35rem+2.2cqi,1.625rem)]"
                 >
-                  <span class="font-medium text-slate-600">Requested by </span>
-                  <span class="font-bold text-slate-900">{{ queueSnapshot.requestedBys[index] }}</span>
+                  <span class="font-medium text-slate-600 dark:text-slate-400">Requested by </span>
+                  <span class="font-bold text-slate-900 dark:text-slate-100">{{
+                    queueSnapshot.requestedBys[index]
+                  }}</span>
                 </p>
               </div>
               <span
@@ -159,12 +170,18 @@
               </span>
             </li>
           </ol>
+          </div>
         </div>
 
         <footer
-          class="mt-auto shrink-0 border-t border-slate-100 px-[clamp(0.5rem,1.5cqi,1.25rem)] py-[clamp(0.35rem,1cqi,0.75rem)] text-right text-slate-500 text-[length:clamp(0.875rem,0.3rem+1.8cqi,1.25rem)]"
+          class="mt-auto shrink-0 border-t border-slate-100 bg-white px-[clamp(0.5rem,1.5cqi,1.25rem)] py-[clamp(0.35rem,1cqi,0.75rem)] text-[length:clamp(0.875rem,0.3rem+1.8cqi,1.25rem)] text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
         >
-          Made by KuyaJon with ❤️
+          <div
+            class="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2"
+          >
+            <p class="m-0 min-w-0 shrink text-left">Made by KuyaJon with ❤️</p>
+            <AppearanceToggle />
+          </div>
         </footer>
       </aside>
     </div>
@@ -177,11 +194,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AppearanceToggle from '@/components/AppearanceToggle.vue'
 import GuestJoinQrPanel from '@/components/GuestJoinQrPanel.vue'
 import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
+import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
 import { useHostPartySession } from '@/composables/useHostPartySession'
 import { useHostSessionId } from '@/composables/useHostSessionId'
 import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
@@ -236,6 +255,8 @@ function onHostSplashComplete() {
 }
 
 const { hostSessionId } = useHostSessionId()
+
+const { isDark: hostDarkMode } = useHostPlayerDarkMode()
 
 const queue = createHostVideoQueue()
 const queueTick = ref(0)

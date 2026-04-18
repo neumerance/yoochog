@@ -4,11 +4,13 @@ import { useRoute } from 'vue-router'
 
 import logoUrl from '@/assets/images/logo/logo.png'
 
+import AppearanceToggle from '@/components/AppearanceToggle.vue'
 import GuestShell from '@/components/GuestShell.vue'
 import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
+import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
 import {
   readGuestDisplayName,
   saveGuestDisplayName,
@@ -62,6 +64,9 @@ const guestNameInput = ref('')
 const guestNameError = ref<string | null>(null)
 
 const privacyNoticeSheet = ref<InstanceType<typeof PrivacyNoticeSheet> | null>(null)
+
+/** Shared with host PlayerView — same localStorage key. */
+const { isDark: guestDarkMode } = useHostPlayerDarkMode()
 
 /** Same intro splash as host PlayerView; privacy / nickname flow runs after it finishes. */
 const showJoinSplash = ref(true)
@@ -380,7 +385,10 @@ onMounted(() => {
 
 <template>
   <GuestShell
-    class="flex h-full min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden !pb-0 bg-[#F2F2F7] text-[17px] leading-[1.29] antialiased [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',sans-serif]"
+    :class="[
+      'flex h-full min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden !pb-0 bg-[#F2F2F7] text-[17px] leading-[1.29] antialiased dark:bg-slate-950 dark:text-slate-100 [font-family:-apple-system,BlinkMacSystemFont,Segoe_UI,Roboto,Helvetica_Neue,sans-serif]',
+      guestDarkMode && 'dark',
+    ]"
   >
     <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
     <header class="flex shrink-0 justify-center pb-2 pt-1">
@@ -394,52 +402,55 @@ onMounted(() => {
 
     <!-- Connection status + WebRTC (left); you / avatar / name (right when connected) -->
     <div
-      class="shrink-0 overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+      class="shrink-0 overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)] dark:bg-slate-900 dark:shadow-black/40"
       aria-live="polite"
     >
-      <div class="flex items-center gap-3 px-4 py-3">
-        <div class="min-w-0 flex-1 text-[15px] leading-snug text-[#3C3C43]">
-          <HandshakeStatusStrip
-            :status="handshakeStatus"
-            :status-label="joinHandshakeStatusLabel"
-            :error="handshakeError"
-            :is-signaling-configured="isSignalingConfigured"
-          />
-        </div>
-        <div
-          v-if="handshakeStatus === 'connected'"
-          class="flex min-w-0 shrink-0 items-center gap-2 border-l border-[#C6C6C8] pl-3"
-          role="region"
-          :aria-label="isSessionAdmin ? 'You are the session admin' : 'Your display name'"
-        >
+      <div class="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3">
+        <div class="flex min-w-0 flex-1 items-center gap-3">
+          <div class="min-w-0 flex-1 text-[15px] leading-snug text-[#3C3C43] dark:text-slate-300">
+            <HandshakeStatusStrip
+              :status="handshakeStatus"
+              :status-label="joinHandshakeStatusLabel"
+              :error="handshakeError"
+              :is-signaling-configured="isSignalingConfigured"
+            />
+          </div>
           <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold leading-none text-white tabular-nums"
-            :class="
-              isSessionAdmin
-                ? 'bg-[#FF3B30] shadow-[0_1px_2px_rgba(255,59,48,0.35)] ring-2 ring-[#FF3B30]/20 ring-offset-1 ring-offset-white'
-                : 'bg-[#007AFF] shadow-[0_1px_2px_rgba(0,122,255,0.25)]'
-            "
-            aria-hidden="true"
+            v-if="handshakeStatus === 'connected'"
+            class="flex min-w-0 shrink-0 items-center gap-2 border-l border-[#C6C6C8] pl-3 dark:border-slate-600"
+            role="region"
+            :aria-label="isSessionAdmin ? 'You are the session admin' : 'Your display name'"
           >
-            {{ guestAvatarInitials }}
-          </div>
-          <div class="min-w-0 max-w-[11rem]">
-            <p class="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-black">
-              {{ guestDisplayNameLabel }}<span
-                v-if="isSessionAdmin"
-                class="font-medium text-[#6D6D72]"
-              >
-                — Admin</span>
-            </p>
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold leading-none text-white tabular-nums"
+              :class="
+                isSessionAdmin
+                  ? 'bg-[#FF3B30] shadow-[0_1px_2px_rgba(255,59,48,0.35)] ring-2 ring-[#FF3B30]/20 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
+                  : 'bg-[#007AFF] shadow-[0_1px_2px_rgba(0,122,255,0.25)]'
+              "
+              aria-hidden="true"
+            >
+              {{ guestAvatarInitials }}
+            </div>
+            <div class="min-w-0 max-w-[11rem]">
+              <p class="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-black dark:text-white">
+                {{ guestDisplayNameLabel }}<span
+                  v-if="isSessionAdmin"
+                  class="font-medium text-[#6D6D72] dark:text-slate-400"
+                >
+                  — Admin</span>
+              </p>
+            </div>
           </div>
         </div>
+        <AppearanceToggle />
       </div>
     </div>
 
     <Transition name="enqueue-toast">
       <div
         v-if="lastEnqueueError"
-        class="overflow-hidden rounded-[12px] bg-white px-4 py-3 text-center text-[15px] font-normal leading-[1.38] tracking-[-0.24px] text-[#3C3C43] shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+        class="overflow-hidden rounded-[12px] bg-white px-4 py-3 text-center text-[15px] font-normal leading-[1.38] tracking-[-0.24px] text-[#3C3C43] shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)] dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/40"
         role="status"
         aria-live="polite"
       >
@@ -448,11 +459,11 @@ onMounted(() => {
     </Transition>
 
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-      <h2 class="shrink-0 px-1 pb-1 pt-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72]">
+      <h2 class="shrink-0 px-1 pb-1 pt-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72] dark:text-slate-400">
         Queue
       </h2>
       <div
-        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)]"
+        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)] dark:bg-slate-900 dark:shadow-black/40"
       >
         <div
           v-if="!(queueSnapshot?.ids?.length)"
@@ -467,15 +478,15 @@ onMounted(() => {
             decoding="async"
           />
           <p
-            class="max-w-[17rem] text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
+            class="max-w-[17rem] text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black dark:text-white"
           >
             No songs in the queue yet
           </p>
           <p
-            class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93]"
+            class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93] dark:text-slate-400"
           >
-            Tap <span class="font-semibold text-[#6D6D72]">Add my song</span> below, paste a YouTube
-            link, then tap <span class="font-semibold text-[#6D6D72]">Enqueue</span>—your request
+            Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, paste a YouTube
+            link, then tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Enqueue</span>—your request
             appears here for everyone.
           </p>
         </div>
@@ -489,33 +500,33 @@ onMounted(() => {
             v-for="(rowId, index) in queueSnapshot?.ids ?? []"
             :key="`${index}-${rowId}`"
             :aria-current="index === queueSnapshot?.currentIndex ? 'true' : undefined"
-            class="flex min-h-[44px] min-w-0 w-full shrink-0 border-b border-[#C6C6C8] px-4 py-3.5 last:border-b-0"
+            class="flex min-h-[44px] min-w-0 w-full shrink-0 border-b border-[#C6C6C8] px-4 py-3.5 last:border-b-0 dark:border-slate-700"
             :class="
               index === queueSnapshot?.currentIndex
-                ? 'bg-[rgba(255,59,48,0.08)]'
-                : 'bg-white'
+                ? 'bg-[rgba(255,59,48,0.08)] dark:bg-red-950/40'
+                : 'bg-white dark:bg-slate-900'
             "
           >
             <div class="flex w-full min-w-0 items-start gap-2">
               <div class="min-w-0 flex-1 pt-0.5">
                 <div class="flex items-start gap-2">
-                  <span class="w-5 shrink-0 pt-0.5 text-right text-[13px] tabular-nums leading-5 text-[#8E8E93] select-none">{{ index + 1 }}</span>
+                  <span class="w-5 shrink-0 pt-0.5 text-right text-[13px] tabular-nums leading-5 text-[#8E8E93] select-none dark:text-slate-500">{{ index + 1 }}</span>
                   <div class="min-w-0 flex-1">
                     <p
-                      class="min-w-0 truncate text-left text-[17px] font-normal leading-[1.35] tracking-[-0.01em] text-black"
+                      class="min-w-0 truncate text-left text-[17px] font-normal leading-[1.35] tracking-[-0.01em] text-black dark:text-slate-100"
                     >
                       {{ queueRowTitle(index) }}
                     </p>
                     <p
                       v-if="queueRowRequester(index)"
-                      class="mt-1.5 min-w-0 truncate text-left text-[15px] font-normal leading-[1.45] text-[#6D6D72]"
+                      class="mt-1.5 min-w-0 truncate text-left text-[15px] font-normal leading-[1.45] text-[#6D6D72] dark:text-slate-400"
                     >
                       <span class="font-medium">Requested by </span>
-                      <span class="font-bold text-black">{{ queueRowRequester(index) }}</span>
+                      <span class="font-bold text-black dark:text-slate-100">{{ queueRowRequester(index) }}</span>
                     </p>
                     <p
                       v-if="isMyQueueRow(index)"
-                      class="mt-1 min-w-0 text-left text-[13px] font-medium leading-[1.35] text-[#8E8E93]"
+                      class="mt-1 min-w-0 text-left text-[13px] font-medium leading-[1.35] text-[#8E8E93] dark:text-slate-500"
                     >
                       Your request
                     </p>
@@ -564,7 +575,7 @@ onMounted(() => {
     </div>
 
     <div
-      class="mb-[10dvh] shrink-0 border-t border-[#C6C6C8] bg-[#FAFAFA] px-3 pt-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+1rem))]"
+      class="mb-[10dvh] shrink-0 border-t border-[#C6C6C8] bg-[#FAFAFA] px-3 pt-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+1rem))] dark:border-slate-700 dark:bg-slate-900"
     >
       <button
         ref="addSongTriggerRef"

@@ -49,7 +49,7 @@ const showRedPulse = computed(
             aria-label="Connected, WebRTC peer connection active"
           >
             <span>{{ statusLabel }}</span>
-            <span class="inline-flex items-center gap-1.5 text-slate-700">
+            <span class="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -69,13 +69,14 @@ const showRedPulse = computed(
             </span>
           </div>
           <p v-else-if="statusLabel">{{ statusLabel }}</p>
-          <p v-if="error" class="mt-1 text-red-800">{{ error }}</p>
+          <p v-if="error" class="mt-1 text-red-800 dark:text-red-300">{{ error }}</p>
         </div>
       </div>
     </template>
-    <p v-else class="text-slate-600">
+    <p v-else class="text-slate-600 dark:text-slate-300">
       Real-time link is off until you set PubNub keys or
-      <code class="rounded bg-slate-200 px-1">VITE_SIGNALING_URL</code> (see app README).
+      <code class="rounded bg-slate-200 px-1 dark:bg-slate-700 dark:text-slate-100">VITE_SIGNALING_URL</code>
+      (see app README).
     </p>
   </div>
 </template>

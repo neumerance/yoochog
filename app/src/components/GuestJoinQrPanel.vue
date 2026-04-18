@@ -14,12 +14,12 @@
           decoding="async"
         />
         <h2
-          class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(1.25rem,0.55rem+2.8cqi,2.75rem)]"
+          class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(1.25rem,0.55rem+2.8cqi,2.75rem)] dark:text-indigo-100"
         >
           Join in from your phone
         </h2>
         <p
-          class="w-full leading-relaxed text-indigo-900/90 text-[length:clamp(1rem,0.45rem+2.4cqi,1.875rem)]"
+          class="w-full leading-relaxed text-indigo-900/90 text-[length:clamp(1rem,0.45rem+2.4cqi,1.875rem)] dark:text-slate-300"
         >
           Scan with a phone camera or QR app—opens this sing-along in the browser, no signup.
         </p>
@@ -62,7 +62,7 @@
         </p>
         <p
           v-else
-          class="flex aspect-square w-[clamp(10rem,82cqi,27rem)] max-w-full items-center justify-center text-center text-slate-500 text-[length:clamp(1rem,0.45rem+2.4cqi,1.75rem)]"
+          class="flex aspect-square w-[clamp(10rem,82cqi,27rem)] max-w-full items-center justify-center text-center text-slate-500 text-[length:clamp(1rem,0.45rem+2.4cqi,1.75rem)] dark:text-slate-400"
           aria-live="polite"
         >
           Preparing QR…

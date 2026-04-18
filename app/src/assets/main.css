@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/** Class-based `dark:` — toggle `.dark` on host aside (see PlayerView). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   html,
   body {
