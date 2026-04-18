@@ -2,14 +2,15 @@
   <Transition name="host-splash-root" @after-leave="emit('complete')">
     <div
       v-if="layerVisible"
-      class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white px-6"
+      class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white px-[clamp(0.75rem,min(5vmin,5vw),4rem)]"
       role="presentation"
       aria-hidden="true"
     >
+      <!-- Same viewport-fluid bounds as HostPlaybackIdle logo (TV / ultrawide). -->
       <img
         :src="logoUrl"
         alt=""
-        class="host-splash-logo h-auto w-[min(72vw,28rem)] max-w-full select-none object-contain object-center"
+        class="host-splash-logo h-auto w-auto min-h-0 min-w-0 max-h-[min(62.4vmin,59.8vh)] max-w-[min(78vw,80.6vmin,100%)] shrink-0 select-none object-contain object-center"
         decoding="async"
       />
     </div>
