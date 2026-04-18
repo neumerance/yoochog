@@ -8,6 +8,14 @@ import {
   resolveSessionAdminRemoveRowRequest,
 } from '@/lib/host-queue/sessionAdminPolicy'
 import {
+  AUDIENCE_CHAT_MAX_VISIBLE_LINES,
+  evaluateHostAudienceChatAcceptance,
+  nextGuestAudienceChatHostState,
+  pickAudienceChatDriftMs,
+  type GuestAudienceChatHostState,
+} from '@/lib/party/audienceChatPolicy'
+import { pickRandomAudienceChatFontFamily } from '@/lib/party/audienceChatFonts'
+import {
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
@@ -33,6 +41,11 @@ export function useHostPartySession(
    * Kept when that guest disconnects so they remain admin after reconnect.
    */
   const sessionAdminGuestId = ref<string | null>(null)
+  /** Per logical guest id (wire `requesterGuestId`) for audience chat rate limits. */
+  const audienceChatGuestState = new Map<string, GuestAudienceChatHostState>()
+  const audienceChatLines = ref<
+    Array<{ id: string; text: string; durationMs: number; fontFamily: string }>
+  >([])
   let dispose: (() => void) | null = null
 
   const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
@@ -77,6 +90,22 @@ export function useHostPartySession(
       reason,
     }
     sendPartyToGuest(guestId, serializePartyMessage(rej))
+  }
+
+  function sendChatReject(guestId: string, reason: string) {
+    if (!sendPartyToGuest) {
+      return
+    }
+    const rej: PartyMessage = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'chat_rejected',
+      reason,
+    }
+    sendPartyToGuest(guestId, serializePartyMessage(rej))
+  }
+
+  function removeAudienceChatLine(id: string) {
+    audienceChatLines.value = audienceChatLines.value.filter((l) => l.id !== id)
   }
 
   function handleGuestRaw(guestId: string, raw: string) {
@@ -133,9 +162,45 @@ export function useHostPartySession(
       bumpQueue()
       return
     }
+    if (msg?.type === 'audience_chat_request') {
+      const logicalId = msg.requesterGuestId
+      const now = Date.now()
+      const prev = audienceChatGuestState.get(logicalId)
+      const decision = evaluateHostAudienceChatAcceptance({
+        text: msg.text,
+        now,
+        prev,
+      })
+      if (!decision.ok) {
+        sendChatReject(guestId, decision.reason)
+        return
+      }
+      audienceChatGuestState.set(
+        logicalId,
+        nextGuestAudienceChatHostState({ text: msg.text, now, prev }),
+      )
+      const reduced =
+        typeof globalThis !== 'undefined' &&
+        globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+      const durationMs = pickAudienceChatDriftMs({ prefersReducedMotion: reduced })
+      const id =
+        typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
+          ? globalThis.crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const nextLines = [
+        ...audienceChatLines.value,
+        { id, text: msg.text, durationMs, fontFamily: pickRandomAudienceChatFontFamily() },
+      ]
+      while (nextLines.length > AUDIENCE_CHAT_MAX_VISIBLE_LINES) {
+        nextLines.shift()
+      }
+      audienceChatLines.value = nextLines
+      return
+    }
     if (
       msg?.type === 'queue_snapshot' ||
       msg?.type === 'enqueue_rejected' ||
+      msg?.type === 'chat_rejected' ||
       msg?.type === 'heartbeat'
     ) {
       return
@@ -166,6 +231,8 @@ export function useHostPartySession(
       broadcastParty = null
       sendPartyToGuest = null
       sessionAdminGuestId.value = null
+      audienceChatGuestState.clear()
+      audienceChatLines.value = []
 
       if (!hasSignaling) {
         status.value = 'missing_config'
@@ -224,5 +291,7 @@ export function useHostPartySession(
     status,
     statusLabel,
     isSignalingConfigured: computed(() => hasSignaling),
+    audienceChatLines,
+    removeAudienceChatLine,
   }
 }

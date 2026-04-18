@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import logoUrl from '@/assets/images/logo/logo.png'
@@ -52,9 +52,12 @@ const {
   queueSnapshot,
   sessionAdminGuestId,
   lastEnqueueError,
+  lastChatError,
+  audienceChatCooldownEndsAt,
   requestEnqueue,
   requestEndCurrentPlayback,
   requestRemoveRow,
+  requestAudienceChat,
   canRequestEnqueue,
 } = useGuestPartyHandshake(handshakeSessionId)
 
@@ -73,6 +76,37 @@ const showJoinSplash = ref(true)
 const endSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongDialog = ref<HTMLDialogElement | null>(null)
 const addSongTriggerRef = ref<HTMLButtonElement | null>(null)
+const chatDialog = ref<HTMLDialogElement | null>(null)
+const chatTriggerRef = ref<HTMLButtonElement | null>(null)
+const chatInput = ref('')
+const chatFieldError = ref<string | null>(null)
+
+const nowMonotonic = ref(Date.now())
+let chatCooldownTicker: number | null = null
+
+onMounted(() => {
+  refreshGuestDisplayName()
+  chatCooldownTicker = window.setInterval(() => {
+    nowMonotonic.value = Date.now()
+  }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (chatCooldownTicker !== null) {
+    window.clearInterval(chatCooldownTicker)
+    chatCooldownTicker = null
+  }
+})
+
+const audienceChatCooldownSecondsLeft = computed(() => {
+  void nowMonotonic.value
+  void audienceChatCooldownEndsAt.value
+  const end = audienceChatCooldownEndsAt.value
+  if (!end) {
+    return 0
+  }
+  return Math.max(0, Math.ceil((end - Date.now()) / 1000))
+})
 const addSongStep = ref<1 | 2>(1)
 const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
@@ -377,8 +411,44 @@ async function submitPasteEnqueue() {
   }
 }
 
-onMounted(() => {
-  refreshGuestDisplayName()
+function openChatModal() {
+  if (!canRequestEnqueue.value) {
+    return
+  }
+  chatInput.value = ''
+  chatFieldError.value = null
+  chatDialog.value?.showModal()
+  void nextTick(() => document.getElementById('guest-chat-input')?.focus())
+}
+
+function closeChatModal() {
+  chatDialog.value?.close()
+}
+
+function onChatDialogClose() {
+  chatInput.value = ''
+  chatFieldError.value = null
+  void nextTick(() => chatTriggerRef.value?.focus())
+}
+
+function submitChat() {
+  chatFieldError.value = null
+  const r = requestAudienceChat(chatInput.value)
+  if (!r.ok) {
+    chatFieldError.value = r.reason
+    return
+  }
+  closeChatModal()
+}
+
+const canSubmitAudienceChat = computed(() => {
+  if (!canRequestEnqueue.value) {
+    return false
+  }
+  if (audienceChatCooldownSecondsLeft.value > 0) {
+    return false
+  }
+  return chatInput.value.trim().length > 0
 })
 </script>
 
@@ -455,6 +525,17 @@ onMounted(() => {
         aria-live="polite"
       >
         {{ lastEnqueueError }}
+      </div>
+    </Transition>
+
+    <Transition name="enqueue-toast">
+      <div
+        v-if="lastChatError"
+        class="overflow-hidden rounded-[12px] bg-white px-4 py-3 text-center text-[15px] font-normal leading-[1.38] tracking-[-0.24px] text-[#3C3C43] shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)] dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/40"
+        role="status"
+        aria-live="polite"
+      >
+        {{ lastChatError }}
       </div>
     </Transition>
 
@@ -577,28 +658,40 @@ onMounted(() => {
     <div
       class="mb-[10dvh] shrink-0 border-t border-[#C6C6C8] bg-[#FAFAFA] px-3 pt-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+1rem))] dark:border-slate-700 dark:bg-slate-900"
     >
-      <button
-        ref="addSongTriggerRef"
-        type="button"
-        class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:active:scale-100"
-        :class="
-          canOpenAddSongFlow
-            ? 'bg-[#FF3B30] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline-[#FF3B30]'
-            : [
-                'bg-[#C7C7CC]',
-                canRequestEnqueue && atMaxMySongsInQueue ? 'cursor-pointer' : 'cursor-default',
-              ]
-        "
-        :disabled="!canRequestEnqueue"
-        :aria-label="
-          atMaxMySongsInQueue
-            ? 'Add my song — you already have two songs in the queue'
-            : 'Add my song'
-        "
-        @click="onAddSongBarTap"
-      >
-        Add my song
-      </button>
+      <div class="flex flex-col gap-2">
+        <button
+          ref="addSongTriggerRef"
+          type="button"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:active:scale-100"
+          :class="
+            canOpenAddSongFlow
+              ? 'bg-[#FF3B30] active:scale-[0.99] active:bg-[#D70015] focus-visible:outline-[#FF3B30]'
+              : [
+                  'bg-[#C7C7CC]',
+                  canRequestEnqueue && atMaxMySongsInQueue ? 'cursor-pointer' : 'cursor-default',
+                ]
+          "
+          :disabled="!canRequestEnqueue"
+          :aria-label="
+            atMaxMySongsInQueue
+              ? 'Add my song — you already have two songs in the queue'
+              : 'Add my song'
+          "
+          @click="onAddSongBarTap"
+        >
+          Add my song
+        </button>
+        <button
+          ref="chatTriggerRef"
+          type="button"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-[#007AFF] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] active:scale-[0.99] active:bg-[#0051D5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] disabled:cursor-not-allowed disabled:bg-[#C7C7CC] disabled:active:scale-100"
+          :disabled="!canRequestEnqueue"
+          aria-label="Chat — send a short message to the host screen"
+          @click="openChatModal"
+        >
+          Chat
+        </button>
+      </div>
     </div>
 
     <dialog
@@ -727,6 +820,75 @@ onMounted(() => {
           type="button"
           class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
           @click="closeAddSongModal"
+        >
+          Cancel
+        </button>
+      </div>
+    </dialog>
+
+    <dialog
+      ref="chatDialog"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      aria-labelledby="guest-chat-title"
+      aria-modal="true"
+      @close="onChatDialogClose"
+    >
+      <div
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+      >
+        <h2
+          id="guest-chat-title"
+          class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
+        >
+          Chat
+        </h2>
+        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
+          <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+            Cheer from your phone, show up on the TV. Keep it short: 5 words, 30 characters.
+            <span class="mt-1 block font-bold text-[#0039C7] dark:text-[#3D8FFF]">
+              We’re all here to have fun—be nice.
+            </span>
+          </p>
+          <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
+            <label for="guest-chat-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
+              Message
+            </label>
+            <input
+              id="guest-chat-input"
+              v-model="chatInput"
+              type="text"
+              maxlength="40"
+              autocomplete="off"
+              class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+              :disabled="!canRequestEnqueue"
+              @keydown.enter.prevent="submitChat"
+            />
+            <p
+              v-if="audienceChatCooldownSecondsLeft > 0"
+              class="mt-2 text-center text-[13px] leading-[1.38] text-[#8E8E93] dark:text-slate-400"
+              role="status"
+            >
+              You can send again in {{ audienceChatCooldownSecondsLeft }}s.
+            </p>
+            <p v-if="chatFieldError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status">
+              {{ chatFieldError }}
+            </p>
+          </div>
+          <div class="border-t border-[#C6C6C8]">
+            <button
+              type="button"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white"
+              :disabled="!canSubmitAudienceChat"
+              @click="submitChat"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          @click="closeChatModal"
         >
           Cancel
         </button>

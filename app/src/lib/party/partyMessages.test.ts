@@ -357,4 +357,68 @@ describe('parsePartyMessage', () => {
     const raw = 'x'.repeat(PARTY_MESSAGE_MAX_RAW_BYTES + 1)
     expect(parsePartyMessage(raw)).toBeNull()
   })
+
+  it('round-trips audience_chat_request with normalized text', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request' as const,
+      text: 'Go team',
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('normalizes whitespace in audience_chat_request on parse', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request',
+      text: '  hello   world  ',
+      requesterGuestId: 'g1',
+    })
+    expect(parsePartyMessage(raw)).toEqual({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request',
+      text: 'hello world',
+      requesterGuestId: 'g1',
+    })
+  })
+
+  it('rejects audience_chat_request when text breaks validation', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request',
+      text: 'one two three four five six',
+      requesterGuestId: 'g1',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('rejects audience_chat_request without requesterGuestId', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request',
+      text: 'hi',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips chat_rejected', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'chat_rejected' as const,
+      reason: 'Please wait before sending again.',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('rejects chat_rejected with overlong reason', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'chat_rejected',
+      reason: 'x'.repeat(501),
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
 })

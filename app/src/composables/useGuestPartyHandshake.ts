@@ -5,6 +5,15 @@ import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
 import { loadGuestQueueSnapshot, saveGuestQueueSnapshot } from '@/lib/party/guestQueuePersistence'
 import { applyGuestPartyMessage } from '@/lib/party/guestPartyState'
 import {
+  AUDIENCE_CHAT_COOLDOWN_MS,
+  AUDIENCE_CHAT_DEDUP_WINDOW_MS,
+  CHAT_REJECT_REASON_DUPLICATE,
+} from '@/lib/party/audienceChatPolicy'
+import {
+  normalizeAudienceChatInput,
+  validateAudienceChatText,
+} from '@/lib/party/audienceChatValidation'
+import {
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
   serializePartyMessage,
@@ -29,13 +38,26 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const sessionAdminGuestId = ref<string | null>(null)
   const localPartyPeerId = ref<string | null>(null)
   const lastEnqueueError = ref<string | null>(null)
+  const lastChatError = ref<string | null>(null)
+  /** Wall-clock ms when guest chat cooldown ends (`0` = none). */
+  const audienceChatCooldownEndsAt = ref(0)
+  /** Last text sent from this tab (for local duplicate UX). */
+  const lastGuestChatSend = ref<{ text: string; at: number } | null>(null)
   let enqueueErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
+  let chatErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let sendPartyRaw: ((raw: string) => void) | null = null
 
   function clearEnqueueErrorDismissTimer() {
     if (enqueueErrorDismissTimer) {
       clearTimeout(enqueueErrorDismissTimer)
       enqueueErrorDismissTimer = null
+    }
+  }
+
+  function clearChatErrorDismissTimer() {
+    if (chatErrorDismissTimer) {
+      clearTimeout(chatErrorDismissTimer)
+      chatErrorDismissTimer = null
     }
   }
 
@@ -47,6 +69,17 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     enqueueErrorDismissTimer = setTimeout(() => {
       lastEnqueueError.value = null
       enqueueErrorDismissTimer = null
+    }, 8000)
+  })
+
+  watch(lastChatError, (msg) => {
+    clearChatErrorDismissTimer()
+    if (!msg) {
+      return
+    }
+    chatErrorDismissTimer = setTimeout(() => {
+      lastChatError.value = null
+      chatErrorDismissTimer = null
     }, 8000)
   })
 
@@ -118,6 +151,10 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       sessionAdminGuestId.value = null
       localPartyPeerId.value = null
       lastEnqueueError.value = null
+      lastChatError.value = null
+      clearChatErrorDismissTimer()
+      audienceChatCooldownEndsAt.value = 0
+      lastGuestChatSend.value = null
 
       if (id !== prevSessionId.value) {
         failureCount = 0
@@ -157,6 +194,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         },
         onPartyChannelOpen: () => {
           lastEnqueueError.value = null
+          lastChatError.value = null
           const sid = sessionId.value
           if (!sid || !sendPartyRaw) {
             return
@@ -180,12 +218,14 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
               snapshot: queueSnapshot.value,
               sessionAdminGuestId: sessionAdminGuestId.value,
               lastEnqueueError: lastEnqueueError.value,
+              lastChatError: lastChatError.value,
             },
             msg,
           )
           queueSnapshot.value = next.snapshot
           sessionAdminGuestId.value = next.sessionAdminGuestId
           lastEnqueueError.value = next.lastEnqueueError
+          lastChatError.value = next.lastChatError
           if (next.snapshot && sessionId.value) {
             saveGuestQueueSnapshot(sessionId.value, next.snapshot)
           }
@@ -215,6 +255,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
 
   onUnmounted(() => {
     clearEnqueueErrorDismissTimer()
+    clearChatErrorDismissTimer()
     clearBackoff()
     activeDispose?.()
     activeDispose = null
@@ -271,6 +312,50 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     )
   }
 
+  /**
+   * Sends audience chat to the host. Enforces local validation, cooldown, and duplicate window
+   * before writing to the wire.
+   */
+  function requestAudienceChat(text: string): { ok: true } | { ok: false; reason: string } {
+    if (!sendPartyRaw) {
+      return { ok: false, reason: 'Not connected.' }
+    }
+    const sid = sessionId.value
+    if (!sid) {
+      return { ok: false, reason: 'Not connected.' }
+    }
+    const normalized = normalizeAudienceChatInput(text)
+    const v = validateAudienceChatText(normalized)
+    if (!v.ok) {
+      return { ok: false, reason: v.error }
+    }
+    const now = Date.now()
+    if (now < audienceChatCooldownEndsAt.value) {
+      return { ok: false, reason: 'Please wait before sending again.' }
+    }
+    const last = lastGuestChatSend.value
+    if (
+      last &&
+      normalized === last.text &&
+      now - last.at < AUDIENCE_CHAT_DEDUP_WINDOW_MS
+    ) {
+      return { ok: false, reason: CHAT_REJECT_REASON_DUPLICATE }
+    }
+    const requesterGuestId = getOrCreatePartyGuestRequesterId(sid)
+    sendPartyRaw(
+      serializePartyMessage({
+        v: PARTY_MESSAGE_SCHEMA_VERSION,
+        type: 'audience_chat_request',
+        text: normalized,
+        requesterGuestId,
+      }),
+    )
+    lastChatError.value = null
+    lastGuestChatSend.value = { text: normalized, at: now }
+    audienceChatCooldownEndsAt.value = now + AUDIENCE_CHAT_COOLDOWN_MS
+    return { ok: true }
+  }
+
   return {
     status,
     statusLabel,
@@ -279,9 +364,12 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     sessionAdminGuestId,
     localPartyPeerId,
     lastEnqueueError,
+    lastChatError,
+    audienceChatCooldownEndsAt,
     requestEnqueue,
     requestEndCurrentPlayback,
     requestRemoveRow,
+    requestAudienceChat,
     canRequestEnqueue: computed(() => status.value === 'connected'),
   }
 }

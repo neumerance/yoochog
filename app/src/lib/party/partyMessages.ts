@@ -1,5 +1,16 @@
 import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
 
+import {
+  normalizeAudienceChatInput,
+  validateAudienceChatText,
+} from '@/lib/party/audienceChatValidation'
+
+/** Re-export for wire protocol / ADR (issue #79). */
+export {
+  PARTY_AUDIENCE_CHAT_MAX_CHARS,
+  PARTY_AUDIENCE_CHAT_MAX_WORDS,
+} from '@/lib/party/audienceChatValidation'
+
 /** Wire format version; bump when breaking JSON shape. */
 export const PARTY_MESSAGE_SCHEMA_VERSION = 1 as const
 
@@ -63,6 +74,19 @@ export type PartyMessage =
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'guest_identify'
       requesterGuestId: string
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'audience_chat_request'
+      /** Normalized text (trim + collapsed whitespace). */
+      text: string
+      requesterGuestId: string
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'chat_rejected'
+      /** Human-readable reason for the guest UI (max 500 chars). */
+      reason: string
     }
 
 /** YouTube video id: 11 chars from [A-Za-z0-9_-]. */
@@ -396,6 +420,32 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       type: 'guest_identify',
       requesterGuestId,
     }
+  }
+  if (o.type === 'audience_chat_request') {
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid' || requesterGuestId === null) {
+      return null
+    }
+    if (typeof o.text !== 'string') {
+      return null
+    }
+    const text = normalizeAudienceChatInput(o.text)
+    const validated = validateAudienceChatText(text)
+    if (!validated.ok) {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'audience_chat_request',
+      text,
+      requesterGuestId,
+    }
+  }
+  if (o.type === 'chat_rejected') {
+    if (typeof o.reason !== 'string' || o.reason.length > 500) {
+      return null
+    }
+    return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'chat_rejected', reason: o.reason }
   }
   return null
 }
