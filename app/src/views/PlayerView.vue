@@ -55,18 +55,22 @@
             aria-label="YouTube video player"
           />
           <HostPlaybackIdle v-if="idleVariant" :variant="idleVariant" class="absolute inset-0 z-10" />
-        </div>
-        <div
-          v-if="activeVideoId && !audioSessionUnlocked"
-          class="flex shrink-0 justify-center px-6 py-6 sm:px-8 sm:py-8 xl:px-10 xl:py-10"
-        >
-          <button
-            type="button"
-            class="animate-start-singing-pulse m-2 min-h-[52px] rounded-full bg-red-600 px-8 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-red-700 active:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 sm:min-h-[56px] sm:text-xl xl:min-h-[5.04rem] xl:px-12 xl:py-4 xl:text-[2.25rem]"
+          <div
+            v-if="activeVideoId && !audioSessionUnlocked"
+            class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(1rem,2vw,2.5rem)] select-none"
+            role="button"
+            tabindex="0"
+            aria-label="Press any key or tap to start singing"
             @click="startSinging"
+            @keydown.enter.prevent="startSinging"
+            @keydown.space.prevent="startSinging"
           >
-            Start Singing
-          </button>
+            <p
+              class="pointer-events-none max-w-[min(42rem,96%)] text-center font-extrabold uppercase leading-tight tracking-wide text-yellow-300 [-webkit-text-stroke:2px_#000] [paint-order:stroke_fill] text-[length:clamp(1.125rem,0.55rem+2.2vmin,2.75rem)] animate-press-key-cta"
+            >
+              Press any key to start singing
+            </p>
+          </div>
         </div>
       </section>
 
@@ -263,13 +267,14 @@ const queueTick = ref(0)
 const playerSyncTick = ref(0)
 const idleVariant = ref<'empty' | 'ended' | null>(null)
 /**
- * False until the host taps “Start Singing” (browser autoplay policy). Stays true when the queue
- * advances to the next track after a natural end, embed error skip, or guest “end song” (same as
- * natural end). Reset when the queue is empty after the last song ends or errors, or on first paint
- * with a persisted queue (initial ref is false).
+ * False until the host uses a gesture (any key or tap on the player) to unlock audio (browser
+ * autoplay policy). Stays true when the queue advances to the next track after a natural end,
+ * embed error skip, or guest “end song” (same as natural end). Reset when the queue is empty
+ * after the last song ends or errors, or on first paint with a persisted queue (initial ref is
+ * false).
  */
 const audioSessionUnlocked = ref(false)
-/** Reset when advancing tracks so the next “Start Singing” seek+play runs once per song. */
+/** Reset when advancing tracks so the next unlock seek+play runs once per song. */
 const didSeekOnFirstUnlock = ref(false)
 
 function bumpQueue() {
@@ -409,7 +414,30 @@ function startSinging() {
   audioSessionUnlocked.value = true
 }
 
-/** Restart from the beginning when “Start Singing” unlocks audio (covers click before `isReady`). */
+let stopUnlockKeyListener: (() => void) | null = null
+
+watch(
+  [activeVideoId, audioSessionUnlocked],
+  () => {
+    stopUnlockKeyListener?.()
+    stopUnlockKeyListener = null
+    if (!activeVideoId.value || audioSessionUnlocked.value) {
+      return
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
+        return
+      }
+      startSinging()
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    stopUnlockKeyListener = () => window.removeEventListener('keydown', onKeyDown, true)
+  },
+  { immediate: true },
+)
+
+/** Restart from the beginning when audio unlocks (covers gesture before `isReady`). */
 watch([isReady, audioSessionUnlocked], () => {
   if (!isReady.value || !audioSessionUnlocked.value || !player.value) {
     return
@@ -440,6 +468,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopUnlockKeyListener?.()
+  stopUnlockKeyListener = null
   stopHostViewportListener?.()
   stopHostViewportListener = null
 })

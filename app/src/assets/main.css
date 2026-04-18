@@ -44,24 +44,22 @@
   }
 
   /**
-   * Host “Start Singing” CTA — expanding ring so it stays obvious on TV / distance viewing.
+   * Host player audio-unlock CTA — yellow / black stroke with pulsing glow for TV distance viewing.
    */
-  .animate-start-singing-pulse {
-    animation: start-singing-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  .animate-press-key-cta {
+    animation: press-key-cta-flash 1.75s ease-in-out infinite;
   }
 }
 
-@keyframes start-singing-pulse {
+@keyframes press-key-cta-flash {
   0%,
   100% {
-    box-shadow:
-      0 4px 6px -1px rgb(0 0 0 / 0.12),
-      0 0 0 0 rgb(248 113 113 / 0.7);
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgb(0 0 0 / 1)) drop-shadow(0 0 10px rgb(253 224 71 / 0.45));
   }
   50% {
-    box-shadow:
-      0 4px 6px -1px rgb(0 0 0 / 0.12),
-      0 0 0 1.15rem rgb(248 113 113 / 0);
+    opacity: 0.88;
+    filter: drop-shadow(0 0 4px rgb(0 0 0 / 1)) drop-shadow(0 0 22px rgb(250 204 21 / 0.95));
   }
 }
 
