@@ -48,6 +48,7 @@ const handshakeSessionId = computed(() => (guestNameReady.value ? routeSessionId
 const {
   status: handshakeStatus,
   statusLabel,
+  retryCountdownSeconds,
   isSignalingConfigured,
   queueSnapshot,
   sessionAdminGuestId,
@@ -483,6 +484,7 @@ const canSubmitAudienceChat = computed(() => {
               :status="handshakeStatus"
               :status-label="joinHandshakeStatusLabel"
               :is-signaling-configured="isSignalingConfigured"
+              :retry-countdown-seconds="retryCountdownSeconds"
             />
           </div>
           <div

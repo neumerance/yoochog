@@ -13,6 +13,12 @@ export const RECONNECT_MAX_DELAY_MS = 30_000
 export const RECONNECT_MAX_ATTEMPTS = 10
 
 /**
+ * Guest: after each connection loss, show a countdown in the UI for this many seconds,
+ * then start a new handshake (fixed delay; replaces exponential backoff for guests).
+ */
+export const RECONNECT_COUNTDOWN_SECONDS = 5
+
+/**
  * When RTCPeerConnection enters "disconnected", ICE may recover without a full teardown.
  * Wait this long before treating it as a loss (host + guest).
  */
