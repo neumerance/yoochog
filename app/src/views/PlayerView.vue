@@ -85,7 +85,8 @@
           />
           <!--
             Blocks pointer events to the iframe so the host cannot use YouTube HUD / play-pause on
-            the surface. Stays under idle (z-10), help tips, chat, and the audio-unlock overlay.
+            the surface. Stays under idle (z-10), chat, the audio-unlock overlay (z-20), and help tips
+            (z-30) so the tip dismiss control stays clickable while unlocking audio.
             See https://developers.google.com/youtube/player_parameters — companion playerVars in useYoutubePlayer options.
           -->
           <div
