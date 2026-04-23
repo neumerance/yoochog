@@ -89,6 +89,7 @@
             :lines="audienceChatLines"
             @complete="removeAudienceChatLine"
           />
+          <PlayerHelpTips :context="playerHelpTipsContext" />
           <div
             v-if="activeVideoId && !audioSessionUnlocked"
             class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(0.75rem,min(5vmin,5vw),4rem)] select-none"
@@ -239,6 +240,7 @@ import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
 import HostPlaybackIdle from '@/components/HostPlaybackIdle.vue'
+import PlayerHelpTips from '@/components/PlayerHelpTips.vue'
 import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
 import { useHostPartySession } from '@/composables/useHostPartySession'
 import { useHostSessionId } from '@/composables/useHostSessionId'
@@ -246,7 +248,9 @@ import { useYoutubePlayer } from '@/composables/useYoutubePlayer'
 import { createHostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersistence'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
+import { runAdblockProbe } from '@/lib/adblockProbe'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
+import type { PlayerHelpTipContext } from '@/lib/playerHelpTips'
 
 import logoUrl from '@/assets/images/logo/logo.png'
 
@@ -365,6 +369,9 @@ const {
 const skipMessage = ref<string | null>(null)
 const embedSetupError = ref<string | null>(null)
 
+/** Host-only bait probe; help tip suggests Adblock Plus when `'none'`. */
+const adblockStatus = ref<'pending' | 'none' | 'active'>('pending')
+
 const activeVideoId = computed(() => {
   queueTick.value
   return queue.currentVideoId()
@@ -373,6 +380,19 @@ const activeVideoId = computed(() => {
 const queueSnapshot = computed(() => {
   queueTick.value
   return queue.getSnapshot()
+})
+
+const playerHelpTipsContext = computed<PlayerHelpTipContext>(() => {
+  queueTick.value
+  return {
+    adblockStatus: adblockStatus.value,
+    isSignalingConfigured: isSignalingConfigured.value,
+    activeVideoId: activeVideoId.value ?? null,
+    audioSessionUnlocked: audioSessionUnlocked.value,
+    idleVariant: idleVariant.value,
+    queueLength: queueSnapshot.value.ids.length,
+    embedSetupError: embedSetupError.value,
+  }
 })
 
 function rowTitle(title: string | null): string {
@@ -498,6 +518,10 @@ onMounted(() => {
   if (!hostPlayerViewportOk.value && !readPrivacyNoticeDismissed()) {
     void nextTick(() => privacyNoticeSheet.value?.open())
   }
+
+  void runAdblockProbe().then((likelyBlocked) => {
+    adblockStatus.value = likelyBlocked ? 'active' : 'none'
+  })
 
   const mq = window.matchMedia('(min-width: 1280px)')
   const onViewportChange = () => {
