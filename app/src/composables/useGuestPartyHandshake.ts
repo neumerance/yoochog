@@ -30,6 +30,7 @@ import {
   RECONNECT_COUNTDOWN_SECONDS,
   RECONNECT_VISIBILITY_MIN_HIDDEN_MS,
   shouldStopRetry,
+  VISIBILITY_RESUME_HEALTH_PROBE_MS,
 } from '@/lib/webrtc/reconnectPolicy'
 
 import { useTabVisibilityRecovery } from './useTabVisibilityRecovery'
@@ -122,6 +123,15 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const hasSignaling = !!(wsUrl || (pub && sub))
 
   const visibilityRecovery = ref<(() => void) | null>(null)
+  const partyLinkHealth = ref<(() => boolean) | null>(null)
+  let visibilityResumeProbeTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearVisibilityResumeProbeTimer() {
+    if (visibilityResumeProbeTimer) {
+      clearTimeout(visibilityResumeProbeTimer)
+      visibilityResumeProbeTimer = null
+    }
+  }
 
   useTabVisibilityRecovery({
     minHiddenMs: RECONNECT_VISIBILITY_MIN_HIDDEN_MS,
@@ -185,6 +195,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     () => [sessionId.value, reconnectTrigger.value] as const,
     ([id, trig]) => {
       clearReconnectTimer()
+      clearVisibilityResumeProbeTimer()
+      partyLinkHealth.value = null
       retryCountdownSeconds.value = null
       activeDispose?.()
       activeDispose = null
@@ -298,6 +310,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         ac.abort()
         r.dispose()
       }
+      partyLinkHealth.value = r.isPartyLinkOkForVisibilityResume
       visibilityRecovery.value = () => {
         if (!hasSignaling || !sessionId.value) {
           return
@@ -305,13 +318,32 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         if (status.value === 'failed' || status.value === 'missing_config') {
           return
         }
-        scheduleReconnectFromLoss()
+        if (status.value !== 'connected') {
+          return
+        }
+        clearVisibilityResumeProbeTimer()
+        visibilityResumeProbeTimer = setTimeout(() => {
+          visibilityResumeProbeTimer = null
+          if (status.value !== 'connected') {
+            return
+          }
+          if (partyLinkHealth.value?.() ?? false) {
+            connectionStepLog(
+              'guest',
+              'visibility:resume:skipReconnect',
+              'party link still healthy after long hidden',
+            )
+            return
+          }
+          scheduleReconnectFromLoss()
+        }, VISIBILITY_RESUME_HEALTH_PROBE_MS)
       }
     },
     { immediate: true },
   )
 
   onUnmounted(() => {
+    clearVisibilityResumeProbeTimer()
     clearEnqueueErrorDismissTimer()
     clearChatErrorDismissTimer()
     clearQueueSettingsErrorDismissTimer()
