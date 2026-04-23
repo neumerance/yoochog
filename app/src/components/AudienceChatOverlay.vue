@@ -1,7 +1,8 @@
 <template>
   <!--
     Issue #79: Sits above the video frame (host only). Top ~30% band; does not receive pointer events.
-    Z-order: below the audio-unlock overlay (z-20) so "Press any key" stays tappable; above video.
+    Z-order: below the audio-unlock overlay (z-20) so the unlock overlay stays tappable; above the
+    video pointer shield (z-[4]) and iframe.
     Reduced motion: shorter drift from host + fade-style keyframes here (see scoped CSS).
   -->
   <!--

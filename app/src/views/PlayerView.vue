@@ -83,6 +83,16 @@
             class="absolute inset-0 h-full w-full min-h-0 min-w-0"
             aria-label="YouTube video player"
           />
+          <!--
+            Blocks pointer events to the iframe so the host cannot use YouTube HUD / play-pause on
+            the surface. Stays under idle (z-10), help tips, chat, and the audio-unlock overlay.
+            See https://developers.google.com/youtube/player_parameters — companion playerVars in useYoutubePlayer options.
+          -->
+          <div
+            v-if="showHostVideoPointerShield"
+            class="pointer-events-auto absolute inset-0 z-[4] touch-none"
+            aria-hidden="true"
+          />
           <HostPlaybackIdle v-if="idleVariant" :variant="idleVariant" class="absolute inset-0 z-10" />
           <AudienceChatOverlay
             v-if="audienceChatLines.length > 0"
@@ -95,7 +105,7 @@
             class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(0.75rem,min(5vmin,5vw),4rem)] select-none"
             role="button"
             tabindex="0"
-            aria-label="Press any key or tap to start singing"
+            aria-label="Press any key or tap this overlay to start singing"
             @click="startSinging"
             @keydown.enter.prevent="startSinging"
             @keydown.space.prevent="startSinging"
@@ -104,7 +114,7 @@
             <p
               class="pointer-events-none max-w-[min(78vw,92vmin,96%)] text-center font-extrabold uppercase leading-tight tracking-wide text-yellow-300 [-webkit-text-stroke:0.055em_#000] [paint-order:stroke_fill] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)] animate-press-key-cta"
             >
-              Press any key to start singing
+              Press any key or tap here to start singing
             </p>
           </div>
         </div>
@@ -309,11 +319,12 @@ const queueTick = ref(0)
 const playerSyncTick = ref(0)
 const idleVariant = ref<'empty' | 'ended' | null>(null)
 /**
- * False until the host uses a gesture (any key or tap on the player) to unlock audio (browser
- * autoplay policy). Stays true when the queue advances to the next track after a natural end,
- * embed error skip, or guest “end song” (same as natural end). Reset when the queue is empty
- * after the last song ends or errors, or on first paint with a persisted queue (initial ref is
- * false).
+ * False until the host uses a gesture (any key or tap on the semi-transparent unlock overlay) to
+ * unlock audio (browser autoplay policy). The video surface is not the tap target — a pointer
+ * shield sits above the iframe. Stays true when the queue advances to the next track after a
+ * natural end, embed error skip, or guest “end song” (same as natural end). Reset when the queue is
+ * empty after the last song ends or errors, or on first paint with a persisted queue (initial ref
+ * is false).
  */
 const audioSessionUnlocked = ref(false)
 /** Reset when advancing tracks so the next unlock seek+play runs once per song. */
@@ -378,6 +389,11 @@ const activeVideoId = computed(() => {
   return queue.currentVideoId()
 })
 
+/** True while the embed is the playing surface (not idle empty/ended) — pointer shield matches this. */
+const showHostVideoPointerShield = computed(
+  () => Boolean(activeVideoId.value) && idleVariant.value === null,
+)
+
 const queueSnapshot = computed(() => {
   queueTick.value
   return queue.getSnapshot()
@@ -429,6 +445,18 @@ const { player, isReady } = useYoutubePlayer(playerContainer, {
   playbackSequence: playerSyncTick,
   autoplay: true,
   audioSessionUnlocked,
+  /**
+   * Host “chromeless” embed — see https://developers.google.com/youtube/player_parameters
+   * (YouTube may change which parameters are honored over time.)
+   */
+  playerVars: {
+    controls: 0,
+    disablekb: 1,
+    fs: 0,
+    iv_load_policy: 3,
+    modestbranding: 1,
+    rel: 0,
+  },
   onEnded: handlePlaybackEnded,
   onPlaying: () => {
     skipMessage.value = null
