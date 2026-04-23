@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
   dismissPlayerHelpTipForSession,
@@ -12,6 +12,8 @@ import {
 const props = defineProps<{
   context: PlayerHelpTipContext
 }>()
+
+const AUTO_DISMISS_MS = 3 * 60 * 1000
 
 /** Session dismissals — refreshed when tip is dismissed. */
 const dismissed = ref<Set<string>>(new Set())
@@ -29,14 +31,55 @@ const activeTipMessage = computed(() => {
   return resolvePlayerHelpTipMessage(t, props.context)
 })
 
+let autoDismissTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearAutoDismiss() {
+  if (autoDismissTimer) {
+    clearTimeout(autoDismissTimer)
+    autoDismissTimer = null
+  }
+}
+
+function applyDismissId(id: string) {
+  dismissPlayerHelpTipForSession(id)
+  dismissed.value = readDismissedPlayerHelpTipIds()
+}
+
 function onDismiss() {
+  clearAutoDismiss()
   const id = activeTip.value?.id
   if (!id) {
     return
   }
-  dismissPlayerHelpTipForSession(id)
-  dismissed.value = readDismissedPlayerHelpTipIds()
+  applyDismissId(id)
 }
+
+/**
+ * Dismiss the current tip after 3 minutes (same storage as the close button). Timer resets if the
+ * active tip id changes; cleared on manual dismiss or unmount.
+ */
+watch(
+  () => activeTip.value?.id,
+  (id) => {
+    clearAutoDismiss()
+    if (!id) {
+      return
+    }
+    const startedFor = id
+    autoDismissTimer = setTimeout(() => {
+      autoDismissTimer = null
+      if (activeTip.value?.id !== startedFor) {
+        return
+      }
+      applyDismissId(startedFor)
+    }, AUTO_DISMISS_MS)
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  clearAutoDismiss()
+})
 </script>
 
 <template>
