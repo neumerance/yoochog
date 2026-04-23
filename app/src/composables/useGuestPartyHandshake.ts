@@ -1,12 +1,14 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
+import { GUEST_QUEUE_ROWS_CAP_DEFAULT } from '@/lib/host-queue/guestQueueLimits'
 import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
 import { loadGuestQueueSnapshot, saveGuestQueueSnapshot } from '@/lib/party/guestQueuePersistence'
 import { applyGuestPartyMessage } from '@/lib/party/guestPartyState'
 import {
   AUDIENCE_CHAT_COOLDOWN_MS,
   AUDIENCE_CHAT_DEDUP_WINDOW_MS,
+  CHAT_REJECT_REASON_DISABLED,
   CHAT_REJECT_REASON_DUPLICATE,
 } from '@/lib/party/audienceChatPolicy'
 import {
@@ -14,6 +16,7 @@ import {
   validateAudienceChatText,
 } from '@/lib/party/audienceChatValidation'
 import {
+  DEFAULT_AUDIENCE_CHAT_ENABLED,
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
   serializePartyMessage,
@@ -41,12 +44,16 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const localPartyPeerId = ref<string | null>(null)
   const lastEnqueueError = ref<string | null>(null)
   const lastChatError = ref<string | null>(null)
+  const lastQueueSettingsError = ref<string | null>(null)
+  const maxGuestQueueRowsPerGuest = ref(GUEST_QUEUE_ROWS_CAP_DEFAULT)
+  const audienceChatEnabled = ref(DEFAULT_AUDIENCE_CHAT_ENABLED)
   /** Wall-clock ms when guest chat cooldown ends (`0` = none). */
   const audienceChatCooldownEndsAt = ref(0)
   /** Last text sent from this tab (for local duplicate UX). */
   const lastGuestChatSend = ref<{ text: string; at: number } | null>(null)
   let enqueueErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let chatErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
+  let queueSettingsErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let sendPartyRaw: ((raw: string) => void) | null = null
 
   function clearEnqueueErrorDismissTimer() {
@@ -82,6 +89,24 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     chatErrorDismissTimer = setTimeout(() => {
       lastChatError.value = null
       chatErrorDismissTimer = null
+    }, 8000)
+  })
+
+  function clearQueueSettingsErrorDismissTimer() {
+    if (queueSettingsErrorDismissTimer) {
+      clearTimeout(queueSettingsErrorDismissTimer)
+      queueSettingsErrorDismissTimer = null
+    }
+  }
+
+  watch(lastQueueSettingsError, (msg) => {
+    clearQueueSettingsErrorDismissTimer()
+    if (!msg) {
+      return
+    }
+    queueSettingsErrorDismissTimer = setTimeout(() => {
+      lastQueueSettingsError.value = null
+      queueSettingsErrorDismissTimer = null
     }, 8000)
   })
 
@@ -169,7 +194,11 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       localPartyPeerId.value = null
       lastEnqueueError.value = null
       lastChatError.value = null
+      lastQueueSettingsError.value = null
+      maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
+      audienceChatEnabled.value = DEFAULT_AUDIENCE_CHAT_ENABLED
       clearChatErrorDismissTimer()
+      clearQueueSettingsErrorDismissTimer()
       audienceChatCooldownEndsAt.value = 0
       lastGuestChatSend.value = null
 
@@ -217,6 +246,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         onPartyChannelOpen: () => {
           lastEnqueueError.value = null
           lastChatError.value = null
+          lastQueueSettingsError.value = null
           const sid = sessionId.value
           if (!sid || !sendPartyRaw) {
             return
@@ -239,15 +269,21 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
             {
               snapshot: queueSnapshot.value,
               sessionAdminGuestId: sessionAdminGuestId.value,
+              maxGuestQueueRowsPerGuest: maxGuestQueueRowsPerGuest.value,
+              audienceChatEnabled: audienceChatEnabled.value,
               lastEnqueueError: lastEnqueueError.value,
               lastChatError: lastChatError.value,
+              lastQueueSettingsError: lastQueueSettingsError.value,
             },
             msg,
           )
           queueSnapshot.value = next.snapshot
           sessionAdminGuestId.value = next.sessionAdminGuestId
+          maxGuestQueueRowsPerGuest.value = next.maxGuestQueueRowsPerGuest
+          audienceChatEnabled.value = next.audienceChatEnabled
           lastEnqueueError.value = next.lastEnqueueError
           lastChatError.value = next.lastChatError
+          lastQueueSettingsError.value = next.lastQueueSettingsError
           if (next.snapshot && sessionId.value) {
             saveGuestQueueSnapshot(sessionId.value, next.snapshot)
           }
@@ -278,6 +314,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   onUnmounted(() => {
     clearEnqueueErrorDismissTimer()
     clearChatErrorDismissTimer()
+    clearQueueSettingsErrorDismissTimer()
     clearReconnectTimer()
     retryCountdownSeconds.value = null
     activeDispose?.()
@@ -341,6 +378,25 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     )
   }
 
+  function requestQueueSettingsUpdate(
+    payload: { maxGuestQueueRowsPerGuest: number; audienceChatEnabled: boolean },
+    requesterGuestId: string,
+  ) {
+    if (!sendPartyRaw) {
+      return
+    }
+    lastQueueSettingsError.value = null
+    sendPartyRaw(
+      serializePartyMessage({
+        v: PARTY_MESSAGE_SCHEMA_VERSION,
+        type: 'queue_settings_update_request',
+        maxGuestQueueRowsPerGuest: payload.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: payload.audienceChatEnabled,
+        requesterGuestId,
+      }),
+    )
+  }
+
   /**
    * Sends audience chat to the host. Enforces local validation, cooldown, and duplicate window
    * before writing to the wire.
@@ -348,6 +404,9 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   function requestAudienceChat(text: string): { ok: true } | { ok: false; reason: string } {
     if (!sendPartyRaw) {
       return { ok: false, reason: 'Not connected.' }
+    }
+    if (!audienceChatEnabled.value) {
+      return { ok: false, reason: CHAT_REJECT_REASON_DISABLED }
     }
     const sid = sessionId.value
     if (!sid) {
@@ -397,10 +456,14 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     localPartyPeerId,
     lastEnqueueError,
     lastChatError,
+    lastQueueSettingsError,
+    maxGuestQueueRowsPerGuest,
+    audienceChatEnabled,
     audienceChatCooldownEndsAt,
     requestEnqueue,
     requestEndCurrentPlayback,
     requestRemoveRow,
+    requestQueueSettingsUpdate,
     requestAudienceChat,
     canRequestEnqueue: computed(() => status.value === 'connected'),
   }

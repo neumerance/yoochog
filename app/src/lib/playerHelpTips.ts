@@ -14,13 +14,15 @@ export type PlayerHelpTipContext = {
   idleVariant: 'empty' | 'ended' | null
   queueLength: number
   embedSetupError: string | null
+  /** Per-guest row cap (now playing + waiting) from the host / queue snapshot. */
+  maxGuestQueueRowsPerGuest: number
 }
 
 export type PlayerHelpTipDefinition = {
   id: string
   /** Lower runs first when multiple tips match. */
   priority: number
-  message: string
+  message: string | ((ctx: PlayerHelpTipContext) => string)
   /** Optional link (e.g. Chrome Web Store) opened in a new tab. */
   action?: { label: string; href: string }
   test: (ctx: PlayerHelpTipContext) => boolean
@@ -62,7 +64,11 @@ export const PLAYER_HELP_TIP_DEFINITIONS: PlayerHelpTipDefinition[] = [
   {
     id: 'guest-enqueue-while-playing',
     priority: 20,
-    message: 'Guests can paste a YouTube link on the join page to enqueue — two songs per guest until one plays.',
+    message: (ctx) => {
+      const n = ctx.maxGuestQueueRowsPerGuest
+      const per = n === 1 ? 'one song' : `${n} songs`
+      return `Guests can paste a YouTube link on the join page to enqueue — up to ${per} per guest (including the song that’s playing) until one finishes.`
+    },
     test: (ctx) =>
       ctx.isSignalingConfigured &&
       !!ctx.activeVideoId &&
@@ -112,4 +118,11 @@ export function pickActivePlayerHelpTip(
     (def) => def.test(ctx) && !dismissed.has(def.id),
   ).sort((a, b) => a.priority - b.priority)
   return candidates[0] ?? null
+}
+
+export function resolvePlayerHelpTipMessage(
+  def: PlayerHelpTipDefinition,
+  ctx: PlayerHelpTipContext,
+): string {
+  return typeof def.message === 'function' ? def.message(ctx) : def.message
 }

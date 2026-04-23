@@ -1,3 +1,9 @@
+import {
+  GUEST_QUEUE_ROWS_CAP_DEFAULT,
+  GUEST_QUEUE_ROWS_CAP_MAX,
+  GUEST_QUEUE_ROWS_CAP_MIN,
+  normalizeGuestQueueRowsCap,
+} from '@/lib/host-queue/guestQueueLimits'
 import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
 
 import {
@@ -13,6 +19,19 @@ export {
 
 /** Wire format version; bump when breaking JSON shape. */
 export const PARTY_MESSAGE_SCHEMA_VERSION = 1 as const
+
+/** Default `queue_snapshot.audienceChatEnabled` when the host omits the field (older builds). */
+export const DEFAULT_AUDIENCE_CHAT_ENABLED = true
+
+export function normalizeAudienceChatEnabled(raw: unknown): boolean {
+  if (raw === undefined || raw === null) {
+    return DEFAULT_AUDIENCE_CHAT_ENABLED
+  }
+  if (raw === true || raw === false) {
+    return raw
+  }
+  return DEFAULT_AUDIENCE_CHAT_ENABLED
+}
 
 /** Max accepted raw JSON string length before parse (see ADR 0002). */
 export const PARTY_MESSAGE_MAX_RAW_BYTES = 256_000
@@ -40,6 +59,15 @@ export type PartyMessage =
        * identify in the session. Same JSON field name as early builds; not a signaling peer id.
        */
       sessionAdminPeerId: string | null
+      /**
+       * Max queue rows (now playing + waiting) per guest. Older snapshots omit the key on the wire
+       * → default 2. After parse this is always 1–10.
+       */
+      maxGuestQueueRowsPerGuest: number
+      /**
+       * When `false`, the host does not show new audience chat. Omitted on older hosts → on.
+       */
+      audienceChatEnabled: boolean
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -88,6 +116,21 @@ export type PartyMessage =
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'chat_rejected'
       /** Human-readable reason for the guest UI (max 500 chars). */
+      reason: string
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'queue_settings_update_request'
+      maxGuestQueueRowsPerGuest: number
+      /**
+       * When set, updates host audience chat toggle. Older guests omit → host keeps current value.
+       */
+      audienceChatEnabled?: boolean
+      requesterGuestId: string
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'queue_settings_rejected'
       reason: string
     }
 
@@ -240,7 +283,14 @@ function parseSnapshotPayload(
   v: unknown,
 ): Pick<
   PartyMessage & { type: 'queue_snapshot' },
-  'ids' | 'currentIndex' | 'titles' | 'requestedBys' | 'requesterGuestIds' | 'sessionAdminPeerId'
+  | 'ids'
+  | 'currentIndex'
+  | 'titles'
+  | 'requestedBys'
+  | 'requesterGuestIds'
+  | 'sessionAdminPeerId'
+  | 'maxGuestQueueRowsPerGuest'
+  | 'audienceChatEnabled'
 > | null {
   if (typeof v !== 'object' || v === null) {
     return null
@@ -274,6 +324,8 @@ function parseSnapshotPayload(
       requestedBys: [],
       requesterGuestIds: [],
       sessionAdminPeerId: sessionAdminPeerIdEmpty,
+      maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
+      audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
     }
   }
   if (o.currentIndex === null) {
@@ -308,6 +360,8 @@ function parseSnapshotPayload(
     requestedBys: meta.requestedBys,
     requesterGuestIds,
     sessionAdminPeerId,
+    maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
+    audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
   }
 }
 
@@ -346,6 +400,8 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       requestedBys: snap.requestedBys,
       requesterGuestIds: snap.requesterGuestIds,
       sessionAdminPeerId: snap.sessionAdminPeerId,
+      maxGuestQueueRowsPerGuest: snap.maxGuestQueueRowsPerGuest,
+      audienceChatEnabled: snap.audienceChatEnabled,
     }
   }
   if (o.type === 'enqueue_request') {
@@ -454,6 +510,37 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     }
     return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'chat_rejected', reason: o.reason }
   }
+  if (o.type === 'queue_settings_update_request') {
+    if (typeof o.maxGuestQueueRowsPerGuest !== 'number' || !Number.isInteger(o.maxGuestQueueRowsPerGuest)) {
+      return null
+    }
+    const n = o.maxGuestQueueRowsPerGuest
+    if (n < GUEST_QUEUE_ROWS_CAP_MIN || n > GUEST_QUEUE_ROWS_CAP_MAX) {
+      return null
+    }
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid' || requesterGuestId === null) {
+      return null
+    }
+    if ('audienceChatEnabled' in o && typeof o.audienceChatEnabled !== 'boolean') {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request',
+      maxGuestQueueRowsPerGuest: n,
+      requesterGuestId,
+      ...(typeof o.audienceChatEnabled === 'boolean'
+        ? { audienceChatEnabled: o.audienceChatEnabled }
+        : {}),
+    }
+  }
+  if (o.type === 'queue_settings_rejected') {
+    if (typeof o.reason !== 'string' || o.reason.length > 500) {
+      return null
+    }
+    return { v: PARTY_MESSAGE_SCHEMA_VERSION, type: 'queue_settings_rejected', reason: o.reason }
+  }
   return null
 }
 
@@ -464,6 +551,8 @@ export function serializePartyMessage(msg: PartyMessage): string {
 export function queueSnapshotToMessage(
   snapshot: HostVideoQueueSnapshot,
   sessionAdminPeerId: string | null = null,
+  maxGuestQueueRowsPerGuest: number = GUEST_QUEUE_ROWS_CAP_DEFAULT,
+  audienceChatEnabled: boolean = DEFAULT_AUDIENCE_CHAT_ENABLED,
 ): PartyMessage {
   return {
     v: PARTY_MESSAGE_SCHEMA_VERSION,
@@ -474,5 +563,7 @@ export function queueSnapshotToMessage(
     requestedBys: [...snapshot.requestedBys],
     requesterGuestIds: [...snapshot.requesterGuestIds],
     sessionAdminPeerId,
+    maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(maxGuestQueueRowsPerGuest),
+    audienceChatEnabled,
   }
 }

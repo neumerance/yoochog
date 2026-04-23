@@ -2,13 +2,16 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { HostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
+import { normalizeGuestQueueRowsCap, GUEST_QUEUE_ROWS_CAP_DEFAULT } from '@/lib/host-queue/guestQueueLimits'
 import { resolveGuestEnqueueRequest } from '@/lib/host-queue/guestEnqueuePolicy'
+import { isValidQueueSettingsCapValue, resolveQueueSettingsUpdateRequest } from '@/lib/host-queue/queueSettingsPolicy'
 import {
   resolveSessionAdminEndPlaybackRequest,
   resolveSessionAdminRemoveRowRequest,
 } from '@/lib/host-queue/sessionAdminPolicy'
 import {
   AUDIENCE_CHAT_MAX_VISIBLE_LINES,
+  CHAT_REJECT_REASON_DISABLED,
   evaluateHostAudienceChatAcceptance,
   nextGuestAudienceChatHostState,
   pickAudienceChatDriftMs,
@@ -42,6 +45,8 @@ export function useHostPartySession(
    * Kept when that guest disconnects so they remain admin after reconnect.
    */
   const sessionAdminGuestId = ref<string | null>(null)
+  const maxGuestQueueRowsPerGuest = ref(GUEST_QUEUE_ROWS_CAP_DEFAULT)
+  const audienceChatEnabled = ref(true)
   /** Per logical guest id (wire `requesterGuestId`) for audience chat rate limits. */
   const audienceChatGuestState = new Map<string, GuestAudienceChatHostState>()
   const audienceChatLines = ref<
@@ -67,7 +72,12 @@ export function useHostPartySession(
     if (!broadcastParty) {
       return
     }
-    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminGuestId.value)
+    const msg = queueSnapshotToMessage(
+      queue.getSnapshot(),
+      sessionAdminGuestId.value,
+      maxGuestQueueRowsPerGuest.value,
+      audienceChatEnabled.value,
+    )
     broadcastParty(serializePartyMessage(msg))
   }
 
@@ -75,7 +85,12 @@ export function useHostPartySession(
     if (!sendPartyToGuest) {
       return
     }
-    const msg = queueSnapshotToMessage(queue.getSnapshot(), sessionAdminGuestId.value)
+    const msg = queueSnapshotToMessage(
+      queue.getSnapshot(),
+      sessionAdminGuestId.value,
+      maxGuestQueueRowsPerGuest.value,
+      audienceChatEnabled.value,
+    )
     sendPartyToGuest(guestId, serializePartyMessage(msg))
   }
 
@@ -111,6 +126,18 @@ export function useHostPartySession(
     sendPartyToGuest(guestId, serializePartyMessage(rej))
   }
 
+  function sendQueueSettingsReject(guestId: string, reason: string) {
+    if (!sendPartyToGuest) {
+      return
+    }
+    const rej: PartyMessage = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_rejected',
+      reason,
+    }
+    sendPartyToGuest(guestId, serializePartyMessage(rej))
+  }
+
   function removeAudienceChatLine(id: string) {
     audienceChatLines.value = audienceChatLines.value.filter((l) => l.id !== id)
   }
@@ -119,6 +146,35 @@ export function useHostPartySession(
     const msg = parsePartyMessage(raw)
     if (msg?.type === 'guest_identify') {
       ensureSessionAdminFromLogicalId(msg.requesterGuestId)
+      return
+    }
+    if (msg?.type === 'queue_settings_update_request') {
+      if (!isValidQueueSettingsCapValue(msg.maxGuestQueueRowsPerGuest)) {
+        sendQueueSettingsReject(
+          guestId,
+          'Choose a number between 1 and 10 for max songs per guest.',
+        )
+        return
+      }
+      const res = resolveQueueSettingsUpdateRequest({
+        sessionAdminGuestId: sessionAdminGuestId.value,
+        requesterGuestId: msg.requesterGuestId,
+      })
+      if (!res.ok) {
+        sendQueueSettingsReject(guestId, res.reason)
+        return
+      }
+      if (typeof msg.audienceChatEnabled === 'boolean') {
+        const wasOn = audienceChatEnabled.value
+        audienceChatEnabled.value = msg.audienceChatEnabled
+        if (wasOn && !msg.audienceChatEnabled) {
+          audienceChatLines.value = []
+        }
+      }
+      maxGuestQueueRowsPerGuest.value = normalizeGuestQueueRowsCap(
+        msg.maxGuestQueueRowsPerGuest,
+      )
+      pushSnapshotToEveryone()
       return
     }
     if (msg?.type === 'enqueue_request') {
@@ -130,6 +186,7 @@ export function useHostPartySession(
         requestedBy: msg.requestedBy,
         parsedRequesterGuestId: msg.requesterGuestId,
         peerGuestId: guestId,
+        maxGuestQueueRowsPerGuest: maxGuestQueueRowsPerGuest.value,
       })
       if (!resolution.ok) {
         sendReject(guestId, resolution.reason)
@@ -170,6 +227,10 @@ export function useHostPartySession(
       return
     }
     if (msg?.type === 'audience_chat_request') {
+      if (!audienceChatEnabled.value) {
+        sendChatReject(guestId, CHAT_REJECT_REASON_DISABLED)
+        return
+      }
       const logicalId = msg.requesterGuestId
       const now = Date.now()
       const prev = audienceChatGuestState.get(logicalId)
@@ -215,6 +276,7 @@ export function useHostPartySession(
       msg?.type === 'queue_snapshot' ||
       msg?.type === 'enqueue_rejected' ||
       msg?.type === 'chat_rejected' ||
+      msg?.type === 'queue_settings_rejected' ||
       msg?.type === 'heartbeat'
     ) {
       return
@@ -245,6 +307,8 @@ export function useHostPartySession(
       broadcastParty = null
       sendPartyToGuest = null
       sessionAdminGuestId.value = null
+      maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
+      audienceChatEnabled.value = true
       audienceChatGuestState.clear()
       audienceChatLines.value = []
 
@@ -309,5 +373,7 @@ export function useHostPartySession(
     isSignalingConfigured: computed(() => hasSignaling),
     audienceChatLines,
     removeAudienceChatLine,
+    maxGuestQueueRowsPerGuest: computed(() => maxGuestQueueRowsPerGuest.value),
+    audienceChatEnabled: computed(() => audienceChatEnabled.value),
   }
 }

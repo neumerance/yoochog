@@ -5,6 +5,7 @@ import {
   dismissPlayerHelpTipForSession,
   pickActivePlayerHelpTip,
   readDismissedPlayerHelpTipIds,
+  resolvePlayerHelpTipMessage,
   type PlayerHelpTipContext,
 } from '@/lib/playerHelpTips'
 
@@ -20,6 +21,13 @@ onMounted(() => {
 })
 
 const activeTip = computed(() => pickActivePlayerHelpTip(props.context, dismissed.value))
+const activeTipMessage = computed(() => {
+  const t = activeTip.value
+  if (!t) {
+    return ''
+  }
+  return resolvePlayerHelpTipMessage(t, props.context)
+})
 
 function onDismiss() {
   const id = activeTip.value?.id
@@ -50,7 +58,7 @@ function onDismiss() {
         <div
           class="min-w-0 flex-1 text-left font-medium leading-snug text-slate-100/95 text-[length:clamp(0.66rem,calc(0.24rem_+_1.32vmin_+_0.216vw),1.62rem)]"
         >
-          <p class="m-0">{{ activeTip.message }}</p>
+          <p class="m-0">{{ activeTipMessage }}</p>
           <a
             v-if="activeTip.action"
             :href="activeTip.action.href"

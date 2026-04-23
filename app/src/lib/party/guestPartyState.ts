@@ -9,9 +9,20 @@ export type GuestPartyUiState = {
   snapshot: HostVideoQueueSnapshot | null
   /** Logical guest id of the session admin from `queue_snapshot.sessionAdminPeerId`; `null` if unset. */
   sessionAdminGuestId: string | null
+  /**
+   * Host-enforced per-guest row cap (now playing + waiting), from `queue_snapshot`;
+   * default when the field is absent (older hosts).
+   */
+  maxGuestQueueRowsPerGuest: number
+  /**
+   * When `false`, guests must not send audience chat. Absent on older hosts → treat as on.
+   */
+  audienceChatEnabled: boolean
   lastEnqueueError: string | null
   /** Host `chat_rejected` reason; cleared on successful send path / auto-dismiss in composable. */
   lastChatError: string | null
+  /** Host `queue_settings_rejected` reason. */
+  lastQueueSettingsError: string | null
 }
 
 /**
@@ -29,23 +40,44 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
           currentIndex: msg.currentIndex,
         }),
         sessionAdminGuestId: msg.sessionAdminPeerId,
+        maxGuestQueueRowsPerGuest: msg.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: msg.audienceChatEnabled,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: prev.lastChatError,
+        lastQueueSettingsError: prev.lastQueueSettingsError,
       }
     case 'enqueue_rejected':
       return {
         snapshot: prev.snapshot,
         sessionAdminGuestId: prev.sessionAdminGuestId,
+        maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: prev.audienceChatEnabled,
         lastEnqueueError: msg.reason,
         lastChatError: prev.lastChatError,
+        lastQueueSettingsError: prev.lastQueueSettingsError,
       }
     case 'chat_rejected':
       return {
         snapshot: prev.snapshot,
         sessionAdminGuestId: prev.sessionAdminGuestId,
+        maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: prev.audienceChatEnabled,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: msg.reason,
+        lastQueueSettingsError: prev.lastQueueSettingsError,
       }
+    case 'queue_settings_rejected':
+      return {
+        snapshot: prev.snapshot,
+        sessionAdminGuestId: prev.sessionAdminGuestId,
+        maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: prev.audienceChatEnabled,
+        lastEnqueueError: prev.lastEnqueueError,
+        lastChatError: prev.lastChatError,
+        lastQueueSettingsError: msg.reason,
+      }
+    case 'queue_settings_update_request':
+      return prev
     case 'enqueue_request':
       return prev
     case 'end_current_playback_request':

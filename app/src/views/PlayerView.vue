@@ -187,7 +187,7 @@
                   <span
                     v-if="queueSnapshot.requesterGuestIds[index]"
                     class="ml-[0.18375rem] inline-block size-[0.18375rem] shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"
-                    title="Guest-requested row (max two songs per guest)"
+                    :title="hostGuestRowCapHint"
                     aria-hidden="true"
                   />
                 </p>
@@ -365,6 +365,7 @@ const {
   isSignalingConfigured,
   audienceChatLines,
   removeAudienceChatLine,
+  maxGuestQueueRowsPerGuest,
 } = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue, applyNaturalPlaybackEnd)
 const skipMessage = ref<string | null>(null)
 const embedSetupError = ref<string | null>(null)
@@ -392,7 +393,16 @@ const playerHelpTipsContext = computed<PlayerHelpTipContext>(() => {
     idleVariant: idleVariant.value,
     queueLength: queueSnapshot.value.ids.length,
     embedSetupError: embedSetupError.value,
+    maxGuestQueueRowsPerGuest: maxGuestQueueRowsPerGuest.value,
   }
+})
+
+const hostGuestRowCapHint = computed(() => {
+  const n = maxGuestQueueRowsPerGuest.value
+  if (n === 1) {
+    return 'Guest-requested row (up to one song per guest at a time, including the one playing).'
+  }
+  return `Guest-requested row (up to ${n} songs per guest, including the one that’s playing).`
 })
 
 function rowTitle(title: string | null): string {

@@ -7,6 +7,7 @@ import {
   PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH,
   PARTY_QUEUE_TITLE_MAX_LENGTH,
   PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH,
+  DEFAULT_AUDIENCE_CHAT_ENABLED,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
   serializePartyMessage,
@@ -69,6 +70,8 @@ describe('parsePartyMessage', () => {
       requestedBys: [null],
       requesterGuestIds: [null],
       sessionAdminPeerId: null,
+      maxGuestQueueRowsPerGuest: 2,
+      audienceChatEnabled: DEFAULT_AUDIENCE_CHAT_ENABLED,
     })
   })
 
@@ -109,6 +112,8 @@ describe('parsePartyMessage', () => {
       expect(p.requestedBys).toEqual([])
       expect(p.requesterGuestIds).toEqual([])
       expect(p.sessionAdminPeerId).toBeNull()
+      expect(p.maxGuestQueueRowsPerGuest).toBe(2)
+      expect(p.audienceChatEnabled).toBe(true)
     }
   })
 
@@ -445,5 +450,94 @@ describe('parsePartyMessage', () => {
       reason: 'x'.repeat(501),
     })
     expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips queue_snapshot with maxGuestQueueRowsPerGuest', () => {
+    const msg = queueSnapshotToMessage(
+      {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
+      },
+      'admin-1',
+      7,
+    )
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('maps invalid maxGuestQueueRowsPerGuest on queue_snapshot to default', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['a'],
+      currentIndex: 0,
+      titles: [null],
+      requestedBys: [null],
+      requesterGuestIds: [null],
+      maxGuestQueueRowsPerGuest: 99,
+    })
+    const p = parsePartyMessage(raw)
+    expect(p?.type).toBe('queue_snapshot')
+    if (p?.type === 'queue_snapshot') {
+      expect(p.maxGuestQueueRowsPerGuest).toBe(2)
+    }
+  })
+
+  it('round-trips queue_settings_update_request and queue_settings_rejected', () => {
+    const a = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request' as const,
+      maxGuestQueueRowsPerGuest: 5,
+      requesterGuestId: 'g1',
+    }
+    const b = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_rejected' as const,
+      reason: 'Nope',
+    }
+    expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
+    expect(parsePartyMessage(serializePartyMessage(b))).toEqual(b)
+  })
+
+  it('round-trips queue_settings_update_request with audienceChatEnabled', () => {
+    const a = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request' as const,
+      maxGuestQueueRowsPerGuest: 3,
+      audienceChatEnabled: false,
+      requesterGuestId: 'g1',
+    }
+    expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
+  })
+
+  it('rejects queue_settings_update_request when audienceChatEnabled is not boolean', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request',
+      maxGuestQueueRowsPerGuest: 4,
+      audienceChatEnabled: 'no',
+      requesterGuestId: 'g1',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips queue_snapshot with audienceChatEnabled false', () => {
+    const msg = queueSnapshotToMessage(
+      {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
+      },
+      null,
+      2,
+      false,
+    )
+    expect(msg.type === 'queue_snapshot' && msg.audienceChatEnabled === false).toBe(true)
+    expect(parsePartyMessage(serializePartyMessage(msg))).toEqual(msg)
   })
 })
