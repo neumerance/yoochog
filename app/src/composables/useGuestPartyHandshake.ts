@@ -20,6 +20,7 @@ import {
 } from '@/lib/party/partyMessages'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readGuestDisplayName } from '@/lib/guest/guestDisplayName'
+import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
 import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import {
@@ -182,6 +183,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       }
 
       if (!hasSignaling) {
+        connectionStepLog('guest', 'session:skip', 'missing signaling env (VITE_SIGNALING_URL or PubNub keys)')
         status.value = 'missing_config'
         visibilityRecovery.value = null
         return
@@ -192,6 +194,10 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         return
       }
 
+      connectionStepLog('guest', 'session:startPartyHandshake', {
+        sessionId: id,
+        reconnectAttempt: reconnectTrigger.value,
+      })
       if (reconnectTrigger.value === 0) {
         status.value = 'idle'
       }

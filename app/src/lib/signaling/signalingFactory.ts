@@ -1,4 +1,4 @@
-import { rtcDebugLog } from '@/lib/debug/rtcDebugLog'
+import { connectionStepLog, rtcDebugLog } from '@/lib/debug/rtcDebugLog'
 
 import type { PartySignalingTransport } from './PartySignalingTransport'
 import { PubNubSignalingClient } from './PubNubSignalingClient'
@@ -18,11 +18,13 @@ export function createSignalingTransport(options: SignalingEnvOptions): PartySig
   const pub = options.pubnubPublishKey?.trim()
   const sub = options.pubnubSubscribeKey?.trim()
   if (pub && sub) {
+    connectionStepLog('signaling', 'transport:PubNub')
     rtcDebugLog('signaling', 'transport=PubNub (publish/subscribe keys set)')
     return new PubNubSignalingClient({ publishKey: pub, subscribeKey: sub })
   }
   const url = options.signalingBaseUrl?.trim()
   if (url) {
+    connectionStepLog('signaling', 'transport:WebSocket', { baseUrl: url })
     rtcDebugLog('signaling', 'transport=WebSocket', url)
     return new SignalingClient({ signalingBaseUrl: url })
   }

@@ -1,6 +1,11 @@
 import PubNub from 'pubnub'
 
-import { rtcDebugLog, rtcFailureLog, signalPayloadSummary } from '@/lib/debug/rtcDebugLog'
+import {
+  connectionStepLog,
+  rtcDebugLog,
+  rtcFailureLog,
+  signalPayloadSummary,
+} from '@/lib/debug/rtcDebugLog'
 
 import type { PartySignalingTransport } from './PartySignalingTransport'
 import type { PeerInfo, SignalPayload, SignalingRole } from './protocol'
@@ -26,9 +31,22 @@ function toPubNubMessage(message: unknown): PubNubPublishMessage {
 const PUBNUB_403_HINT =
   'PubNub returned 403 (forbidden). Use Publish + Subscribe keys from the same keyset in the PubNub Admin Portal. For local dev, disable Access Manager on that keyset, or grant subscribe/publish to your channels.'
 
+const PUBNUB_400_HINT =
+  'PubNub returned 400 (bad request) on subscribe or publish. Usually wrong/mismatched Subscribe vs Publish keys, a restricted keyset, or Access Manager blocking the channel. Use keys from the same PubNub app keyset.'
+
+const PUBNUB_JOIN_TIMEOUT_HINT =
+  'PubNub never confirmed the subscription. Check browser network tab for subscribe errors, verify keys match one keyset, and try disabling Access Manager for dev.'
+
+const PUBNUB_PUBLISH_PEER_HINT =
+  'PubNub publish failed (often 403/400). Peers cannot discover each other until publish works. Fix keys / Access Manager / channel permissions.'
+
 /** PubNub may attach `errorData.status` at runtime; typings omit it on `StatusEvent`. */
 function httpStatusFromPubNubStatus(statusEvent: PubNub.StatusEvent): number | undefined {
   const o = statusEvent as unknown as Record<string, unknown>
+  const top = o.statusCode
+  if (typeof top === 'number') {
+    return top
+  }
   const ed = o.errorData
   if (ed && typeof ed === 'object' && ed !== null && 'status' in ed) {
     const s = (ed as { status: unknown }).status
@@ -37,6 +55,24 @@ function httpStatusFromPubNubStatus(statusEvent: PubNub.StatusEvent): number | u
     }
   }
   return undefined
+}
+
+function pubnubJoinFatalMessage(category: string, httpStatus: number | undefined): string | null {
+  const cat = PubNub.CATEGORIES
+  if (category === cat.PNAccessDeniedCategory || httpStatus === 403) {
+    return PUBNUB_403_HINT
+  }
+  if (
+    category === cat.PNBadRequestCategory ||
+    category === cat.PNValidationErrorCategory ||
+    httpStatus === 400
+  ) {
+    return PUBNUB_400_HINT
+  }
+  if (category === cat.PNServerErrorCategory || (typeof httpStatus === 'number' && httpStatus >= 500)) {
+    return 'PubNub server error during subscribe. Retry later or check PubNub status.'
+  }
+  return null
 }
 
 type YoochogPeerMessage = {
@@ -70,15 +106,79 @@ export class PubNubSignalingClient implements PartySignalingTransport {
   onPeerLeft: ((clientId: string) => void) | null = null
 
   private pendingJoin: { resolve: () => void; reject: (e: Error) => void } | null = null
-  private joinFallbackTimer: ReturnType<typeof setTimeout> | null = null
+  /** Rejects join if PubNub never reports a healthy subscription + publish. */
+  private joinTimeoutTimer: ReturnType<typeof setTimeout> | null = null
   private requestHostInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly options: PubNubSignalingClientOptions) {}
 
-  private clearJoinFallbackTimer(): void {
-    if (this.joinFallbackTimer !== null) {
-      globalThis.clearTimeout(this.joinFallbackTimer)
-      this.joinFallbackTimer = null
+  private clearJoinTimeoutTimer(): void {
+    if (this.joinTimeoutTimer !== null) {
+      globalThis.clearTimeout(this.joinTimeoutTimer)
+      this.joinTimeoutTimer = null
+    }
+  }
+
+  private cleanupPubNubAfterFailedJoin(): void {
+    this.stopRequestHostLoop()
+    this.clearJoinTimeoutTimer()
+    try {
+      this.pubnub?.unsubscribeAll()
+      this.pubnub?.destroy()
+    } catch {
+      // ignore
+    }
+    this.pubnub = null
+  }
+
+  /**
+   * After subscribe succeeds, prove we can publish (peer discovery depends on it).
+   * Avoids the old 2s "fake OK" when subscribe long-poll returns 400/403 afterward.
+   */
+  private async completeJoinAfterSubscribe(): Promise<void> {
+    if (!this.pendingJoin) {
+      return
+    }
+    this.clearJoinTimeoutTimer()
+
+    const handlers = this.pendingJoin
+    this.pendingJoin = null
+
+    if (!this.pubnub || !this.room || !this.clientId || !this.role) {
+      handlers.reject(new Error('PubNub join state lost.'))
+      return
+    }
+
+    const msg: YoochogPeerMessage = {
+      type: 'yoochog-peer',
+      room: this.room,
+      clientId: this.clientId,
+      role: this.role,
+    }
+    try {
+      await this.pubnub.publish({ channel: this.room, message: toPubNubMessage(msg) })
+    } catch (e) {
+      connectionStepLog('signaling', 'PubNub:join:announcePublish:failed', e)
+      rtcFailureLog('signaling', 'PubNub join: peer announcement publish failed', e)
+      handlers.reject(new Error(PUBNUB_PUBLISH_PEER_HINT))
+      this.cleanupPubNubAfterFailedJoin()
+      return
+    }
+
+    connectionStepLog('signaling', 'PubNub:join:ok', {
+      room: this.room,
+      role: this.role,
+      peersSnapshot: this.joinedPeers.length,
+    })
+    rtcDebugLog('signaling', 'PubNub join OK', {
+      room: this.room,
+      role: this.role,
+      peersSnapshot: this.joinedPeers.length,
+    })
+    handlers.resolve()
+
+    if (this.role === 'guest') {
+      this.startRequestHostLoop()
     }
   }
 
@@ -90,6 +190,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
   }
 
   async connect(): Promise<void> {
+    connectionStepLog('signaling', 'PubNub:connect', '(no-op; join initializes SDK)')
     rtcDebugLog('signaling', 'PubNub connect() (no-op; join initializes SDK)')
     return Promise.resolve()
   }
@@ -108,6 +209,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       return Promise.reject(new Error('Invalid client id for PubNub userId.'))
     }
 
+    connectionStepLog('signaling', 'PubNub:join:start', { room, role, clientId, userId })
     rtcDebugLog('signaling', 'PubNub join start', { room, role, clientId, userId })
 
     this.pubnub = new PubNub({
@@ -122,25 +224,36 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       this.pubnub!.addListener({
         status: (statusEvent) => {
           const httpStatus = httpStatusFromPubNubStatus(statusEvent)
-          const forbidden =
-            statusEvent.category === PubNub.CATEGORIES.PNAccessDeniedCategory || httpStatus === 403
-          if (forbidden && this.pendingJoin) {
-            this.clearJoinFallbackTimer()
-            rtcFailureLog('signaling', 'PubNub access denied (403)', {
+          const fatalMsg = pubnubJoinFatalMessage(statusEvent.category, httpStatus)
+          if (fatalMsg && this.pendingJoin) {
+            this.clearJoinTimeoutTimer()
+            connectionStepLog('signaling', 'PubNub:join:fatal', {
               category: statusEvent.category,
               httpStatus,
             })
-            rtcDebugLog('signaling', 'PubNub join failed: access denied / 403', {
+            rtcFailureLog('signaling', 'PubNub join failed (fatal status)', {
               category: statusEvent.category,
               httpStatus,
             })
-            this.pendingJoin.reject(new Error(PUBNUB_403_HINT))
+            const { reject: rej } = this.pendingJoin
             this.pendingJoin = null
+            rej(new Error(fatalMsg))
+            this.cleanupPubNubAfterFailedJoin()
             return
           }
-          if (statusEvent.category === PubNub.CATEGORIES.PNSubscriptionChangedCategory) {
-            rtcDebugLog('signaling', 'PubNub PNSubscriptionChangedCategory → join handshake')
-            this.finishJoinHandshake()
+
+          const cat = PubNub.CATEGORIES
+          const subscriptionReady =
+            statusEvent.category === cat.PNSubscriptionChangedCategory ||
+            statusEvent.category === cat.PNConnectedCategory
+
+          if (subscriptionReady && this.pendingJoin) {
+            rtcDebugLog(
+              'signaling',
+              'PubNub subscription status → completing join',
+              statusEvent.category,
+            )
+            void this.completeJoinAfterSubscribe()
           }
         },
         message: (evt) => {
@@ -149,34 +262,22 @@ export class PubNubSignalingClient implements PartySignalingTransport {
       })
 
       this.pubnub!.subscribe({ channels: [room] })
+      connectionStepLog('signaling', 'PubNub:subscribe', { channels: [room] })
       rtcDebugLog('signaling', 'PubNub subscribe', { channels: [room] })
 
-      this.joinFallbackTimer = globalThis.setTimeout(() => {
-        this.joinFallbackTimer = null
-        if (this.pendingJoin) {
-          rtcDebugLog('signaling', 'PubNub join fallback timer (2s): completing handshake')
-          this.finishJoinHandshake()
+      this.joinTimeoutTimer = globalThis.setTimeout(() => {
+        this.joinTimeoutTimer = null
+        if (!this.pendingJoin) {
+          return
         }
-      }, 2000)
+        connectionStepLog('signaling', 'PubNub:join:timeout', 'no subscription confirmation + publish')
+        rtcFailureLog('signaling', 'PubNub join timed out waiting for subscription')
+        const { reject: rej } = this.pendingJoin
+        this.pendingJoin = null
+        rej(new Error(PUBNUB_JOIN_TIMEOUT_HINT))
+        this.cleanupPubNubAfterFailedJoin()
+      }, 20_000)
     })
-  }
-
-  private finishJoinHandshake(): void {
-    this.clearJoinFallbackTimer()
-    if (!this.pendingJoin) {
-      return
-    }
-    rtcDebugLog('signaling', 'PubNub join OK', {
-      room: this.room,
-      role: this.role,
-      peersSnapshot: this.joinedPeers.length,
-    })
-    this.pendingJoin.resolve()
-    this.pendingJoin = null
-    this.publishPeerAnnouncement()
-    if (this.role === 'guest') {
-      this.startRequestHostLoop()
-    }
   }
 
   private publishPeerAnnouncement(): void {
@@ -319,7 +420,7 @@ export class PubNubSignalingClient implements PartySignalingTransport {
 
   close(): void {
     rtcDebugLog('signaling', 'PubNub close()')
-    this.clearJoinFallbackTimer()
+    this.clearJoinTimeoutTimer()
     this.stopRequestHostLoop()
     try {
       this.pubnub?.unsubscribeAll()

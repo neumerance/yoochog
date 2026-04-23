@@ -1,4 +1,4 @@
-import { rtcDebugLog, rtcFailureLog } from '@/lib/debug/rtcDebugLog'
+import { connectionStepLog, rtcDebugLog, rtcFailureLog } from '@/lib/debug/rtcDebugLog'
 
 /** Waits until ICE gathering finishes so SDP contains candidates (avoids trickle ordering issues in dev). */
 export async function waitForIceGatheringComplete(
@@ -7,8 +7,10 @@ export async function waitForIceGatheringComplete(
 ): Promise<void> {
   const timeoutMs = options.timeoutMs ?? 15_000
   const label = options.debugLabel ?? 'pc'
+  connectionStepLog('webrtc', `${label}:iceGathering:start`, pc.iceGatheringState)
   rtcDebugLog('webrtc', `${label} ICE gathering: start`, pc.iceGatheringState)
   if (pc.iceGatheringState === 'complete') {
+    connectionStepLog('webrtc', `${label}:iceGathering:alreadyComplete`)
     rtcDebugLog('webrtc', `${label} ICE gathering: already complete`)
     return
   }
@@ -20,6 +22,7 @@ export async function waitForIceGatheringComplete(
     }
     const onAbort = () => {
       cleanup()
+      connectionStepLog('webrtc', `${label}:iceGathering:aborted`)
       rtcFailureLog('webrtc', `${label} ICE gathering: aborted`)
       reject(new DOMException('Aborted', 'AbortError'))
     }
@@ -28,6 +31,7 @@ export async function waitForIceGatheringComplete(
       rtcDebugLog('webrtc', `${label} icegatheringstatechange`, pc.iceGatheringState)
       if (pc.iceGatheringState === 'complete') {
         cleanup()
+        connectionStepLog('webrtc', `${label}:iceGathering:complete`)
         rtcDebugLog('webrtc', `${label} ICE gathering: complete`)
         resolve()
       }
@@ -35,6 +39,9 @@ export async function waitForIceGatheringComplete(
     pc.addEventListener('icegatheringstatechange', onGather)
     const timeoutId = globalThis.setTimeout(() => {
       cleanup()
+      connectionStepLog('webrtc', `${label}:iceGathering:timeout`, timeoutMs, {
+        iceGatheringState: pc.iceGatheringState,
+      })
       rtcFailureLog('webrtc', `${label} ICE gathering: timed out after ${timeoutMs}ms`, {
         iceGatheringState: pc.iceGatheringState,
       })

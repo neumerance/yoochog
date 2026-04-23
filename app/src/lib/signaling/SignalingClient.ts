@@ -1,4 +1,9 @@
-import { rtcDebugLog, rtcFailureLog, signalPayloadSummary } from '@/lib/debug/rtcDebugLog'
+import {
+  connectionStepLog,
+  rtcDebugLog,
+  rtcFailureLog,
+  signalPayloadSummary,
+} from '@/lib/debug/rtcDebugLog'
 
 import type { PartySignalingTransport } from './PartySignalingTransport'
 import {
@@ -53,11 +58,13 @@ export class SignalingClient implements PartySignalingTransport {
 
   async connect(): Promise<void> {
     const url = this.resolvedWebSocketUrl
+    connectionStepLog('signaling', 'WebSocket:connecting', url)
     rtcDebugLog('signaling', 'WebSocket connecting', url)
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(url)
       this.ws = ws
       ws.onopen = () => {
+        connectionStepLog('signaling', 'WebSocket:open')
         rtcDebugLog('signaling', 'WebSocket open')
         resolve()
       }
@@ -91,6 +98,7 @@ export class SignalingClient implements PartySignalingTransport {
     }
     this.room = room
     this.clientId = clientId
+    connectionStepLog('signaling', 'WebSocket:join:send', { room, clientId, role })
     rtcDebugLog('signaling', 'WebSocket join send', { room, clientId, role })
     const msg: JoinClientMessage = { type: 'join', room, clientId, role }
     this.ws.send(JSON.stringify(msg))
@@ -142,6 +150,7 @@ export class SignalingClient implements PartySignalingTransport {
     }
     switch (data.type) {
       case 'joined':
+        connectionStepLog('signaling', 'WebSocket:join:ack', { peerCount: data.peers.length })
         rtcDebugLog('signaling', 'WebSocket msg joined', { peers: data.peers })
         this.joinedPeers = data.peers
         if (this.pendingJoin) {

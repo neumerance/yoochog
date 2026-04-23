@@ -23,6 +23,7 @@ import {
 } from '@/lib/party/partyMessages'
 import type { PartyMessage } from '@/lib/party/partyMessages'
 import { runHostPartyHandshake } from '@/lib/webrtc/partyHandshake'
+import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 
 /**
@@ -248,6 +249,7 @@ export function useHostPartySession(
       audienceChatLines.value = []
 
       if (!hasSignaling) {
+        connectionStepLog('host', 'session:skip', 'missing signaling env (VITE_SIGNALING_URL or PubNub keys)')
         status.value = 'missing_config'
         return
       }
@@ -256,6 +258,7 @@ export function useHostPartySession(
         return
       }
 
+      connectionStepLog('host', 'session:startPartyHandshake', { sessionId: id })
       status.value = 'idle'
       const ac = new AbortController()
       const r = runHostPartyHandshake({

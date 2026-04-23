@@ -33,6 +33,17 @@ export function rtcDebugLog(scope: RtcDebugScope, ...args: unknown[]): void {
   console.log(`[yoochog:${scope}]`, ...args)
 }
 
+/** Always-on connection milestone logs (not gated by `VITE_DEBUG_RTC` / localStorage). */
+export type ConnectionStepRole = 'host' | 'guest' | 'signaling' | 'webrtc'
+
+export function connectionStepLog(role: ConnectionStepRole, step: string, ...detail: unknown[]): void {
+  if (detail.length) {
+    console.log(`[yoochog:connection:${role}]`, step, ...detail)
+  } else {
+    console.log(`[yoochog:connection:${role}]`, step)
+  }
+}
+
 /**
  * Always-on warning for signaling / handshake / WebRTC failures (no env toggle).
  * Use for errors, timeouts, and connection loss so production consoles show why something broke.
