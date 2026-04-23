@@ -31,6 +31,12 @@ export const PEER_DISCONNECTED_GRACE_MS = 8_000
 export const RECONNECT_VISIBILITY_MIN_HIDDEN_MS = 60_000
 
 /**
+ * Guest: after a long `hidden` / return to `visible`, wait this long (post-layout) before reading
+ * PC/party data channel state, so the visibility probe does not flap on the first frame.
+ */
+export const VISIBILITY_RESUME_HEALTH_PROBE_MS = 200
+
+/**
  * Full jitter in [0, min(maxDelay, base * 2^attemptIndex)] — spreads retries in time.
  * @param attemptIndex 0-based index for this scheduled retry (0 = first retry after a loss).
  */

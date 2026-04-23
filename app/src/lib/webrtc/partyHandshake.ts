@@ -20,6 +20,7 @@ import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import { getPartyIceServers } from '@/lib/webrtc/iceServersFromEnv'
 import { waitForIceGatheringComplete } from '@/lib/webrtc/iceGathering'
 import { waitForPeerConnectionConnected } from '@/lib/webrtc/waitForConnected'
+import { isGuestPartyLinkOkForVisibilityResume } from '@/lib/webrtc/guestPartyLinkHealth'
 import { PEER_DISCONNECTED_GRACE_MS } from '@/lib/webrtc/reconnectPolicy'
 
 export type PartyHandshakeCallbacks = {
@@ -61,6 +62,11 @@ export type GuestPartyHandshakeHandle = {
   sendPartyRaw: (raw: string) => void
   /** This guest’s signaling `clientId` for the current connection (matches host roster / session admin). */
   localPartyPeerId: string
+  /**
+   * Live snapshot: whether the party data channel and peer connection look healthy enough
+   * to skip a full re-handshake after return-to-`visible` (see `useGuestPartyHandshake` visibility path).
+   */
+  isPartyLinkOkForVisibilityResume: () => boolean
 }
 
 async function findHostPeerId(signaling: PartySignalingTransport, signal: AbortSignal): Promise<string> {
@@ -662,5 +668,10 @@ export function runGuestPartyHandshake(options: GuestPartyHandshakeOptions): Gue
     }
   })()
 
-  return { dispose, sendPartyRaw, localPartyPeerId: clientId }
+  return {
+    dispose,
+    sendPartyRaw,
+    localPartyPeerId: clientId,
+    isPartyLinkOkForVisibilityResume: () => isGuestPartyLinkOkForVisibilityResume(pc, partyDc),
+  }
 }
