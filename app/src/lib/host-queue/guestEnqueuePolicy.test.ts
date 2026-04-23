@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildEnqueueRejectedAlreadyHasRequest,
   ENQUEUE_REJECTED_ALREADY_HAS_REQUEST,
   ENQUEUE_REJECTED_DUPLICATE_VIDEO,
   countGuestRequestsInQueue,
@@ -110,6 +111,35 @@ describe('guestEnqueuePolicy', () => {
       if (!r.ok) {
         expect(r.reason).toBe(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST)
       }
+    })
+
+    it('rejects at cap 1 with matching message', () => {
+      const r = resolveGuestEnqueueRequest({
+        snapshot: snap(['a'], ['g1']),
+        videoId: 'dQw4w9WgXcQ',
+        title: null,
+        requestedBy: null,
+        parsedRequesterGuestId: 'g1',
+        peerGuestId: 'peer',
+        maxGuestQueueRowsPerGuest: 1,
+      })
+      expect(r.ok).toBe(false)
+      if (!r.ok) {
+        expect(r.reason).toBe(buildEnqueueRejectedAlreadyHasRequest(1))
+      }
+    })
+
+    it('allows two rows for the same guest when cap is 3', () => {
+      const r = resolveGuestEnqueueRequest({
+        snapshot: snap(['a', 'b'], ['g1', 'g1']),
+        videoId: 'abcdefghijk',
+        title: null,
+        requestedBy: null,
+        parsedRequesterGuestId: 'g1',
+        peerGuestId: 'peer',
+        maxGuestQueueRowsPerGuest: 3,
+      })
+      expect(r.ok).toBe(true)
     })
 
     it('allows enqueue after owner row is gone', () => {

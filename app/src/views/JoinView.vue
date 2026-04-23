@@ -9,6 +9,7 @@ import GuestShell from '@/components/GuestShell.vue'
 import HostPlayerSplash from '@/components/HostPlayerSplash.vue'
 import PrivacyNoticeSheet from '@/components/PrivacyNoticeSheet.vue'
 import HandshakeStatusStrip from '@/components/HandshakeStatusStrip.vue'
+import QueueSettingsPanel from '@/components/QueueSettingsPanel.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
 import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
 import {
@@ -17,10 +18,13 @@ import {
   validateGuestDisplayName,
 } from '@/lib/guest/guestDisplayName'
 import {
+  buildEnqueueRejectedAlreadyHasRequest,
   countGuestRequestsInQueue,
-  ENQUEUE_REJECTED_ALREADY_HAS_REQUEST,
-  MAX_GUEST_QUEUE_ROWS_PER_GUEST,
 } from '@/lib/host-queue/guestEnqueuePolicy'
+import {
+  GUEST_QUEUE_ROWS_CAP_MAX,
+  GUEST_QUEUE_ROWS_CAP_MIN,
+} from '@/lib/host-queue/guestQueueLimits'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
@@ -54,10 +58,13 @@ const {
   sessionAdminGuestId,
   lastEnqueueError,
   lastChatError,
+  lastQueueSettingsError,
+  maxGuestQueueRowsPerGuest,
   audienceChatCooldownEndsAt,
   requestEnqueue,
   requestEndCurrentPlayback,
   requestRemoveRow,
+  requestQueueSettingsUpdate,
   requestAudienceChat,
   canRequestEnqueue,
 } = useGuestPartyHandshake(handshakeSessionId)
@@ -81,6 +88,9 @@ const chatDialog = ref<HTMLDialogElement | null>(null)
 const chatTriggerRef = ref<HTMLButtonElement | null>(null)
 const chatInput = ref('')
 const chatFieldError = ref<string | null>(null)
+const queueSettingsOpen = ref(false)
+const queueSettingsSavePending = ref(false)
+const queueSettingsTarget = ref<number | null>(null)
 
 const nowMonotonic = ref(Date.now())
 let chatCooldownTicker: number | null = null
@@ -129,7 +139,7 @@ const mySongsInQueueCount = computed(() => {
 
 /** Matches host `resolveGuestEnqueueRequest` per-guest cap. */
 const atMaxMySongsInQueue = computed(
-  () => mySongsInQueueCount.value >= MAX_GUEST_QUEUE_ROWS_PER_GUEST,
+  () => mySongsInQueueCount.value >= maxGuestQueueRowsPerGuest.value,
 )
 
 /** True when connected and policy allows opening the add-song flow (under per-guest row cap). */
@@ -282,7 +292,9 @@ function onAddSongBarTap() {
     return
   }
   if (atMaxMySongsInQueue.value) {
-    window.alert(ENQUEUE_REJECTED_ALREADY_HAS_REQUEST)
+    window.alert(
+      buildEnqueueRejectedAlreadyHasRequest(maxGuestQueueRowsPerGuest.value),
+    )
     return
   }
   openAddSongModal()
@@ -390,7 +402,9 @@ async function submitPasteEnqueue() {
     return
   }
   if (atMaxMySongsInQueue.value) {
-    pasteValidationError.value = ENQUEUE_REJECTED_ALREADY_HAS_REQUEST
+    pasteValidationError.value = buildEnqueueRejectedAlreadyHasRequest(
+      maxGuestQueueRowsPerGuest.value,
+    )
     return
   }
   const id = extractYoutubeVideoId(pasteInput.value)
@@ -450,6 +464,54 @@ const canSubmitAudienceChat = computed(() => {
     return false
   }
   return chatInput.value.trim().length > 0
+})
+
+const addSongAtCapAria = computed(() => {
+  const n = maxGuestQueueRowsPerGuest.value
+  const word = n === 1 ? 'one song' : `${n} songs`
+  return `Add my song — you already have ${word} in the queue`
+})
+
+function openQueueSettings() {
+  if (!isSessionAdmin.value) {
+    return
+  }
+  queueSettingsOpen.value = true
+}
+
+function onQueueSettingsSave(raw: number) {
+  const sid = routeSessionId.value
+  if (!sid) {
+    return
+  }
+  const v = Math.min(
+    GUEST_QUEUE_ROWS_CAP_MAX,
+    Math.max(GUEST_QUEUE_ROWS_CAP_MIN, Math.round(Number(raw))),
+  )
+  if (v === maxGuestQueueRowsPerGuest.value) {
+    queueSettingsOpen.value = false
+    return
+  }
+  queueSettingsTarget.value = v
+  queueSettingsSavePending.value = true
+  requestQueueSettingsUpdate(v, getOrCreatePartyGuestRequesterId(sid))
+}
+
+watch(maxGuestQueueRowsPerGuest, (m) => {
+  if (!queueSettingsSavePending.value || queueSettingsTarget.value === null) {
+    return
+  }
+  if (m === queueSettingsTarget.value) {
+    queueSettingsSavePending.value = false
+    queueSettingsTarget.value = null
+    queueSettingsOpen.value = false
+  }
+})
+
+watch(lastQueueSettingsError, (e) => {
+  if (e) {
+    queueSettingsSavePending.value = false
+  }
 })
 </script>
 
@@ -515,7 +577,6 @@ const canSubmitAudienceChat = computed(() => {
             </div>
           </div>
         </div>
-        <AppearanceToggle />
       </div>
     </div>
 
@@ -542,9 +603,35 @@ const canSubmitAudienceChat = computed(() => {
     </Transition>
 
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-      <h2 class="shrink-0 px-1 pb-1 pt-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72] dark:text-slate-400">
-        Queue
-      </h2>
+      <div
+        class="flex shrink-0 items-center justify-between gap-2 px-1 pb-1 pt-0"
+      >
+        <h2 class="m-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72] dark:text-slate-400">
+          Queue
+        </h2>
+        <div class="flex shrink-0 items-center gap-2">
+          <AppearanceToggle compact />
+          <button
+            v-if="isSessionAdmin"
+            type="button"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#6D6D72] transition-colors active:bg-black/5 dark:text-slate-400 dark:active:bg-white/5"
+            aria-label="Open queue settings"
+            @click="openQueueSettings"
+          >
+            <svg
+              class="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.22-.08-.49 0-.61.22l-2 3.46c-.12.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.74 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5z"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
       <div
         class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.15),0_0.5px_3px_rgba(0,0,0,0.08)] dark:bg-slate-900 dark:shadow-black/40"
       >
@@ -674,11 +761,7 @@ const canSubmitAudienceChat = computed(() => {
                 ]
           "
           :disabled="!canRequestEnqueue"
-          :aria-label="
-            atMaxMySongsInQueue
-              ? 'Add my song — you already have two songs in the queue'
-              : 'Add my song'
-          "
+          :aria-label="atMaxMySongsInQueue ? addSongAtCapAria : 'Add my song'"
           @click="onAddSongBarTap"
         >
           Add my song
@@ -936,6 +1019,13 @@ const canSubmitAudienceChat = computed(() => {
       </div>
     </dialog>
 
+    <QueueSettingsPanel
+      v-model="queueSettingsOpen"
+      :max-from-host="maxGuestQueueRowsPerGuest"
+      :is-saving="queueSettingsSavePending"
+      :last-error="lastQueueSettingsError"
+      @save="onQueueSettingsSave"
+    />
     <HostPlayerSplash v-if="showJoinSplash" @complete="onJoinSplashComplete" />
     <PrivacyNoticeSheet ref="privacyNoticeSheet" @dismissed="onPrivacyNoticeDismissed" />
   </GuestShell>

@@ -69,6 +69,7 @@ describe('parsePartyMessage', () => {
       requestedBys: [null],
       requesterGuestIds: [null],
       sessionAdminPeerId: null,
+      maxGuestQueueRowsPerGuest: 2,
     })
   })
 
@@ -109,6 +110,7 @@ describe('parsePartyMessage', () => {
       expect(p.requestedBys).toEqual([])
       expect(p.requesterGuestIds).toEqual([])
       expect(p.sessionAdminPeerId).toBeNull()
+      expect(p.maxGuestQueueRowsPerGuest).toBe(2)
     }
   })
 
@@ -445,5 +447,55 @@ describe('parsePartyMessage', () => {
       reason: 'x'.repeat(501),
     })
     expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips queue_snapshot with maxGuestQueueRowsPerGuest', () => {
+    const msg = queueSnapshotToMessage(
+      {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
+      },
+      'admin-1',
+      7,
+    )
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('maps invalid maxGuestQueueRowsPerGuest on queue_snapshot to default', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_snapshot',
+      ids: ['a'],
+      currentIndex: 0,
+      titles: [null],
+      requestedBys: [null],
+      requesterGuestIds: [null],
+      maxGuestQueueRowsPerGuest: 99,
+    })
+    const p = parsePartyMessage(raw)
+    expect(p?.type).toBe('queue_snapshot')
+    if (p?.type === 'queue_snapshot') {
+      expect(p.maxGuestQueueRowsPerGuest).toBe(2)
+    }
+  })
+
+  it('round-trips queue_settings_update_request and queue_settings_rejected', () => {
+    const a = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request' as const,
+      maxGuestQueueRowsPerGuest: 5,
+      requesterGuestId: 'g1',
+    }
+    const b = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_rejected' as const,
+      reason: 'Nope',
+    }
+    expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
+    expect(parsePartyMessage(serializePartyMessage(b))).toEqual(b)
   })
 })
