@@ -44,6 +44,17 @@ Read **`docs/github-pages.md`** (full file) before running deploy steps so SPA *
 - Smoke URL: **`https://<owner>.github.io/yoochog/`** (replace `<owner>` from `gh repo view`).
 - If deep links fail without the app shell, confirm **`404.html`** exists in the published output (build script copies it from `index.html`).
 
+## If the live site lags the `gh-pages` branch (unstick) — Path B only
+
+When **Pages** source is **branch `gh-pages`**, the live site can lag **`gh-pages` HEAD** if a Pages build stays **`building`** or fails to publish. From repo root:
+
+```bash
+OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+gh api -X POST "repos/${OWNER_REPO}/pages/builds"
+```
+
+Check status: `gh api "repos/${OWNER_REPO}/pages/builds/latest" --jq '{status, created_at}'` and `gh api "repos/${OWNER_REPO}/pages" --jq '{status, source}'`.
+
 ## Output
 
 Reply with: which path ran (or was instructed), exact commands used or next steps, Pages settings to verify, and the public URL pattern—**no** secret values.

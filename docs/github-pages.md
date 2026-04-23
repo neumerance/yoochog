@@ -108,6 +108,20 @@ gh run list --workflow=deploy-github-pages.yml --limit 5
 gh run watch <run-id>
 ```
 
+### Unstick branch-based Pages (`gh-pages` source)
+
+If **Settings → Pages** uses **Deploy from a branch** → **`gh-pages`** → **`/ (root)`**, GitHub still runs an internal Pages build after each push. Sometimes **`gh-pages` HEAD** updates but the **live site** keeps old **`index.html`** (mismatched hashed assets in view source), or **`gh api repos/{owner}/{repo}/pages`** reports **`status: "building"`** for a long time. Queue a new build from a clone (or add `-R owner/repo` to `gh repo view`):
+
+```bash
+OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+gh api -X POST "repos/${OWNER_REPO}/pages/builds"
+```
+
+```bash
+gh api "repos/${OWNER_REPO}/pages/builds/latest" --jq '{status, created_at}'
+gh api "repos/${OWNER_REPO}/pages" --jq '{status, source}'
+```
+
 ## Public URL shape
 
 Project sites use:

@@ -35,6 +35,24 @@ Read **`docs/github-pages.md`** (full file) before running deploy steps so SPA *
 - Smoke URL: **`https://<owner>.github.io/yoochog/`** (replace `<owner>` from `gh repo view`).
 - If deep links fail without the app shell, confirm **`404.html`** exists in the published output (build script copies it from `index.html`).
 
+## If the live site lags the `gh-pages` branch (unstick)
+
+Branch **`gh-pages`** can be correct on GitHub while **GitHub Pages** is still serving an older build (e.g. API **`pages`** stuck in **`building`**, or asset hashes in **View Source** do not match **`index.html`** on **`gh-pages`**). From repo root, queue a fresh Pages build:
+
+```bash
+OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+gh api -X POST "repos/${OWNER_REPO}/pages/builds"
+```
+
+Inspect progress:
+
+```bash
+gh api "repos/${OWNER_REPO}/pages/builds/latest" --jq '{status, created_at}'
+gh api "repos/${OWNER_REPO}/pages" --jq '{status, source}'
+```
+
+Re-run the POST if needed after **`gh auth`**; alternate fix is another push to **`gh-pages`** (e.g. redeploy) once GitHub’s build pipeline is healthy.
+
 ## Output
 
 Reply with: commands used or next steps, Pages settings to verify, and the public URL pattern—**no** secret values.
