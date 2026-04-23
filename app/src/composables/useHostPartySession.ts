@@ -11,6 +11,7 @@ import {
 } from '@/lib/host-queue/sessionAdminPolicy'
 import {
   AUDIENCE_CHAT_MAX_VISIBLE_LINES,
+  CHAT_REJECT_REASON_DISABLED,
   evaluateHostAudienceChatAcceptance,
   nextGuestAudienceChatHostState,
   pickAudienceChatDriftMs,
@@ -45,6 +46,7 @@ export function useHostPartySession(
    */
   const sessionAdminGuestId = ref<string | null>(null)
   const maxGuestQueueRowsPerGuest = ref(GUEST_QUEUE_ROWS_CAP_DEFAULT)
+  const audienceChatEnabled = ref(true)
   /** Per logical guest id (wire `requesterGuestId`) for audience chat rate limits. */
   const audienceChatGuestState = new Map<string, GuestAudienceChatHostState>()
   const audienceChatLines = ref<
@@ -74,6 +76,7 @@ export function useHostPartySession(
       queue.getSnapshot(),
       sessionAdminGuestId.value,
       maxGuestQueueRowsPerGuest.value,
+      audienceChatEnabled.value,
     )
     broadcastParty(serializePartyMessage(msg))
   }
@@ -86,6 +89,7 @@ export function useHostPartySession(
       queue.getSnapshot(),
       sessionAdminGuestId.value,
       maxGuestQueueRowsPerGuest.value,
+      audienceChatEnabled.value,
     )
     sendPartyToGuest(guestId, serializePartyMessage(msg))
   }
@@ -160,6 +164,13 @@ export function useHostPartySession(
         sendQueueSettingsReject(guestId, res.reason)
         return
       }
+      if (typeof msg.audienceChatEnabled === 'boolean') {
+        const wasOn = audienceChatEnabled.value
+        audienceChatEnabled.value = msg.audienceChatEnabled
+        if (wasOn && !msg.audienceChatEnabled) {
+          audienceChatLines.value = []
+        }
+      }
       maxGuestQueueRowsPerGuest.value = normalizeGuestQueueRowsCap(
         msg.maxGuestQueueRowsPerGuest,
       )
@@ -216,6 +227,10 @@ export function useHostPartySession(
       return
     }
     if (msg?.type === 'audience_chat_request') {
+      if (!audienceChatEnabled.value) {
+        sendChatReject(guestId, CHAT_REJECT_REASON_DISABLED)
+        return
+      }
       const logicalId = msg.requesterGuestId
       const now = Date.now()
       const prev = audienceChatGuestState.get(logicalId)
@@ -293,6 +308,7 @@ export function useHostPartySession(
       sendPartyToGuest = null
       sessionAdminGuestId.value = null
       maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
+      audienceChatEnabled.value = true
       audienceChatGuestState.clear()
       audienceChatLines.value = []
 
@@ -358,5 +374,6 @@ export function useHostPartySession(
     audienceChatLines,
     removeAudienceChatLine,
     maxGuestQueueRowsPerGuest: computed(() => maxGuestQueueRowsPerGuest.value),
+    audienceChatEnabled: computed(() => audienceChatEnabled.value),
   }
 }

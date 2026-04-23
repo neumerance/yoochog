@@ -60,6 +60,7 @@ const {
   lastChatError,
   lastQueueSettingsError,
   maxGuestQueueRowsPerGuest,
+  audienceChatEnabled,
   audienceChatCooldownEndsAt,
   requestEnqueue,
   requestEndCurrentPlayback,
@@ -90,7 +91,10 @@ const chatInput = ref('')
 const chatFieldError = ref<string | null>(null)
 const queueSettingsOpen = ref(false)
 const queueSettingsSavePending = ref(false)
-const queueSettingsTarget = ref<number | null>(null)
+const queueSettingsTarget = ref<{
+  maxGuestQueueRowsPerGuest: number
+  audienceChatEnabled: boolean
+} | null>(null)
 
 const nowMonotonic = ref(Date.now())
 let chatCooldownTicker: number | null = null
@@ -443,7 +447,14 @@ function closeChatModal() {
 function onChatDialogClose() {
   chatInput.value = ''
   chatFieldError.value = null
-  void nextTick(() => chatTriggerRef.value?.focus())
+  void nextTick(() => {
+    const chatBtn = chatTriggerRef.value
+    if (chatBtn) {
+      chatBtn.focus()
+      return
+    }
+    addSongTriggerRef.value?.focus()
+  })
 }
 
 function submitChat() {
@@ -479,32 +490,52 @@ function openQueueSettings() {
   queueSettingsOpen.value = true
 }
 
-function onQueueSettingsSave(raw: number) {
+function onQueueSettingsSave(payload: {
+  maxGuestQueueRowsPerGuest: number
+  audienceChatEnabled: boolean
+}) {
   const sid = routeSessionId.value
   if (!sid) {
     return
   }
   const v = Math.min(
     GUEST_QUEUE_ROWS_CAP_MAX,
-    Math.max(GUEST_QUEUE_ROWS_CAP_MIN, Math.round(Number(raw))),
+    Math.max(GUEST_QUEUE_ROWS_CAP_MIN, Math.round(Number(payload.maxGuestQueueRowsPerGuest))),
   )
-  if (v === maxGuestQueueRowsPerGuest.value) {
+  const chat = payload.audienceChatEnabled
+  if (v === maxGuestQueueRowsPerGuest.value && chat === audienceChatEnabled.value) {
     queueSettingsOpen.value = false
     return
   }
-  queueSettingsTarget.value = v
+  queueSettingsTarget.value = { maxGuestQueueRowsPerGuest: v, audienceChatEnabled: chat }
   queueSettingsSavePending.value = true
-  requestQueueSettingsUpdate(v, getOrCreatePartyGuestRequesterId(sid))
+  requestQueueSettingsUpdate(
+    { maxGuestQueueRowsPerGuest: v, audienceChatEnabled: chat },
+    getOrCreatePartyGuestRequesterId(sid),
+  )
 }
 
-watch(maxGuestQueueRowsPerGuest, (m) => {
-  if (!queueSettingsSavePending.value || queueSettingsTarget.value === null) {
-    return
-  }
-  if (m === queueSettingsTarget.value) {
-    queueSettingsSavePending.value = false
-    queueSettingsTarget.value = null
-    queueSettingsOpen.value = false
+watch(
+  [maxGuestQueueRowsPerGuest, audienceChatEnabled],
+  () => {
+    if (!queueSettingsSavePending.value || queueSettingsTarget.value === null) {
+      return
+    }
+    const t = queueSettingsTarget.value
+    if (
+      maxGuestQueueRowsPerGuest.value === t.maxGuestQueueRowsPerGuest
+      && audienceChatEnabled.value === t.audienceChatEnabled
+    ) {
+      queueSettingsSavePending.value = false
+      queueSettingsTarget.value = null
+      queueSettingsOpen.value = false
+    }
+  },
+)
+
+watch(audienceChatEnabled, (on) => {
+  if (!on) {
+    closeChatModal()
   }
 })
 
@@ -767,6 +798,7 @@ watch(lastQueueSettingsError, (e) => {
           Add my song
         </button>
         <button
+          v-if="audienceChatEnabled"
           ref="chatTriggerRef"
           type="button"
           class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-[#007AFF] px-3 py-2 text-[17px] font-semibold leading-5 text-white shadow-sm transition-[background-color,transform] active:scale-[0.99] active:bg-[#0051D5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] disabled:cursor-not-allowed disabled:bg-[#C7C7CC] disabled:active:scale-100"
@@ -1022,6 +1054,7 @@ watch(lastQueueSettingsError, (e) => {
     <QueueSettingsPanel
       v-model="queueSettingsOpen"
       :max-from-host="maxGuestQueueRowsPerGuest"
+      :chat-enabled-from-host="audienceChatEnabled"
       :is-saving="queueSettingsSavePending"
       :last-error="lastQueueSettingsError"
       @save="onQueueSettingsSave"

@@ -7,6 +7,7 @@ function emptyState(over: Partial<GuestPartyUiState> = {}): GuestPartyUiState {
     snapshot: null,
     sessionAdminGuestId: null,
     maxGuestQueueRowsPerGuest: 2,
+    audienceChatEnabled: true,
     lastEnqueueError: null,
     lastChatError: null,
     lastQueueSettingsError: null,
@@ -26,6 +27,7 @@ describe('applyGuestPartyMessage', () => {
       requesterGuestIds: ['g1'],
       sessionAdminPeerId: 'admin-1',
       maxGuestQueueRowsPerGuest: 2,
+      audienceChatEnabled: true,
     })
     expect(next.snapshot?.ids).toEqual(['a'])
     expect(next.snapshot?.titles).toEqual(['Song'])
@@ -46,6 +48,7 @@ describe('applyGuestPartyMessage', () => {
       requesterGuestIds: [null, null],
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 2,
+      audienceChatEnabled: true,
     })
     expect(next.snapshot?.ids).toEqual(['bbbbbbbbbbb'])
     expect(next.snapshot?.titles).toEqual(['B'])
@@ -123,10 +126,27 @@ describe('applyGuestPartyMessage', () => {
       requesterGuestIds: [null],
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 5,
+      audienceChatEnabled: true,
     })
     expect(a.maxGuestQueueRowsPerGuest).toBe(5)
     const b = applyGuestPartyMessage(a, { v: 1, type: 'heartbeat' })
     expect(b.maxGuestQueueRowsPerGuest).toBe(5)
+  })
+
+  it('updates audience chat flag from queue_snapshot', () => {
+    const a = applyGuestPartyMessage(emptyState(), {
+      v: 1,
+      type: 'queue_snapshot',
+      ids: ['a'],
+      currentIndex: 0,
+      titles: [null],
+      requestedBys: [null],
+      requesterGuestIds: [null],
+      sessionAdminPeerId: null,
+      maxGuestQueueRowsPerGuest: 2,
+      audienceChatEnabled: false,
+    })
+    expect(a.audienceChatEnabled).toBe(false)
   })
 
   it('records queue_settings_rejected', () => {

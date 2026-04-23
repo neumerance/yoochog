@@ -14,6 +14,10 @@ export type GuestPartyUiState = {
    * default when the field is absent (older hosts).
    */
   maxGuestQueueRowsPerGuest: number
+  /**
+   * When `false`, guests must not send audience chat. Absent on older hosts → treat as on.
+   */
+  audienceChatEnabled: boolean
   lastEnqueueError: string | null
   /** Host `chat_rejected` reason; cleared on successful send path / auto-dismiss in composable. */
   lastChatError: string | null
@@ -37,6 +41,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         }),
         sessionAdminGuestId: msg.sessionAdminPeerId,
         maxGuestQueueRowsPerGuest: msg.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: msg.audienceChatEnabled,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: prev.lastChatError,
         lastQueueSettingsError: prev.lastQueueSettingsError,
@@ -46,6 +51,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         snapshot: prev.snapshot,
         sessionAdminGuestId: prev.sessionAdminGuestId,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: prev.audienceChatEnabled,
         lastEnqueueError: msg.reason,
         lastChatError: prev.lastChatError,
         lastQueueSettingsError: prev.lastQueueSettingsError,
@@ -55,6 +61,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         snapshot: prev.snapshot,
         sessionAdminGuestId: prev.sessionAdminGuestId,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: prev.audienceChatEnabled,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: msg.reason,
         lastQueueSettingsError: prev.lastQueueSettingsError,
@@ -64,6 +71,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         snapshot: prev.snapshot,
         sessionAdminGuestId: prev.sessionAdminGuestId,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
+        audienceChatEnabled: prev.audienceChatEnabled,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: prev.lastChatError,
         lastQueueSettingsError: msg.reason,

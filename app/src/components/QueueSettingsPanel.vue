@@ -14,16 +14,19 @@ const props = defineProps<{
   modelValue: boolean
   /** Effective cap from the host (drives the draft on open and after sync). */
   maxFromHost: number
+  /** Host toggle: guests can send short messages to the TV overlay. */
+  chatEnabledFromHost: boolean
   isSaving: boolean
   lastError: string | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'save', value: number): void
+  (e: 'save', value: { maxGuestQueueRowsPerGuest: number; audienceChatEnabled: boolean }): void
 }>()
 
 const draft = ref(GUEST_QUEUE_ROWS_CAP_MIN)
+const draftChatEnabled = ref(true)
 const isOpen = computed({
   get: () => props.modelValue,
   set: (v) => {
@@ -32,10 +35,11 @@ const isOpen = computed({
 })
 
 watch(
-  () => [props.modelValue, props.maxFromHost] as const,
-  ([open, max]) => {
+  () => [props.modelValue, props.maxFromHost, props.chatEnabledFromHost] as const,
+  ([open, max, chat]) => {
     if (open) {
       draft.value = max
+      draftChatEnabled.value = chat
     }
   },
   { immediate: true },
@@ -52,7 +56,17 @@ function onSave() {
   if (props.isSaving) {
     return
   }
-  emit('save', draft.value)
+  emit('save', {
+    maxGuestQueueRowsPerGuest: draft.value,
+    audienceChatEnabled: draftChatEnabled.value,
+  })
+}
+
+function toggleDraftChat() {
+  if (props.isSaving) {
+    return
+  }
+  draftChatEnabled.value = !draftChatEnabled.value
 }
 
 function clampDraft(n: number) {
@@ -177,6 +191,29 @@ const canIncrement = computed(() => draft.value < GUEST_QUEUE_ROWS_CAP_MAX)
                       </button>
                     </div>
                   </div>
+                </div>
+                <div
+                  class="flex min-h-11 items-center justify-between gap-3 border-t border-[#C6C6C8] py-1 pl-4 pr-3 dark:border-slate-600"
+                >
+                  <span
+                    id="queue-audience-chat-label"
+                    class="min-w-0 flex-1 pr-2 text-[1.0625rem] font-normal leading-tight text-black dark:text-slate-100"
+                  >Audience chat</span>
+                  <button
+                    type="button"
+                    class="relative inline-flex h-[31px] w-[51px] shrink-0 cursor-pointer items-center rounded-full p-[2px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:outline-sky-400"
+                    :class="draftChatEnabled ? 'bg-[#34C759]' : 'bg-[#E5E5EA] dark:bg-slate-600'"
+                    :disabled="isSaving"
+                    role="switch"
+                    :aria-checked="draftChatEnabled"
+                    aria-labelledby="queue-audience-chat-label"
+                    @click="toggleDraftChat"
+                  >
+                    <span
+                      class="pointer-events-none block h-[27px] w-[27px] translate-x-0 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-out will-change-transform dark:bg-slate-100"
+                      :class="draftChatEnabled ? 'translate-x-5' : 'translate-x-0'"
+                    />
+                  </button>
                 </div>
               </div>
               <p

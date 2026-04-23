@@ -7,6 +7,7 @@ import {
   PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH,
   PARTY_QUEUE_TITLE_MAX_LENGTH,
   PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH,
+  DEFAULT_AUDIENCE_CHAT_ENABLED,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
   serializePartyMessage,
@@ -70,6 +71,7 @@ describe('parsePartyMessage', () => {
       requesterGuestIds: [null],
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 2,
+      audienceChatEnabled: DEFAULT_AUDIENCE_CHAT_ENABLED,
     })
   })
 
@@ -111,6 +113,7 @@ describe('parsePartyMessage', () => {
       expect(p.requesterGuestIds).toEqual([])
       expect(p.sessionAdminPeerId).toBeNull()
       expect(p.maxGuestQueueRowsPerGuest).toBe(2)
+      expect(p.audienceChatEnabled).toBe(true)
     }
   })
 
@@ -497,5 +500,44 @@ describe('parsePartyMessage', () => {
     }
     expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
     expect(parsePartyMessage(serializePartyMessage(b))).toEqual(b)
+  })
+
+  it('round-trips queue_settings_update_request with audienceChatEnabled', () => {
+    const a = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request' as const,
+      maxGuestQueueRowsPerGuest: 3,
+      audienceChatEnabled: false,
+      requesterGuestId: 'g1',
+    }
+    expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
+  })
+
+  it('rejects queue_settings_update_request when audienceChatEnabled is not boolean', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request',
+      maxGuestQueueRowsPerGuest: 4,
+      audienceChatEnabled: 'no',
+      requesterGuestId: 'g1',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips queue_snapshot with audienceChatEnabled false', () => {
+    const msg = queueSnapshotToMessage(
+      {
+        ids: ['a'],
+        titles: [null],
+        requestedBys: [null],
+        requesterGuestIds: [null],
+        currentIndex: 0,
+      },
+      null,
+      2,
+      false,
+    )
+    expect(msg.type === 'queue_snapshot' && msg.audienceChatEnabled === false).toBe(true)
+    expect(parsePartyMessage(serializePartyMessage(msg))).toEqual(msg)
   })
 })

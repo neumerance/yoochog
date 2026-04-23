@@ -16,6 +16,8 @@ export const AUDIENCE_CHAT_DRIFT_MAX_MS = 16_000
 
 export const CHAT_REJECT_REASON_COOLDOWN = 'Please wait before sending again.'
 export const CHAT_REJECT_REASON_DUPLICATE = 'You already sent that recently.'
+/** Host has disabled audience chat for the session (queue snapshot / session admin). */
+export const CHAT_REJECT_REASON_DISABLED = 'Chat is turned off for this session.'
 
 export type GuestAudienceChatHostState = {
   /** Last time any chat was accepted from this guest (rate limit). */
