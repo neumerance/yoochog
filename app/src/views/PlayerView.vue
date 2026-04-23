@@ -105,17 +105,15 @@
             v-if="activeVideoId && !audioSessionUnlocked"
             class="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-black/30 px-[clamp(0.75rem,min(5vmin,5vw),4rem)] select-none"
             role="button"
-            tabindex="0"
-            aria-label="Press any key or tap this overlay to start singing"
+            tabindex="-1"
+            aria-label="Click here to start singing"
             @click="startSinging"
-            @keydown.enter.prevent="startSinging"
-            @keydown.space.prevent="startSinging"
           >
             <!-- Same viewport-fluid type scale as HostPlaybackIdle copy (TV / ultrawide). -->
             <p
               class="pointer-events-none max-w-[min(78vw,92vmin,96%)] text-center font-extrabold uppercase leading-tight tracking-wide text-yellow-300 [-webkit-text-stroke:0.055em_#000] [paint-order:stroke_fill] text-[length:clamp(0.6125rem,calc(2.975vmin_+_0.315vw),5.25rem)] animate-press-key-cta"
             >
-              Press any key or tap here to start singing
+              Click here to start singing
             </p>
           </div>
         </div>
@@ -320,9 +318,9 @@ const queueTick = ref(0)
 const playerSyncTick = ref(0)
 const idleVariant = ref<'empty' | 'ended' | null>(null)
 /**
- * False until the host uses a gesture (any key or tap on the semi-transparent unlock overlay) to
- * unlock audio (browser autoplay policy). The video surface is not the tap target — a pointer
- * shield sits above the iframe. Stays true when the queue advances to the next track after a
+ * False until the host clicks the semi-transparent unlock overlay (pointer only; no keyboard
+ * shortcut) to unlock audio (browser autoplay policy). The raw iframe is not the target — a
+ * pointer shield sits above it. Stays true when the queue advances to the next track after a
  * natural end, embed error skip, or guest “end song” (same as natural end). Reset when the queue is
  * empty after the last song ends or errors, or on first paint with a persisted queue (initial ref
  * is false).
@@ -512,9 +510,9 @@ watch(idleVariant, (v) => {
 
 function startSinging() {
   // Browsers (notably Firefox) only honor unmute/play for cross-origin media when the IFrame API
-  // call runs in the same user-activation turn as the tap/key. A Vue ref update + watch runs
-  // later in a microtask and the gesture is gone — playback stays paused with a visible play
-  // button. Apply unmute/seek/play synchronously when the player is already ready.
+  // call runs in the same user-activation turn as the click. A Vue ref update + watch runs later
+  // in a microtask and the gesture is gone — playback stays paused with a visible play button.
+  // Apply unmute/seek/play synchronously when the player is already ready.
   if (isReady.value && player.value) {
     try {
       const p = player.value
@@ -529,29 +527,6 @@ function startSinging() {
   }
   audioSessionUnlocked.value = true
 }
-
-let stopUnlockKeyListener: (() => void) | null = null
-
-watch(
-  [activeVideoId, audioSessionUnlocked],
-  () => {
-    stopUnlockKeyListener?.()
-    stopUnlockKeyListener = null
-    if (!activeVideoId.value || audioSessionUnlocked.value) {
-      return
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
-        return
-      }
-      startSinging()
-      e.preventDefault()
-    }
-    window.addEventListener('keydown', onKeyDown, true)
-    stopUnlockKeyListener = () => window.removeEventListener('keydown', onKeyDown, true)
-  },
-  { immediate: true },
-)
 
 /** Restart from the beginning when audio unlocks (covers gesture before `isReady`). */
 watch([isReady, audioSessionUnlocked], () => {
@@ -588,8 +563,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  stopUnlockKeyListener?.()
-  stopUnlockKeyListener = null
   stopHostViewportListener?.()
   stopHostViewportListener = null
 })

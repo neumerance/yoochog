@@ -29,8 +29,8 @@ export interface UseYoutubePlayerOptions {
    */
   autoplay?: MaybeRefOrGetter<boolean>
   /**
-   * After a user gesture (key press or tap on the host’s unlock overlay — not the raw iframe when
-   * a pointer shield sits above it), set this to true. The composable calls `unMute()` and applies
+   * After a user gesture (click on the host’s unlock overlay — not the raw iframe when a pointer
+   * shield sits above it), set this to true. The composable calls `unMute()` and applies
    * `sessionVolume` on ready and when playback enters PLAYING.
    * When false, the player is kept **muted** (including after `loadVideoById`).
    */
