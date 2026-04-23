@@ -84,10 +84,10 @@
             aria-label="YouTube video player"
           />
           <!--
-            Blocks pointer events to the iframe so the host cannot use YouTube HUD / play-pause on
-            the surface. Stays under idle (z-10), chat, the audio-unlock overlay (z-20), and help tips
-            (z-30) so the tip dismiss control stays clickable while unlocking audio.
-            See https://developers.google.com/youtube/player_parameters — companion playerVars in useYoutubePlayer options.
+            Pointer shield: block taps to the embed so the host does not get YouTube’s full HUD
+            (playerVars are still needed; interaction or Topic music embeds can ignore/surface chrome).
+            Stays under idle (z-10), chat, audio-unlock (z-20), and help tips (z-30) so those stay usable.
+            See https://developers.google.com/youtube/player_parameters — playerVars in useYoutubePlayer.
           -->
           <div
             v-if="showHostVideoPointerShield"
@@ -390,7 +390,7 @@ const activeVideoId = computed(() => {
   return queue.currentVideoId()
 })
 
-/** True while the embed is the playing surface (not idle empty/ended) — pointer shield matches this. */
+/** True while the embed is the playing surface (not idle empty/ended) — full-area shield blocks YouTube’s native HUD. */
 const showHostVideoPointerShield = computed(
   () => Boolean(activeVideoId.value) && idleVariant.value === null,
 )
@@ -447,8 +447,9 @@ const { player, isReady } = useYoutubePlayer(playerContainer, {
   autoplay: true,
   audioSessionUnlocked,
   /**
-   * Host “chromeless” embed — see https://developers.google.com/youtube/player_parameters
+   * Host chromeless embed — https://developers.google.com/youtube/player_parameters
    * (YouTube may change which parameters are honored over time.)
+   * - disablekb, fs, iv_load_policy, modestbranding, rel, controls: see inline keys below
    */
   playerVars: {
     controls: 0,
