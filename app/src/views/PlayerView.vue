@@ -509,6 +509,22 @@ watch(idleVariant, (v) => {
 })
 
 function startSinging() {
+  // Browsers (notably Firefox) only honor unmute/play for cross-origin media when the IFrame API
+  // call runs in the same user-activation turn as the tap/key. A Vue ref update + watch runs
+  // later in a microtask and the gesture is gone — playback stays paused with a visible play
+  // button. Apply unmute/seek/play synchronously when the player is already ready.
+  if (isReady.value && player.value) {
+    try {
+      const p = player.value
+      p.unMute()
+      p.setVolume(100)
+      p.seekTo(0, true)
+      p.playVideo()
+      didSeekOnFirstUnlock.value = true
+    } catch {
+      // Deferred watch can retry when the embed is in a bad moment.
+    }
+  }
   audioSessionUnlocked.value = true
 }
 
