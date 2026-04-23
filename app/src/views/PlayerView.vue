@@ -85,7 +85,8 @@
           />
           <!--
             Blocks pointer events to the iframe so the host cannot use YouTube HUD / play-pause on
-            the surface. Stays under idle (z-10), help tips, chat, and the audio-unlock overlay.
+            the surface. Stays under idle (z-10), chat, the audio-unlock overlay (z-20), and help tips
+            (z-30) so the tip dismiss control stays clickable while unlocking audio.
             See https://developers.google.com/youtube/player_parameters — companion playerVars in useYoutubePlayer options.
           -->
           <div
@@ -509,6 +510,22 @@ watch(idleVariant, (v) => {
 })
 
 function startSinging() {
+  // Browsers (notably Firefox) only honor unmute/play for cross-origin media when the IFrame API
+  // call runs in the same user-activation turn as the tap/key. A Vue ref update + watch runs
+  // later in a microtask and the gesture is gone — playback stays paused with a visible play
+  // button. Apply unmute/seek/play synchronously when the player is already ready.
+  if (isReady.value && player.value) {
+    try {
+      const p = player.value
+      p.unMute()
+      p.setVolume(100)
+      p.seekTo(0, true)
+      p.playVideo()
+      didSeekOnFirstUnlock.value = true
+    } catch {
+      // Deferred watch can retry when the embed is in a bad moment.
+    }
+  }
   audioSessionUnlocked.value = true
 }
 
