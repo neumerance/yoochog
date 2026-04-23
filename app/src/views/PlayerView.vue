@@ -508,8 +508,33 @@ watch(idleVariant, (v) => {
   }
 })
 
+/**
+ * Browsers (especially Firefox) may reject `playVideo()` if it runs only in a deferred `watch` —
+ * outside the user-activation window from the tap / key that unlocked audio. When the YT player is
+ * already ready, we start playback in the same synchronous turn as the gesture.
+ */
+function tryStartPlaybackAfterUnlock() {
+  if (!isReady.value || !audioSessionUnlocked.value || !player.value) {
+    return
+  }
+  if (didSeekOnFirstUnlock.value) {
+    return
+  }
+  try {
+    const p = player.value
+    p.unMute()
+    p.setVolume(100)
+    p.seekTo(0, true)
+    p.playVideo()
+  } catch {
+    // Player may be torn down.
+  }
+  didSeekOnFirstUnlock.value = true
+}
+
 function startSinging() {
   audioSessionUnlocked.value = true
+  tryStartPlaybackAfterUnlock()
 }
 
 let stopUnlockKeyListener: (() => void) | null = null
@@ -535,21 +560,12 @@ watch(
   { immediate: true },
 )
 
-/** Restart from the beginning when audio unlocks (covers gesture before `isReady`). */
+/**
+ * If the IFrame API becomes ready *after* the user unlocked, attempt playback from the watch (user
+ * may need a second tap on strict browsers — rare).
+ */
 watch([isReady, audioSessionUnlocked], () => {
-  if (!isReady.value || !audioSessionUnlocked.value || !player.value) {
-    return
-  }
-  if (didSeekOnFirstUnlock.value) {
-    return
-  }
-  try {
-    player.value.seekTo(0, true)
-    player.value.playVideo()
-  } catch {
-    // Player may be torn down.
-  }
-  didSeekOnFirstUnlock.value = true
+  tryStartPlaybackAfterUnlock()
 })
 
 onMounted(() => {
