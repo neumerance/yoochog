@@ -27,7 +27,6 @@ import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
 import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 import {
-  RECONNECT_COUNTDOWN_SECONDS,
   RECONNECT_VISIBILITY_MIN_HIDDEN_MS,
   shouldStopRetry,
   VISIBILITY_RESUME_HEALTH_PROBE_MS,
@@ -112,9 +111,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   })
 
   const reconnectTrigger = ref(0)
-  const retryCountdownSeconds = ref<number | null>(null)
   let failureCount = 0
-  let reconnectTimer: ReturnType<typeof setInterval> | null = null
   let activeDispose: (() => void) | null = null
 
   const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
@@ -138,13 +135,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     onVisibleAfterHidden: () => visibilityRecovery.value?.(),
   })
 
-  function clearReconnectTimer() {
-    if (reconnectTimer) {
-      clearInterval(reconnectTimer)
-      reconnectTimer = null
-    }
-  }
-
   function scheduleReconnectFromLoss() {
     if (!sessionId.value) {
       return
@@ -153,13 +143,11 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       return
     }
 
-    clearReconnectTimer()
     activeDispose()
     activeDispose = null
     sendPartyRaw = null
 
     if (shouldStopRetry(failureCount)) {
-      retryCountdownSeconds.value = null
       status.value = 'failed'
       console.log(
         '[yoochog guest handshake]',
@@ -169,24 +157,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     }
 
     failureCount++
-    status.value = 'idle'
-    retryCountdownSeconds.value = RECONNECT_COUNTDOWN_SECONDS
-
-    reconnectTimer = setInterval(() => {
-      const n = retryCountdownSeconds.value
-      if (n === null) {
-        clearReconnectTimer()
-        return
-      }
-      if (n <= 1) {
-        clearReconnectTimer()
-        retryCountdownSeconds.value = null
-        status.value = 'reconnecting'
-        reconnectTrigger.value++
-        return
-      }
-      retryCountdownSeconds.value = n - 1
-    }, 1000)
+    status.value = 'reconnecting'
+    reconnectTrigger.value++
   }
 
   const prevSessionId = ref<string | null>(null)
@@ -194,10 +166,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   watch(
     () => [sessionId.value, reconnectTrigger.value] as const,
     ([id, trig]) => {
-      clearReconnectTimer()
       clearVisibilityResumeProbeTimer()
       partyLinkHealth.value = null
-      retryCountdownSeconds.value = null
       activeDispose?.()
       activeDispose = null
       sendPartyRaw = null
@@ -347,20 +317,12 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     clearEnqueueErrorDismissTimer()
     clearChatErrorDismissTimer()
     clearQueueSettingsErrorDismissTimer()
-    clearReconnectTimer()
-    retryCountdownSeconds.value = null
     activeDispose?.()
     activeDispose = null
     visibilityRecovery.value = null
   })
 
-  const statusLabel = computed(() => {
-    const n = retryCountdownSeconds.value
-    if (n !== null && n > 0) {
-      return `Retrying in ${n}`
-    }
-    return handshakeStatusLabel(status.value)
-  })
+  const statusLabel = computed(() => handshakeStatusLabel(status.value))
 
   function requestEnqueue(
     videoId: string,
@@ -481,7 +443,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   return {
     status,
     statusLabel,
-    retryCountdownSeconds,
     isSignalingConfigured: computed(() => hasSignaling),
     queueSnapshot,
     sessionAdminGuestId,

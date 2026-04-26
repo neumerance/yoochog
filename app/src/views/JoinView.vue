@@ -52,7 +52,6 @@ const handshakeSessionId = computed(() => (guestNameReady.value ? routeSessionId
 const {
   status: handshakeStatus,
   statusLabel,
-  retryCountdownSeconds,
   isSignalingConfigured,
   queueSnapshot,
   sessionAdminGuestId,
@@ -577,7 +576,6 @@ watch(lastQueueSettingsError, (e) => {
               :status="handshakeStatus"
               :status-label="joinHandshakeStatusLabel"
               :is-signaling-configured="isSignalingConfigured"
-              :retry-countdown-seconds="retryCountdownSeconds"
             />
           </div>
           <div

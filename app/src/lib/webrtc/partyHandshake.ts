@@ -52,7 +52,7 @@ export type GuestPartyHandshakeOptions = {
   signal: AbortSignal
   onPartyChannelOpen?: () => void
   onPartyMessage?: (raw: string) => void
-  /** After the party link was up: PC/ICE/data channel dropped; composable should reconnect with backoff. */
+  /** After the party link was up: PC/ICE/data channel dropped; composable should reconnect immediately. */
   onConnectionLost?: (detail: string) => void
 } & PartyHandshakeCallbacks
 

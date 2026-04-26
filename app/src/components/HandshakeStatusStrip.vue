@@ -3,26 +3,16 @@ import { computed } from 'vue'
 
 import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
 
-const props = withDefaults(
-  defineProps<{
-    status: HandshakeUiState
-    statusLabel: string
-    isSignalingConfigured: boolean
-    /** Guest retry countdown after connection loss; host omits. */
-    retryCountdownSeconds?: number | null
-  }>(),
-  { retryCountdownSeconds: null },
-)
+const props = defineProps<{
+  status: HandshakeUiState
+  statusLabel: string
+  isSignalingConfigured: boolean
+}>()
 
 const showGreen = computed(() => props.status === 'connected')
 
-const showRetryCountdown = computed(
-  () => props.retryCountdownSeconds !== null && props.retryCountdownSeconds > 0,
-)
-
 const showConnectingPulse = computed(
   () =>
-    showRetryCountdown.value ||
     props.status === 'connecting_signaling' ||
     props.status === 'establishing_handshake' ||
     props.status === 'reconnecting',
@@ -61,13 +51,7 @@ const showOfflineBlip = computed(
         <div class="min-w-0 flex-1">
           <p role="status">
             <template v-if="showConnectingPulse">
-              <span
-                v-if="showRetryCountdown"
-                class="inline-flex items-baseline gap-0 whitespace-nowrap tabular-nums"
-              >
-                {{ statusLabel }}
-              </span>
-              <span v-else class="inline-flex items-baseline gap-0 whitespace-nowrap">
+              <span class="inline-flex items-baseline gap-0 whitespace-nowrap">
                 <span>Connecting</span>
                 <span class="handshake-connecting-ellipsis" aria-hidden="true">...</span>
               </span>
