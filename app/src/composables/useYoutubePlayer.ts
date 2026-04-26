@@ -91,6 +91,19 @@ export function useYoutubePlayer(
     }
   }
 
+  /**
+   * Nudge the embed toward the highest renditions the client will honor. YouTube’s ABR ultimately
+   * picks quality; `setPlaybackQuality` is officially deprecated and may be a no-op, but on some
+   * clients it still records a *preference* (actual delivery depends on connection + player size).
+   */
+  const suggestMaxPlaybackQuality = (p: YT.Player) => {
+    try {
+      p.setPlaybackQuality('highres')
+    } catch {
+      // API removed or player destroyed.
+    }
+  }
+
   const destroyPlayer = () => {
     const current = player.value
     player.value = null
@@ -137,13 +150,14 @@ export function useYoutubePlayer(
       lastSyncKey = { id, seq }
       // Ignore spurious ENDED from the previous clip while the iframe swaps to the next video.
       lastYtPlayerState = null
-      try {
+        try {
         player.value.loadVideoById({ videoId: id })
         if (toValue(options.audioSessionUnlocked)) {
           player.value.playVideo()
         } else {
           player.value.mute()
         }
+        suggestMaxPlaybackQuality(player.value)
       } catch {
         // Player may be torn down mid-call.
       }
@@ -203,6 +217,7 @@ export function useYoutubePlayer(
             }
             isReady.value = true
             applySessionAudio(event.target)
+            suggestMaxPlaybackQuality(event.target)
             options.onReady?.(event.target)
           },
           onStateChange: (event) => {
@@ -223,6 +238,7 @@ export function useYoutubePlayer(
             }
             options.onPlaying?.()
             applySessionAudio(event.target)
+            suggestMaxPlaybackQuality(event.target)
           },
         },
       })
