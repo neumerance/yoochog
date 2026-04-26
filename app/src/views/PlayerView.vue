@@ -259,6 +259,7 @@ import { loadHostQueue, saveHostQueue } from '@/lib/host-queue/hostQueuePersiste
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { runAdblockProbe } from '@/lib/adblockProbe'
 import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
+import { shouldAllowNaturalQueueAdvanceOnHostPlaybackEnd } from '@/lib/playback/youtubeEndGate'
 import type { PlayerHelpTipContext } from '@/lib/playerHelpTips'
 
 import logoUrl from '@/assets/images/logo/logo.png'
@@ -326,7 +327,16 @@ const idleVariant = ref<'empty' | 'ended' | null>(null)
  * is false).
  */
 const audioSessionUnlocked = ref(false)
-/** Reset when advancing tracks so the next unlock seek+play runs once per song. */
+/**
+ * True while the room’s **transport** is intentionally held paused (host sidebar or guest request).
+ * Prevents queue advance on ENDED while §D “hold” is active; kept in sync with `pauseVideo` / `playVideo`.
+ */
+const userPlaybackHoldActive = ref(false)
+/**
+ * After `true`, re-unlock skips `seekTo(0)` for the same queue row. Reset on track advance, empty
+ * queue, or **guest re-lock** so the next “start singing” matches **first load** (muted preview,
+ * then click → from the start with sound).
+ */
 const didSeekOnFirstUnlock = ref(false)
 
 function bumpQueue() {
@@ -342,6 +352,7 @@ function applyNaturalPlaybackEnd() {
   if (action.kind === 'advance') {
     idleVariant.value = null
     didSeekOnFirstUnlock.value = false
+    userPlaybackHoldActive.value = false
     queue.advance()
     playerSyncTick.value++
     bumpQueue()
@@ -352,6 +363,7 @@ function applyNaturalPlaybackEnd() {
   idleVariant.value = 'ended'
   audioSessionUnlocked.value = false
   didSeekOnFirstUnlock.value = false
+  userPlaybackHoldActive.value = false
 }
 
 watch(
@@ -376,7 +388,18 @@ const {
   audienceChatLines,
   removeAudienceChatLine,
   maxGuestQueueRowsPerGuest,
-} = useHostPartySession(hostSessionId, queue, queueTick, bumpQueue, applyNaturalPlaybackEnd)
+} = useHostPartySession(
+  hostSessionId,
+  queue,
+  queueTick,
+  bumpQueue,
+  audioSessionUnlocked,
+  applyNaturalPlaybackEnd,
+  () => {
+    audioSessionUnlocked.value = false
+    didSeekOnFirstUnlock.value = false
+  },
+)
 const skipMessage = ref<string | null>(null)
 const embedSetupError = ref<string | null>(null)
 
@@ -472,6 +495,14 @@ const { player, isReady } = useYoutubePlayer(playerContainer, {
 })
 
 function handlePlaybackEnded() {
+  if (
+    !shouldAllowNaturalQueueAdvanceOnHostPlaybackEnd({
+      audioSessionUnlocked: audioSessionUnlocked.value,
+      userPlaybackHoldActive: userPlaybackHoldActive.value,
+    })
+  ) {
+    return
+  }
   applyNaturalPlaybackEnd()
 }
 
@@ -481,6 +512,7 @@ function handlePlaybackError() {
     skipMessage.value = 'That one hid from us — skipping ahead.'
     idleVariant.value = null
     didSeekOnFirstUnlock.value = false
+    userPlaybackHoldActive.value = false
     queue.advance()
     playerSyncTick.value++
     bumpQueue()
@@ -492,6 +524,7 @@ function handlePlaybackError() {
   idleVariant.value = 'ended'
   audioSessionUnlocked.value = false
   didSeekOnFirstUnlock.value = false
+  userPlaybackHoldActive.value = false
   window.setTimeout(() => {
     skipMessage.value = null
   }, 4500)
@@ -518,7 +551,9 @@ function startSinging() {
       const p = player.value
       p.unMute()
       p.setVolume(100)
-      p.seekTo(0, true)
+      if (!didSeekOnFirstUnlock.value) {
+        p.seekTo(0, true)
+      }
       p.playVideo()
       didSeekOnFirstUnlock.value = true
     } catch {

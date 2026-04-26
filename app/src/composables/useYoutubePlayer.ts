@@ -9,6 +9,7 @@ import {
   type MaybeRefOrGetter,
 } from 'vue'
 
+import { shouldEmitYoutubeEndedToHost } from '@/lib/playback/youtubeEndGate'
 import { loadYouTubeIframeApi } from '@/lib/youtube/loadIframeApi'
 
 export interface UseYoutubePlayerOptions {
@@ -226,7 +227,7 @@ export function useYoutubePlayer(
             }
             const data = event.data
             if (data === 0 /* YT.PlayerState.ENDED */) {
-              if (lastYtPlayerState === 1 /* PLAYING */ || lastYtPlayerState === 2 /* PAUSED */) {
+              if (shouldEmitYoutubeEndedToHost(data, lastYtPlayerState)) {
                 options.onEnded?.()
               }
               lastYtPlayerState = 0

@@ -16,6 +16,7 @@ import {
   validateAudienceChatText,
 } from '@/lib/party/audienceChatValidation'
 import {
+  DEFAULT_AUDIO_SESSION_UNLOCKED,
   DEFAULT_AUDIENCE_CHAT_ENABLED,
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
@@ -47,6 +48,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const lastQueueSettingsError = ref<string | null>(null)
   const maxGuestQueueRowsPerGuest = ref(GUEST_QUEUE_ROWS_CAP_DEFAULT)
   const audienceChatEnabled = ref(DEFAULT_AUDIENCE_CHAT_ENABLED)
+  const hostAudioSessionUnlocked = ref(DEFAULT_AUDIO_SESSION_UNLOCKED)
   /** Wall-clock ms when guest chat cooldown ends (`0` = none). */
   const audienceChatCooldownEndsAt = ref(0)
   /** Last text sent from this tab (for local duplicate UX). */
@@ -179,6 +181,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       lastQueueSettingsError.value = null
       maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
       audienceChatEnabled.value = DEFAULT_AUDIENCE_CHAT_ENABLED
+      hostAudioSessionUnlocked.value = DEFAULT_AUDIO_SESSION_UNLOCKED
       clearChatErrorDismissTimer()
       clearQueueSettingsErrorDismissTimer()
       audienceChatCooldownEndsAt.value = 0
@@ -253,6 +256,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
               sessionAdminGuestId: sessionAdminGuestId.value,
               maxGuestQueueRowsPerGuest: maxGuestQueueRowsPerGuest.value,
               audienceChatEnabled: audienceChatEnabled.value,
+              hostAudioSessionUnlocked: hostAudioSessionUnlocked.value,
               lastEnqueueError: lastEnqueueError.value,
               lastChatError: lastChatError.value,
               lastQueueSettingsError: lastQueueSettingsError.value,
@@ -263,6 +267,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           sessionAdminGuestId.value = next.sessionAdminGuestId
           maxGuestQueueRowsPerGuest.value = next.maxGuestQueueRowsPerGuest
           audienceChatEnabled.value = next.audienceChatEnabled
+          hostAudioSessionUnlocked.value = next.hostAudioSessionUnlocked
           lastEnqueueError.value = next.lastEnqueueError
           lastChatError.value = next.lastChatError
           lastQueueSettingsError.value = next.lastQueueSettingsError
@@ -353,6 +358,32 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       serializePartyMessage({
         v: PARTY_MESSAGE_SCHEMA_VERSION,
         type: 'end_current_playback_request',
+        requesterGuestId,
+      }),
+    )
+  }
+
+  function requestPauseCurrentPlayback(requesterGuestId: string) {
+    if (!sendPartyRaw) {
+      return
+    }
+    sendPartyRaw(
+      serializePartyMessage({
+        v: PARTY_MESSAGE_SCHEMA_VERSION,
+        type: 'pause_current_playback_request',
+        requesterGuestId,
+      }),
+    )
+  }
+
+  function requestResumeCurrentPlayback(requesterGuestId: string) {
+    if (!sendPartyRaw) {
+      return
+    }
+    sendPartyRaw(
+      serializePartyMessage({
+        v: PARTY_MESSAGE_SCHEMA_VERSION,
+        type: 'resume_current_playback_request',
         requesterGuestId,
       }),
     )
@@ -452,9 +483,12 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     lastQueueSettingsError,
     maxGuestQueueRowsPerGuest,
     audienceChatEnabled,
+    hostAudioSessionUnlocked,
     audienceChatCooldownEndsAt,
     requestEnqueue,
     requestEndCurrentPlayback,
+    requestPauseCurrentPlayback,
+    requestResumeCurrentPlayback,
     requestRemoveRow,
     requestQueueSettingsUpdate,
     requestAudienceChat,

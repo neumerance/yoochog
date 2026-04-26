@@ -60,9 +60,11 @@ const {
   lastQueueSettingsError,
   maxGuestQueueRowsPerGuest,
   audienceChatEnabled,
+  hostAudioSessionUnlocked,
   audienceChatCooldownEndsAt,
   requestEnqueue,
   requestEndCurrentPlayback,
+  requestPauseCurrentPlayback,
   requestRemoveRow,
   requestQueueSettingsUpdate,
   requestAudienceChat,
@@ -241,6 +243,14 @@ const canShowEndNowPlaying = computed(() => {
 })
 
 /**
+ * “Pause” on join: host re-locks the room to “Click here to start singing” (same allow-list as end).
+ * Only shown when the host snapshot says the room is audibly live (`hostAudioSessionUnlocked`).
+ */
+const canShowGuestRelockForRoom = computed(
+  () => canShowEndNowPlaying.value && hostAudioSessionUnlocked.value,
+)
+
+/**
  * Remove a future (non-current) row: **session admin** (any row) **or** **owner** of that row.
  * Now-playing row uses “End for everyone” instead.
  */
@@ -280,6 +290,14 @@ function confirmEndSong() {
   }
   requestEndCurrentPlayback(getOrCreatePartyGuestRequesterId(sid))
   closeEndSongDialog()
+}
+
+function onGuestRelockForRoom() {
+  const sid = routeSessionId.value
+  if (!sid) {
+    return
+  }
+  requestPauseCurrentPlayback(getOrCreatePartyGuestRequesterId(sid))
 }
 
 function onRemoveQueueRow(index: number) {
@@ -734,13 +752,32 @@ watch(lastQueueSettingsError, (e) => {
               </div>
               <div class="flex shrink-0 items-center justify-end gap-2 pt-0.5">
                 <button
+                  v-if="index === queueSnapshot?.currentIndex && canShowGuestRelockForRoom"
+                  type="button"
+                  class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FF9500] shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-[transform,background-color] active:scale-[0.96] active:bg-[#E68600] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF9500]"
+                  aria-label="Return the room to preview without full sound; the host can tap to start the song from the beginning with sound"
+                  @click="onGuestRelockForRoom"
+                >
+                  <svg
+                    class="pointer-events-none h-[16.8px] w-[13.2px] shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M5.1 3.5h4.8v17H5.1V3.5M14 3.5h4.8v17h-4.8V3.5z"
+                      fill="white"
+                    />
+                  </svg>
+                </button>
+                <button
                   v-if="index === queueSnapshot?.currentIndex && canShowEndNowPlaying"
                   type="button"
                   class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FF3B30] shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-[transform,background-color] active:scale-[0.96] active:bg-[#D70015] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF3B30]"
                   aria-label="Stop this song for everyone"
                   @click="openEndSongDialog"
                 >
-                  <!-- Classic player stop: solid square on red (same red as Playing pill) -->
+                  <!-- Classic player stop: solid square on red -->
                   <svg
                     class="pointer-events-none h-[14px] w-[14px]"
                     viewBox="0 0 24 24"
@@ -759,12 +796,6 @@ watch(lastQueueSettingsError, (e) => {
                 >
                   Remove
                 </button>
-                <span
-                  v-if="index === queueSnapshot?.currentIndex"
-                  class="inline-flex items-center rounded-full bg-[#FF3B30] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-                >
-                  Playing
-                </span>
               </div>
             </div>
           </li>

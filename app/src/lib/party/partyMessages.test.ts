@@ -7,6 +7,7 @@ import {
   PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH,
   PARTY_QUEUE_TITLE_MAX_LENGTH,
   PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH,
+  DEFAULT_AUDIO_SESSION_UNLOCKED,
   DEFAULT_AUDIENCE_CHAT_ENABLED,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
@@ -72,6 +73,7 @@ describe('parsePartyMessage', () => {
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: DEFAULT_AUDIENCE_CHAT_ENABLED,
+      audioSessionUnlocked: DEFAULT_AUDIO_SESSION_UNLOCKED,
     })
   })
 
@@ -114,6 +116,7 @@ describe('parsePartyMessage', () => {
       expect(p.sessionAdminPeerId).toBeNull()
       expect(p.maxGuestQueueRowsPerGuest).toBe(2)
       expect(p.audienceChatEnabled).toBe(true)
+      expect(p.audioSessionUnlocked).toBe(DEFAULT_AUDIO_SESSION_UNLOCKED)
     }
   })
 
@@ -243,6 +246,26 @@ describe('parsePartyMessage', () => {
       requesterGuestId: 'x'.repeat(PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH + 1),
     })
     expect(parsePartyMessage(raw)).toBeNull()
+  })
+
+  it('round-trips pause_current_playback_request', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'pause_current_playback_request' as const,
+      requesterGuestId: '550e8400-e29b-41d4-a716-446655440000',
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
+  })
+
+  it('round-trips resume_current_playback_request', () => {
+    const msg = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'resume_current_playback_request' as const,
+      requesterGuestId: null,
+    }
+    const raw = serializePartyMessage(msg)
+    expect(parsePartyMessage(raw)).toEqual(msg)
   })
 
   it('round-trips remove_queue_row_request', () => {
@@ -536,6 +559,7 @@ describe('parsePartyMessage', () => {
       null,
       2,
       false,
+      DEFAULT_AUDIO_SESSION_UNLOCKED,
     )
     expect(msg.type === 'queue_snapshot' && msg.audienceChatEnabled === false).toBe(true)
     expect(parsePartyMessage(serializePartyMessage(msg))).toEqual(msg)

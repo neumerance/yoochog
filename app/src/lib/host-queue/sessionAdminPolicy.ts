@@ -66,6 +66,25 @@ export function resolveSessionAdminEndPlaybackRequest(input: {
 }
 
 /**
+ * Host-only: guest pause of the now-playing clip — same allow-list as {@link resolveSessionAdminEndPlaybackRequest}
+ * (session admin or owner of the current row).
+ */
+export function resolveSessionAdminPausePlaybackRequest(
+  input: Parameters<typeof resolveSessionAdminEndPlaybackRequest>[0],
+): SessionAdminResolution {
+  return resolveSessionAdminEndPlaybackRequest(input)
+}
+
+/**
+ * Host-only: guest resume of the now-playing clip — same gate as end / pause.
+ */
+export function resolveSessionAdminResumePlaybackRequest(
+  input: Parameters<typeof resolveSessionAdminEndPlaybackRequest>[0],
+): SessionAdminResolution {
+  return resolveSessionAdminEndPlaybackRequest(input)
+}
+
+/**
  * Host-only: remove a queue row by index. **Session admin** (any row) **or** **owner** of that row
  * (`requesterGuestIds[rowIndex]` matches `parsedRequesterGuestId ?? peerGuestId`). Session admin may
  * remove legacy rows with no stored requester id.
