@@ -8,6 +8,7 @@ function emptyState(over: Partial<GuestPartyUiState> = {}): GuestPartyUiState {
     sessionAdminGuestId: null,
     maxGuestQueueRowsPerGuest: 2,
     audienceChatEnabled: true,
+    hostAudioSessionUnlocked: true,
     lastEnqueueError: null,
     lastChatError: null,
     lastQueueSettingsError: null,
@@ -28,7 +29,9 @@ describe('applyGuestPartyMessage', () => {
       sessionAdminPeerId: 'admin-1',
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: true,
+      audioSessionUnlocked: true,
     })
+    expect(next.hostAudioSessionUnlocked).toBe(true)
     expect(next.snapshot?.ids).toEqual(['a'])
     expect(next.snapshot?.titles).toEqual(['Song'])
     expect(next.snapshot?.requestedBys).toEqual(['Sam'])
@@ -49,6 +52,7 @@ describe('applyGuestPartyMessage', () => {
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: true,
+      audioSessionUnlocked: true,
     })
     expect(next.snapshot?.ids).toEqual(['bbbbbbbbbbb'])
     expect(next.snapshot?.titles).toEqual(['B'])
@@ -127,6 +131,7 @@ describe('applyGuestPartyMessage', () => {
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 5,
       audienceChatEnabled: true,
+      audioSessionUnlocked: true,
     })
     expect(a.maxGuestQueueRowsPerGuest).toBe(5)
     const b = applyGuestPartyMessage(a, { v: 1, type: 'heartbeat' })
@@ -145,6 +150,7 @@ describe('applyGuestPartyMessage', () => {
       sessionAdminPeerId: null,
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: false,
+      audioSessionUnlocked: true,
     })
     expect(a.audienceChatEnabled).toBe(false)
   })

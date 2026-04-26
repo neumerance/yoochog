@@ -7,7 +7,9 @@ import { resolveGuestEnqueueRequest } from '@/lib/host-queue/guestEnqueuePolicy'
 import { isValidQueueSettingsCapValue, resolveQueueSettingsUpdateRequest } from '@/lib/host-queue/queueSettingsPolicy'
 import {
   resolveSessionAdminEndPlaybackRequest,
+  resolveSessionAdminPausePlaybackRequest,
   resolveSessionAdminRemoveRowRequest,
+  resolveSessionAdminResumePlaybackRequest,
 } from '@/lib/host-queue/sessionAdminPolicy'
 import {
   AUDIENCE_CHAT_MAX_VISIBLE_LINES,
@@ -37,7 +39,10 @@ export function useHostPartySession(
   queue: HostVideoQueue,
   queueTick: Ref<number>,
   bumpQueue: () => void,
+  hostAudioSessionUnlocked: Ref<boolean>,
   onGuestEndedCurrentPlayback?: () => void,
+  onGuestPausePlayback?: () => void,
+  onGuestResumePlayback?: () => void,
 ) {
   const status = ref<HandshakeUiState>('idle')
   /**
@@ -77,6 +82,7 @@ export function useHostPartySession(
       sessionAdminGuestId.value,
       maxGuestQueueRowsPerGuest.value,
       audienceChatEnabled.value,
+      hostAudioSessionUnlocked.value,
     )
     broadcastParty(serializePartyMessage(msg))
   }
@@ -90,6 +96,7 @@ export function useHostPartySession(
       sessionAdminGuestId.value,
       maxGuestQueueRowsPerGuest.value,
       audienceChatEnabled.value,
+      hostAudioSessionUnlocked.value,
     )
     sendPartyToGuest(guestId, serializePartyMessage(msg))
   }
@@ -208,6 +215,34 @@ export function useHostPartySession(
         return
       }
       onGuestEndedCurrentPlayback?.()
+      return
+    }
+    if (msg?.type === 'pause_current_playback_request') {
+      const resolution = resolveSessionAdminPausePlaybackRequest({
+        snapshot: queue.getSnapshot(),
+        sessionAdminGuestId: sessionAdminGuestId.value,
+        peerGuestId: guestId,
+        parsedRequesterGuestId: msg.requesterGuestId,
+      })
+      if (!resolution.ok) {
+        sendReject(guestId, resolution.reason)
+        return
+      }
+      onGuestPausePlayback?.()
+      return
+    }
+    if (msg?.type === 'resume_current_playback_request') {
+      const resolution = resolveSessionAdminResumePlaybackRequest({
+        snapshot: queue.getSnapshot(),
+        sessionAdminGuestId: sessionAdminGuestId.value,
+        peerGuestId: guestId,
+        parsedRequesterGuestId: msg.requesterGuestId,
+      })
+      if (!resolution.ok) {
+        sendReject(guestId, resolution.reason)
+        return
+      }
+      onGuestResumePlayback?.()
       return
     }
     if (msg?.type === 'remove_queue_row_request') {
@@ -357,6 +392,16 @@ export function useHostPartySession(
   watch(
     () => queueTick.value,
     () => {
+      pushSnapshotToEveryone()
+    },
+  )
+
+  watch(
+    () => hostAudioSessionUnlocked.value,
+    () => {
+      if (!broadcastParty) {
+        return
+      }
       pushSnapshotToEveryone()
     },
   )

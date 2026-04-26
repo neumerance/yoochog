@@ -8,7 +8,9 @@ import {
   REMOVE_ROW_REJECTED_LEGACY_ROW,
   REMOVE_ROW_REJECTED_NOT_OWNER,
   resolveSessionAdminEndPlaybackRequest,
+  resolveSessionAdminPausePlaybackRequest,
   resolveSessionAdminRemoveRowRequest,
+  resolveSessionAdminResumePlaybackRequest,
   SESSION_ADMIN_REJECTED_NOTHING_PLAYING,
 } from './sessionAdminPolicy'
 
@@ -95,6 +97,21 @@ describe('resolveSessionAdminEndPlaybackRequest', () => {
       parsedRequesterGuestId: null,
     })
     expect(r).toEqual({ ok: false, reason: SESSION_ADMIN_REJECTED_NOTHING_PLAYING })
+  })
+
+  it('pause policy matches end for same input', () => {
+    const input = {
+      snapshot: snap(['a'], ['g1'], 0),
+      sessionAdminGuestId: 'admin-peer' as const,
+      peerGuestId: 'g1' as const,
+      parsedRequesterGuestId: 'g1' as const,
+    }
+    expect(resolveSessionAdminPausePlaybackRequest(input)).toEqual(
+      resolveSessionAdminEndPlaybackRequest(input),
+    )
+    expect(resolveSessionAdminResumePlaybackRequest(input)).toEqual(
+      resolveSessionAdminEndPlaybackRequest(input),
+    )
   })
 
   it('rejects when currentIndex is null with rows', () => {

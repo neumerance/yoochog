@@ -23,6 +23,19 @@ export const PARTY_MESSAGE_SCHEMA_VERSION = 1 as const
 /** Default `queue_snapshot.audienceChatEnabled` when the host omits the field (older builds). */
 export const DEFAULT_AUDIENCE_CHAT_ENABLED = true
 
+/** Default `queue_snapshot.audioSessionUnlocked` when the host omits the field (older builds). */
+export const DEFAULT_AUDIO_SESSION_UNLOCKED = true
+
+export function normalizeAudioSessionUnlocked(raw: unknown): boolean {
+  if (raw === true) {
+    return true
+  }
+  if (raw === false) {
+    return false
+  }
+  return DEFAULT_AUDIO_SESSION_UNLOCKED
+}
+
 export function normalizeAudienceChatEnabled(raw: unknown): boolean {
   if (raw === undefined || raw === null) {
     return DEFAULT_AUDIENCE_CHAT_ENABLED
@@ -68,6 +81,11 @@ export type PartyMessage =
        * When `false`, the host does not show new audience chat. Omitted on older hosts → on.
        */
       audienceChatEnabled: boolean
+      /**
+       * When `false`, the host is in “Click here to start singing” (room audio not fully live). Omitted
+       * on older hosts → treat as `true` (unlocked) for join UI.
+       */
+      audioSessionUnlocked: boolean
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -80,6 +98,16 @@ export type PartyMessage =
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
       type: 'end_current_playback_request'
+      requesterGuestId: string | null
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'pause_current_playback_request'
+      requesterGuestId: string | null
+    }
+  | {
+      v: typeof PARTY_MESSAGE_SCHEMA_VERSION
+      type: 'resume_current_playback_request'
       requesterGuestId: string | null
     }
   | {
@@ -291,6 +319,7 @@ function parseSnapshotPayload(
   | 'sessionAdminPeerId'
   | 'maxGuestQueueRowsPerGuest'
   | 'audienceChatEnabled'
+  | 'audioSessionUnlocked'
 > | null {
   if (typeof v !== 'object' || v === null) {
     return null
@@ -326,6 +355,7 @@ function parseSnapshotPayload(
       sessionAdminPeerId: sessionAdminPeerIdEmpty,
       maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
       audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
+      audioSessionUnlocked: normalizeAudioSessionUnlocked(o.audioSessionUnlocked),
     }
   }
   if (o.currentIndex === null) {
@@ -362,6 +392,7 @@ function parseSnapshotPayload(
     sessionAdminPeerId,
     maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
     audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
+    audioSessionUnlocked: normalizeAudioSessionUnlocked(o.audioSessionUnlocked),
   }
 }
 
@@ -402,6 +433,7 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       sessionAdminPeerId: snap.sessionAdminPeerId,
       maxGuestQueueRowsPerGuest: snap.maxGuestQueueRowsPerGuest,
       audienceChatEnabled: snap.audienceChatEnabled,
+      audioSessionUnlocked: snap.audioSessionUnlocked,
     }
   }
   if (o.type === 'enqueue_request') {
@@ -441,6 +473,28 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     return {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'end_current_playback_request',
+      requesterGuestId,
+    }
+  }
+  if (o.type === 'pause_current_playback_request') {
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid') {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'pause_current_playback_request',
+      requesterGuestId,
+    }
+  }
+  if (o.type === 'resume_current_playback_request') {
+    const requesterGuestId = parseNullableRequesterGuestId(o.requesterGuestId)
+    if (requesterGuestId === 'invalid') {
+      return null
+    }
+    return {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'resume_current_playback_request',
       requesterGuestId,
     }
   }
@@ -553,6 +607,7 @@ export function queueSnapshotToMessage(
   sessionAdminPeerId: string | null = null,
   maxGuestQueueRowsPerGuest: number = GUEST_QUEUE_ROWS_CAP_DEFAULT,
   audienceChatEnabled: boolean = DEFAULT_AUDIENCE_CHAT_ENABLED,
+  audioSessionUnlocked: boolean = DEFAULT_AUDIO_SESSION_UNLOCKED,
 ): PartyMessage {
   return {
     v: PARTY_MESSAGE_SCHEMA_VERSION,
@@ -565,5 +620,6 @@ export function queueSnapshotToMessage(
     sessionAdminPeerId,
     maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(maxGuestQueueRowsPerGuest),
     audienceChatEnabled,
+    audioSessionUnlocked,
   }
 }
