@@ -1,4 +1,4 @@
-# ADR 0002: Party WebRTC data channel — JSON wire protocol v1
+# ADR 0002: Party channel — JSON wire protocol v1
 
 **Status:** Accepted  
 **Date:** 2026-04-17  
@@ -6,13 +6,13 @@
 
 ## Context
 
-After signaling establishes the WebRTC session, peers exchange **application data** on a dedicated **party data channel** (label `yoochog-party`, see [`app/src/lib/party/broadcastPartyDataChannels.ts`](../../app/src/lib/party/broadcastPartyDataChannels.ts)). That channel carries JSON text messages for queue sync, enqueue requests, host responses, and optional liveness pings. Without a **versioned** envelope and explicit rules for unknown or malformed payloads, clients can diverge or crash when the protocol evolves.
+Participants exchange **application data** as **UTF-8 JSON text** for queue sync, enqueue requests, host responses, and optional liveness pings. The **transport** is a **Socket.io** relay ([ADR 0006](./0006-socketio-realtime.md)); historically this document referred to a WebRTC **`yoochog-party` data channel**. The **envelope and `type` semantics** below are unchanged. Without a **versioned** envelope and explicit rules for unknown or malformed payloads, clients can diverge or crash when the protocol evolves.
 
 ## Decision
 
 ### Transport and encoding
 
-- Messages are **UTF-8 JSON** objects sent as **text** on the party data channel (not binary or compressed payloads in v1).
+- Messages are **UTF-8 JSON** objects sent as **text** on the party channel (not binary or compressed payloads in v1).
 - Every message shares an **envelope**: integer **`v`** (schema version) and string **`type`** (message kind). Additional fields depend on `type`.
 
 ### Size limit
@@ -57,9 +57,9 @@ Implementations **must**:
 
 Peers on older builds **drop** unknown `type` values (e.g. they never see `heartbeat` until upgraded). After upgrade, `heartbeat` is recognized and handled as a no-op for queue semantics.
 
-### Relation to signaling
+### Relation to transport
 
-This ADR defines **only** the party data channel JSON protocol. It does **not** replace WebRTC signaling (see [ADR 0001](./0001-webrtc-signaling.md)).
+This ADR defines **only** the party JSON protocol. Transport is **Socket.io** ([ADR 0006](./0006-socketio-realtime.md)); it does **not** specify server deployment or auth.
 
 ## Alternatives considered
 
@@ -76,6 +76,6 @@ This ADR defines **only** the party data channel JSON protocol. It does **not** 
 ## References
 
 - [`app/src/lib/party/partyMessages.ts`](../../app/src/lib/party/partyMessages.ts) — `PARTY_MESSAGE_SCHEMA_VERSION`, `PARTY_MESSAGE_MAX_RAW_BYTES`, parse/serialize  
-- [`app/src/lib/party/broadcastPartyDataChannels.ts`](../../app/src/lib/party/broadcastPartyDataChannels.ts) — `PARTY_CHANNEL_LABEL` (`yoochog-party`)  
-- [ADR 0001](./0001-webrtc-signaling.md) — signaling transport and room id  
+- [ADR 0006](./0006-socketio-realtime.md) — Socket.io transport and room id  
+- [ADR 0001](./0001-webrtc-signaling.md) — **superseded** WebRTC signaling history  
 - [ADR 0003](./0003-party-queue-metadata-v1.md) — additive per-row metadata on `queue_snapshot` / `enqueue_request` (still `v: 1`)  

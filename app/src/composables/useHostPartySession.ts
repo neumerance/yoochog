@@ -27,12 +27,12 @@ import {
   serializePartyMessage,
 } from '@/lib/party/partyMessages'
 import type { PartyMessage } from '@/lib/party/partyMessages'
-import { runHostPartyHandshake } from '@/lib/webrtc/partyHandshake'
+import { runHostPartySocket } from '@/lib/realtime/partySocket'
 import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
-import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
+import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/realtime/handshakeStatus'
 
 /**
- * Host signaling + WebRTC + party data channel: broadcasts queue snapshots and applies guest enqueue requests.
+ * Host Socket.io + party channel: broadcasts queue snapshots and applies guest enqueue requests.
  */
 export function useHostPartySession(
   hostSessionId: Ref<string>,
@@ -65,10 +65,8 @@ export function useHostPartySession(
   >([])
   let dispose: (() => void) | null = null
 
-  const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
-  const pub = import.meta.env.VITE_PUBNUB_PUBLISH_KEY?.trim() ?? ''
-  const sub = import.meta.env.VITE_PUBNUB_SUBSCRIBE_KEY?.trim() ?? ''
-  const hasSignaling = !!(wsUrl || (pub && sub))
+  const socketUrl = import.meta.env.VITE_SOCKET_URL?.trim() ?? ''
+  const hasSignaling = !!socketUrl
 
   let broadcastParty: ((raw: string) => void) | null = null
   let sendPartyToGuest: ((guestId: string, raw: string) => void) | null = null
@@ -348,7 +346,7 @@ export function useHostPartySession(
       audienceChatLines.value = []
 
       if (!hasSignaling) {
-        connectionStepLog('host', 'session:skip', 'missing signaling env (VITE_SIGNALING_URL or PubNub keys)')
+        connectionStepLog('host', 'session:skip', 'missing VITE_SOCKET_URL (Socket.io base URL)')
         status.value = 'missing_config'
         return
       }
@@ -357,17 +355,17 @@ export function useHostPartySession(
         return
       }
 
-      connectionStepLog('host', 'session:startPartyHandshake', { sessionId: id })
+      connectionStepLog('host', 'session:startPartySocket', { sessionId: id })
       status.value = 'idle'
       const ac = new AbortController()
-      const r = runHostPartyHandshake({
+      const r = runHostPartySocket({
         sessionId: id,
         signal: ac.signal,
         onStatus: (s) => {
           status.value = s
         },
         onError: (m) => {
-          console.log('[yoochog host handshake]', m)
+          console.log('[yoochog host party]', m)
         },
         onPartyChannelOpen: (guestId) => {
           pushSnapshotToGuest(guestId)

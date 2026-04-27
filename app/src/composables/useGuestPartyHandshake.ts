@@ -25,18 +25,18 @@ import {
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readGuestDisplayName } from '@/lib/guest/guestDisplayName'
 import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
-import { runGuestPartyHandshake } from '@/lib/webrtc/partyHandshake'
-import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
+import { runGuestPartySocket } from '@/lib/realtime/partySocket'
+import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/realtime/handshakeStatus'
 import {
   RECONNECT_VISIBILITY_MIN_HIDDEN_MS,
   shouldStopRetry,
   VISIBILITY_RESUME_HEALTH_PROBE_MS,
-} from '@/lib/webrtc/reconnectPolicy'
+} from '@/lib/realtime/reconnectPolicy'
 
 import { useTabVisibilityRecovery } from './useTabVisibilityRecovery'
 
 /**
- * Guest handshake for `/join/:sessionId` plus party channel state (queue snapshot, enqueue request).
+ * Guest Socket.io session for `/join/:sessionId` plus party channel state (queue snapshot, enqueue request).
  */
 export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const status = ref<HandshakeUiState>('idle')
@@ -116,10 +116,8 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   let failureCount = 0
   let activeDispose: (() => void) | null = null
 
-  const wsUrl = import.meta.env.VITE_SIGNALING_URL?.trim() ?? ''
-  const pub = import.meta.env.VITE_PUBNUB_PUBLISH_KEY?.trim() ?? ''
-  const sub = import.meta.env.VITE_PUBNUB_SUBSCRIBE_KEY?.trim() ?? ''
-  const hasSignaling = !!(wsUrl || (pub && sub))
+  const socketUrl = import.meta.env.VITE_SOCKET_URL?.trim() ?? ''
+  const hasSignaling = !!socketUrl
 
   const visibilityRecovery = ref<(() => void) | null>(null)
   const partyLinkHealth = ref<(() => boolean) | null>(null)
@@ -197,7 +195,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       }
 
       if (!hasSignaling) {
-        connectionStepLog('guest', 'session:skip', 'missing signaling env (VITE_SIGNALING_URL or PubNub keys)')
+        connectionStepLog('guest', 'session:skip', 'missing VITE_SOCKET_URL (Socket.io base URL)')
         status.value = 'missing_config'
         visibilityRecovery.value = null
         return
@@ -208,7 +206,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         return
       }
 
-      connectionStepLog('guest', 'session:startPartyHandshake', {
+      connectionStepLog('guest', 'session:startPartySocket', {
         sessionId: id,
         reconnectAttempt: reconnectTrigger.value,
       })
@@ -216,7 +214,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         status.value = 'idle'
       }
       const ac = new AbortController()
-      const r = runGuestPartyHandshake({
+      const r = runGuestPartySocket({
         sessionId: id,
         signal: ac.signal,
         onStatus: (s) => {

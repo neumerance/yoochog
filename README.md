@@ -16,7 +16,22 @@ npm install
 npm run dev
 ```
 
-`npm run dev` serves the app at `/` (Vite dev server). See **Production-like local check** below for how that differs from production builds.
+`npm run dev` serves the app at `/` (Vite dev server). **Party mode** (host + guests) needs **[`VITE_SOCKET_URL`](app/.env.example)** and the Socket.io process — see [Docker (web + socket)](#docker-web--realtime) or [`app/README.md`](app/README.md).
+
+## Docker (web + realtime)
+
+From the **repository root** (not only `app/`):
+
+- **Vite + Socket.io (typical local dev):**
+  ```sh
+  docker compose -f compose.dev.yaml up --build
+  ```
+- **Socket server only** (e.g. when running the Vue app on the host with `npm run dev`):
+  ```sh
+  docker compose up --build
+  ```
+
+Then open **http://localhost:5173** (dev file only) with **`VITE_SOCKET_URL=http://localhost:3000`**. The `socket` service listens on **3000**. See [`compose.yaml`](compose.yaml), [`compose.dev.yaml`](compose.dev.yaml), and [ADR 0006](docs/adr/0006-socketio-realtime.md).
 
 ## Production-like local check
 
@@ -47,14 +62,12 @@ Canonical production guest URL:
 
 Use the same pattern in tests and previews, with the dev server origin and path `/join/<sessionId>`. Any QR or share UI must produce this exact shape (see **`buildGuestJoinUrl`** in [`app/src/lib/join-url/buildGuestJoinUrl.ts`](app/src/lib/join-url/buildGuestJoinUrl.ts)); details and GitHub Pages behavior are in [`docs/github-pages.md`](docs/github-pages.md).
 
-## Future configuration (placeholders)
+## Runtime configuration (Vite / GitHub Pages)
 
-Reserved **environment variable names** for WebRTC-related configuration. These follow Vite’s `VITE_*` convention. List **names only** here — no values here and none committed to the repository.
-
-| Area | Placeholder names (examples) |
-|------|------------------------------|
-| **Signaling** | **Primary:** `VITE_PUBNUB_PUBLISH_KEY` + `VITE_PUBNUB_SUBSCRIBE_KEY` (PubNub, one channel per party). **Optional:** `VITE_SIGNALING_URL` (local `signaling-dev` relay when PubNub keys are omitted). See [`app/README.md`](app/README.md) and [ADR 0001](docs/adr/0001-webrtc-signaling.md). |
-| **ICE** (STUN + optional TURN for WebRTC) | `VITE_STUN_URLS` (comma-separated `stun:` / `stuns:` URLs; optional; default public STUN when unset). `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL` for relay — see [`app/README.md`](app/README.md) |
+| Area | Variable | Notes |
+|------|-----------|--------|
+| **Party realtime (Socket.io)** | `VITE_SOCKET_URL` | **Required** for host + guest party flows. Public base URL of the Socket.io server (inlined at build). See [ADR 0006](docs/adr/0006-socketio-realtime.md) and [`docs/github-pages.md`](docs/github-pages.md). |
+| **YouTube titles** | `VITE_YOUTUBE_API_KEY` | Optional. |
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.
 
@@ -70,6 +83,6 @@ The host experience stores a **random, unguessable** id per browser tab (UUID-st
 
 - [`app/README.md`](app/README.md) — Vue app details and subpath verification
 - [`docs/github-pages.md`](docs/github-pages.md) — full GitHub Pages setup
-- [`docs/realtime-recovery.md`](docs/realtime-recovery.md) — WebRTC reconnect/backoff, tab visibility recovery, and ~1 minute background behavior (Epic 4 / [#28](https://github.com/neumerance/yoochog/issues/28))
-- [`docs/adr/0001-webrtc-signaling.md`](docs/adr/0001-webrtc-signaling.md) — signaling transport, `sessionId` → room mapping, and `VITE_SIGNALING_URL` (Epic 4)
-- [`docs/adr/0002-party-data-channel-wire-protocol-v1.md`](docs/adr/0002-party-data-channel-wire-protocol-v1.md) — party data channel JSON protocol v1 (`yoochog-party` wire format, Epic 4)
+- [`docs/realtime-recovery.md`](docs/realtime-recovery.md) — Socket.io reconnect, tab visibility recovery, and ~1 minute background behavior (Epic 4 / [#28](https://github.com/neumerance/yoochog/issues/28))
+- [`docs/adr/0006-socketio-realtime.md`](docs/adr/0006-socketio-realtime.md) — Socket.io transport, `VITE_SOCKET_URL`, room ids (supersedes [0001](docs/adr/0001-webrtc-signaling.md))
+- [`docs/adr/0002-party-data-channel-wire-protocol-v1.md`](docs/adr/0002-party-data-channel-wire-protocol-v1.md) — party JSON wire protocol v1 (Epic 4)

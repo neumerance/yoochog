@@ -75,38 +75,22 @@ npm install
 npm run dev
 ```
 
-### Signaling (PubNub — primary)
+### Realtime (Socket.io — required for party)
 
-**PubNub is the main signaling transport** for this app: WebRTC offers/answers and ICE flow over PubNub pub/sub on **one channel per party** (room id `yoochog:party:<sessionId>` per [ADR 0001](../docs/adr/0001-webrtc-signaling.md)). The client chooses PubNub when **both** keys are set in **`app/.env.local`** (see [`signalingFactory`](src/lib/signaling/signalingFactory.ts)).
+Party messages (queue, chat, session admin) use **Socket.io** between the Vue app and a small **Node** server: [`../realtime-server/`](../realtime-server/). Room id: `yoochog:party:<sessionId>` (see [ADR 0006](../docs/adr/0006-socketio-realtime.md)).
 
-```sh
-VITE_PUBNUB_PUBLISH_KEY=your-publish-key
-VITE_PUBNUB_SUBSCRIBE_KEY=your-subscribe-key
-```
+1. **Two terminals (host machine):** start the server (`cd ../realtime-server && npm install && npm start`, default **3000**), then **`npm run dev`** in **`app/`** with:
+   ```sh
+   VITE_SOCKET_URL=http://localhost:3000
+   ```
+   in **`app/.env.local`**.
+2. **Or one command:** from the **repo root**, **`docker compose -f compose.dev.yaml up --build`** (see root [`README.md`](../README.md)) — the dev compose file sets the same `VITE_SOCKET_URL` for the Vite service.
 
-Use keys from the PubNub admin portal (dev app). Production should use **Access Manager** / token auth instead of long-lived publish keys in clients; this wiring is suitable for **development and demos**.
+**Manual check:** Open **Host** (player) and **Guest** at **`/join/<sessionId>`** with the same session (QR / link). You should see **Connecting** then **Online** on both after the host is present. Use two tabs or profiles.
 
-**Manual check:** Run **`npm run dev`** in **`app/`**, open **Host** (player route) and **Guest** at **`/join/<sessionId>`** with the **same** session id (QR / join link). You should see **“Establishing handshake”** then **Connected** when the WebRTC peer connection reaches `connected`. Use two browser tabs or profiles with the same `.env.local`.
+**Reconnect / background behavior:** See **[`docs/realtime-recovery.md`](../docs/realtime-recovery.md)** (Socket.io, backoff limits, tab visibility).
 
-**Reconnect / background behavior:** See **[`docs/realtime-recovery.md`](../docs/realtime-recovery.md)** for what happens after network drops or when the tab was backgrounded ~1 minute (guest recovery, backoff limits, and when to refresh).
-
-**If the browser console shows `403` on `pndsn.com` subscribe or publish:** PubNub is rejecting the request. Common fixes:
-
-1. Use **Publish Key** and **Subscribe Key** from the **same keyset** (same app in the Admin portal)—do not mix keys from different apps.
-2. For **local development**, turn **Access Manager** **off** on that keyset (when PAM is on with no grants, clients get 403). Alternatively keep PAM on and configure grants for your channels.
-3. Confirm the keyset is **active** and **Pub/Sub** is allowed for the client.
-
-### Optional: local WebSocket relay (not primary)
-
-For **offline** work or debugging the signaling envelope without PubNub, this repo includes a small **dev relay** under [`signaling-dev/`](../signaling-dev/) (`server.mjs`). It is **not** the product’s main path—use it only when you omit PubNub keys and set:
-
-```sh
-VITE_SIGNALING_URL=http://localhost:8787
-```
-
-Start the relay (`cd signaling-dev && npm install && npm start`, default port **8787**). If both PubNub keys **and** `VITE_SIGNALING_URL` are set, **PubNub is used**; unset the PubNub keys to force the WebSocket client.
-
-**Manual check (relay only):** DevTools → Network may show an open WebSocket to the relay URL.
+**Migration:** the old `signaling-dev` WebSocket relay and PubNub-based WebRTC path are **removed**; see [`signaling-dev/README.md`](../signaling-dev/README.md).
 
 ### Party queue policy (guest enqueue)
 
@@ -116,7 +100,7 @@ Each **logical guest** may have **at most one** row in the queue at a time (incl
 
 **Queue list on the wire:** `queue_snapshot` in [ADR 0002](../docs/adr/0002-party-data-channel-wire-protocol-v1.md) lists **video ids in playback order** for the **current song and what is still up next** — not a log of finished tracks. The host trims consumed rows as playback moves; `currentIndex` is `0` on the first remaining row when the list is non-empty. Guests render the same compact snapshot after each broadcast (and normalize older cached snapshots on load when needed).
 
-**Session admin:** The first guest whose party data channel opens is **session admin** (next in join order when they disconnect). **Ending the current track** or **removing a non-playing row** is allowed for the session admin **or** the guest who requested that row (logical `requesterGuestId`). The host enforces this and includes `sessionAdminPeerId` on each `queue_snapshot`. See [ADR 0005](../docs/adr/0005-session-admin-party-v1.md).
+**Session admin:** The first guest who identifies on the party channel is **session admin** (next in join order when they disconnect). **Ending the current track** or **removing a non-playing row** is allowed for the session admin **or** the guest who requested that row (logical `requesterGuestId`). The host enforces this and includes `sessionAdminPeerId` on each `queue_snapshot`. See [ADR 0005](../docs/adr/0005-session-admin-party-v1.md).
 
 ### YouTube queue titles (optional)
 
@@ -127,30 +111,6 @@ VITE_YOUTUBE_API_KEY=your-youtube-data-api-key
 ```
 
 When the variable is **unset** or the API errors, the app still enqueues by **video id**; the UI shows titles as **unknown**. Keys prefixed with **`VITE_`** are bundled into the client — restrict the key by **HTTP referrer** (and app restrictions) in Google Cloud Console. If the Data API is unavailable, the client **falls back** to [noembed.com](https://noembed.com/) for titles (third-party; no API key). See [ADR 0003](../docs/adr/0003-party-queue-metadata-v1.md) for queue metadata on the party channel.
-
-### WebRTC ICE (STUN + optional TURN)
-
-Party WebRTC peer connections use ICE servers from Vite env (`import.meta.env`). Variable names only here — set real values in **`app/.env.local`** (gitignored), not in the repo.
-
-| Variable | Role |
-|----------|------|
-| `VITE_STUN_URLS` | Optional. Comma-separated STUN discovery URLs (`stun:` / `stuns:`). When unset or empty, the app uses the same default public STUN as before (Google `stun.l.google.com:19302`). |
-| `VITE_TURN_URLS` | Optional. Comma-separated TURN relay URLs (`turn:` / `turns:`). |
-| `VITE_TURN_USERNAME` | Required for TURN when `VITE_TURN_URLS` is set — together with `VITE_TURN_CREDENTIAL`. |
-| `VITE_TURN_CREDENTIAL` | TURN password or REST-style credential string. |
-
-**Security:** Anything prefixed with `VITE_` is **bundled into the client** at build time. Treat long-lived TURN passwords as visible to anyone who can download your JS. For production, prefer **short-lived** credentials (for example coturn **TURN REST** / `use-auth-secret`): your backend or deploy pipeline mints a temporary `username` (often expiry-based) and `credential` (HMAC) and injects them into build or runtime env — the browser still receives plain `username` + `credential` on `RTCIceServer`; the **shared secret** never ships in the front-end bundle.
-
-**Static username/password (typical for local dev):** set all four variables in `.env.local` against your coturn `user=…` style config.
-
-**Partial config:** If `VITE_TURN_URLS` is set but username or credential is missing, TURN entries are skipped and the console warns once so operators can fix configuration.
-
-**Manual check (relay path):** Automated E2E for relay selection is out of scope; verify by hand when TURN is configured:
-
-1. Put TURN credentials in **`app/.env.local`** and restart **`npm run dev`** (or rebuild for preview).
-2. Use two browsers (or profiles) on the **same party** as usual (PubNub or relay signaling).
-3. Force a **relay-heavy** network: e.g. join one side from a **phone hotspot** or with a **VPN** so a direct peer/reflexive path is unlikely.
-4. Confirm the party still reaches **Connected**. Optionally open **`chrome://webrtc-internals`** (Chromium) and inspect the peer connection’s ICE candidates — you should see **`relay`**-type candidates when TURN is in use.
 
 ### Type-Check, Compile and Minify for Production
 

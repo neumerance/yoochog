@@ -1,0 +1,11 @@
+# Base: Socket.io realtime server (Dockerfile in realtime-server/).
+# Use alone:  docker compose up --build
+# Full dev:   docker compose -f compose.dev.yaml up --build
+
+services:
+  socket:
+    build: ./realtime-server
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"

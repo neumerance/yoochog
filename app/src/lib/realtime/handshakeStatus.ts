@@ -8,9 +8,9 @@ export type HandshakeUiState =
   | 'failed'
 
 /**
- * User-facing connection copy (signaling + WebRTC):
- * - **Online** — data channel / peer connection is up.
- * - **Connecting** — signaling or WebRTC handshake in progress.
+ * User-facing connection copy:
+ * - **Online** — party channel (Socket.io) is up.
+ * - **Connecting** — socket connect or session setup in progress.
  * - **Offline** — not connected (idle), misconfiguration, or failed / retried out.
  */
 export function handshakeStatusLabel(state: HandshakeUiState): string {
