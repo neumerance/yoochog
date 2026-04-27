@@ -6,11 +6,13 @@
     <div
       class="flex flex-col items-center gap-[clamp(0.75rem,calc(0.45rem_+_1.35vmin_+_0.35vw),1.5rem)] text-center @min-[720px]:flex-row @min-[720px]:items-center @min-[720px]:justify-center @min-[720px]:gap-[clamp(1rem,calc(0.55rem_+_1.65vmin_+_0.45vw),2.5rem)]"
     >
-      <div class="flex min-w-0 w-full flex-col items-center gap-[clamp(0.5rem,calc(0.3rem_+_1vmin_+_0.25vw),1rem)] @min-[720px]:w-auto">
+      <div
+        class="flex min-w-0 w-full flex-col items-center gap-[clamp(0.5rem,calc(0.3rem_+_1vmin_+_0.25vw),1rem)] @min-[720px]:min-w-0 @min-[720px]:flex-1"
+      >
         <img
           :src="logoUrl"
           alt="Yoochog"
-          class="h-auto max-h-[min(28vmin,13rem)] w-auto max-w-[min(100%,min(52vmin,78vw),26rem)] shrink-0 object-contain"
+          class="h-auto w-[90%] max-w-full shrink-0 object-contain"
           decoding="async"
         />
         <p
