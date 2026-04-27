@@ -262,7 +262,7 @@ import { onPlaybackEnded, onPlaybackError } from '@/lib/playback/hostPlayback'
 import { shouldAllowNaturalQueueAdvanceOnHostPlaybackEnd } from '@/lib/playback/youtubeEndGate'
 import type { PlayerHelpTipContext } from '@/lib/playerHelpTips'
 
-import logoUrl from '@/assets/images/logo/logo.png'
+import logoUrl from '@/assets/images/logo/yoochoog.png'
 
 const route = useRoute()
 const router = useRouter()

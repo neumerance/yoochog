@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
-import logoUrl from '@/assets/images/logo/logo.png'
+import logoUrl from '@/assets/images/logo/yoochoog.png'
 
 const emit = defineEmits<{
   complete: []

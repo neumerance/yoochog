@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import logoUrl from '@/assets/images/logo/logo.png'
+import logoUrl from '@/assets/images/logo/yoochoog.png'
 
 const props = defineProps<{
   variant: 'empty' | 'ended'

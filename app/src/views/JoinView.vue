@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import logoUrl from '@/assets/images/logo/logo.png'
+import logoUrl from '@/assets/images/logo/yoochoog.png'
 
 import AppearanceToggle from '@/components/AppearanceToggle.vue'
 import GuestShell from '@/components/GuestShell.vue'

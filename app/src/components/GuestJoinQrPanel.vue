@@ -4,20 +4,20 @@
     class="shrink-0 p-[clamp(0.65rem,calc(0.4rem_+_1.1vmin_+_0.35vw),1.75rem)]"
   >
     <div
-      class="flex flex-col gap-[clamp(0.75rem,calc(0.45rem_+_1.35vmin_+_0.35vw),1.5rem)] text-left @min-[720px]:flex-row @min-[720px]:items-start @min-[720px]:justify-between @min-[720px]:gap-[clamp(1rem,calc(0.55rem_+_1.65vmin_+_0.45vw),2.5rem)]"
+      class="flex flex-col items-center gap-[clamp(0.75rem,calc(0.45rem_+_1.35vmin_+_0.35vw),1.5rem)] text-center @min-[720px]:flex-row @min-[720px]:items-center @min-[720px]:justify-center @min-[720px]:gap-[clamp(1rem,calc(0.55rem_+_1.65vmin_+_0.45vw),2.5rem)]"
     >
-      <div class="flex min-w-0 w-full flex-col items-start gap-[clamp(0.5rem,calc(0.3rem_+_1vmin_+_0.25vw),1rem)] @min-[720px]:flex-1">
+      <div class="flex min-w-0 w-full flex-col items-center gap-[clamp(0.5rem,calc(0.3rem_+_1vmin_+_0.25vw),1rem)] @min-[720px]:w-auto">
         <img
           :src="logoUrl"
           alt="Yoochog"
-          class="h-auto max-h-[min(28vmin,13rem)] w-auto max-w-[min(100%,min(52vmin,78vw),26rem)] shrink-0 self-start object-contain object-left"
+          class="h-auto max-h-[min(28vmin,13rem)] w-auto max-w-[min(100%,min(52vmin,78vw),26rem)] shrink-0 object-contain"
           decoding="async"
         />
-        <h2
-          class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(0.825rem,calc(0.363rem_+_1.815vmin_+_0.231vw),3.3rem)] dark:text-indigo-100"
+        <p
+          class="max-w-[min(100%,26rem)] font-semibold leading-snug text-red-600 text-[length:clamp(0.84rem,calc(0.36rem_+_1.86vmin_+_0.24vw),2.4rem)] dark:text-red-400"
         >
-          Join from your phone
-        </h2>
+          Queue It. Sing It. Share It.
+        </p>
       </div>
       <div
         class="flex w-full min-w-0 shrink-0 flex-col items-center gap-[clamp(0.65rem,calc(0.4rem_+_1.1vmin_+_0.35vw),1.25rem)] @min-[720px]:w-[min(27rem,min(88vmin,72vw))] @min-[720px]:shrink-0"
@@ -62,6 +62,11 @@
         >
           Preparing QR…
         </p>
+        <h2
+          class="w-full text-center font-semibold leading-tight text-indigo-950 text-[length:clamp(0.825rem,calc(0.363rem_+_1.815vmin_+_0.231vw),3.3rem)] dark:text-indigo-100"
+        >
+          Join from your phone
+        </h2>
       </div>
     </div>
   </div>
@@ -71,7 +76,7 @@
 import QRCode from 'qrcode'
 import { computed, ref, watch } from 'vue'
 
-import logoUrl from '@/assets/images/logo/logo.png'
+import logoUrl from '@/assets/images/logo/yoochoog.png'
 import { buildGuestJoinUrlFromEnv } from '@/lib/join-url/buildGuestJoinUrl'
 
 /** Large enough for fluid QR display on wide TVs (bitmap is square; CSS scales down). */
