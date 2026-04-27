@@ -5,32 +5,33 @@
 # Rollback: repoint the `current` symlink to an older release under DEPLOY_PATH/releases, then
 #   restart the realtime service (see docs/server-deployment.md).
 #
-# Required environment:
-#   DEPLOY_HOST     Target hostname or IP.
-#   DEPLOY_GIT_URL  Remote git URL the server can clone (HTTPS or SSH form).
-#   DEPLOY_PATH     Absolute base path on the server, e.g. /var/www/yoochog
+# Defaults target production: yoochoog.app, SSH as root, clone from GitHub. Override any variable by
+# exporting it before running (e.g. DEPLOY_REF=other-branch ./deploy.sh).
+#
+#   DEPLOY_HOST     (default: yoochoog.app)
+#   DEPLOY_USER     (default: root) — this machine is expected to have passwordless SSH to the host.
+#   DEPLOY_PATH     (default: /var/www/yoochog)
+#   DEPLOY_GIT_URL  (default: https://github.com/neumerance/yoochog.git)
+#   DEPLOY_REF      Git branch or tag (default: master)
 #
 # Optional:
-#   DEPLOY_USER            SSH user (default: current user on this machine).
-#   DEPLOY_REF             Git branch or tag (default: master).
 #   DEPLOY_SSH_IDENTITY    Path to an SSH private key (passed to ssh -i).
 #   DEPLOY_SSH_PORT        SSH port (default: 22).
 #   DEPLOY_RETAIN          How many old release directories to keep (default: 5).
 #   DEPLOY_SYSTEMD_SERVICE systemctl unit to restart (default: yoochog-realtime).
 #   DEPLOY_SKIP_SYSTEMD    If set to 1, skip systemctl after deploy.
 #
-# The server can optionally define DEPLOY_PATH/shared/build.env (VITE_SOCKET_URL, VITE_BASE_PATH, …);
-# that file is sourced (set -a) before `npm run build` in app/.
+# On the host, $DEPLOY_PATH/shared/build.env is sourced before the app build (optional extras such as
+# VITE_YOUTUBE_API_KEY). VITE_SOCKET_URL and VITE_BASE_PATH are then set to https://yoochoog.app and /.
 #
 # Node on the host must satisfy app/realtime-server engines (^20.19.0 || >=22.12.0).
 # ------------------------------------------------------------------------------
 set -euo pipefail
 
-: "${DEPLOY_HOST:?set DEPLOY_HOST (target host)}"
-: "${DEPLOY_GIT_URL:?set DEPLOY_GIT_URL (git clone URL)}"
-: "${DEPLOY_PATH:?set DEPLOY_PATH (absolute path on server, e.g. /var/www/yoochog)}"
-
-DEPLOY_USER="${DEPLOY_USER:-$USER}"
+DEPLOY_HOST="${DEPLOY_HOST:-yoochoog.app}"
+DEPLOY_USER="${DEPLOY_USER:-root}"
+DEPLOY_PATH="${DEPLOY_PATH:-/var/www/yoochog}"
+DEPLOY_GIT_URL="${DEPLOY_GIT_URL:-https://github.com/neumerance/yoochog.git}"
 DEPLOY_REF="${DEPLOY_REF:-master}"
 DEPLOY_SSH_PORT="${DEPLOY_SSH_PORT:-22}"
 DEPLOY_RETAIN="${DEPLOY_RETAIN:-5}"
@@ -79,12 +80,15 @@ fi
 rm -rf "${RELEASE_DIR}"
 git clone --depth 1 --branch "${DEPLOY_REF}" "${DEPLOY_GIT_URL}" "${RELEASE_DIR}"
 cd "${RELEASE_DIR}/app"
+set -a
 if [[ -f "${DEPLOY_PATH}/shared/build.env" ]]; then
-  set -a
   # shellcheck source=/dev/null
   . "${DEPLOY_PATH}/shared/build.env"
-  set +a
 fi
+# Production app origin (browser-reachable) and static path; fixed for yoochoog.app.
+export VITE_SOCKET_URL=https://yoochoog.app
+export VITE_BASE_PATH=/
+set +a
 echo "==> npm ci (app)…"
 npm ci
 echo "==> npm run build (app)…"
@@ -111,7 +115,13 @@ if [[ "${DEPLOY_SKIP_SYSTEMD}" == "1" ]]; then
   exit 0
 fi
 if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running >/dev/null 2>&1; then
-  if sudo -n true 2>/dev/null; then
+  if [[ "$(id -u)" -eq 0 ]]; then
+    echo "==> systemctl restart ${DEPLOY_SYSTEMD_SERVICE}"
+    systemctl restart "${DEPLOY_SYSTEMD_SERVICE}" || {
+      echo "systemctl restart failed" >&2
+      exit 1
+    }
+  elif sudo -n true 2>/dev/null; then
     echo "==> sudo systemctl restart ${DEPLOY_SYSTEMD_SERVICE}"
     sudo -n systemctl restart "${DEPLOY_SYSTEMD_SERVICE}" || {
       echo "systemctl restart failed" >&2

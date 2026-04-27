@@ -12,12 +12,12 @@ Align with `engines` in `app/package.json` and `realtime-server/package.json`: *
 
 | Concern | Variable / file | Notes |
 |--------|-----------------|--------|
-| Socket.io client target | `VITE_SOCKET_URL` | **Build-time** (Vite). Public URL the browser must use, e.g. `https://yoochog.example.com` if nginx terminates TLS on the same host and Socket.io is proxied on that origin (path `/socket.io/` by default). |
-| Vite public path / router | `VITE_BASE_PATH` | **Build-time.** Default in repo is `/yoochog/` (GitHub Pages). For the app at the **site root**, set `VITE_BASE_PATH=/` before `npm run build`. Must match **nginx** `location` and static `root` / `alias`. |
-| CORS for Socket.io | `SOCKET_CORS_ORIGIN` | **Runtime** on the realtime server. Set to the **browser origin** of the app (e.g. `https://yoochog.example.com`). |
+| Socket.io client target | `VITE_SOCKET_URL` | **Build-time** (Vite). Public URL the browser must use, e.g. `https://yoochoog.app` if nginx terminates TLS on the same host and Socket.io is proxied on that origin (path `/socket.io/` by default). [`deploy.sh`](../deploy.sh) sets this and **`VITE_BASE_PATH`** for production deploys. |
+| Vite public path / router | `VITE_BASE_PATH` | **Build-time.** Default in repo is `/yoochog/` (GitHub Pages). For the app at the **site root**, use **`/`** and match **nginx** `location` and static `root` / `alias`. The checked-in `deploy.sh` hardcodes `https://yoochoog.app` and `/` for its server build. |
+| CORS for Socket.io | `SOCKET_CORS_ORIGIN` | **Runtime** on the realtime server. Set to the **browser origin** of the app (e.g. `https://yoochoog.app`). |
 | Realtime listen port | `PORT` | **Runtime** (default **3000**). Bind to loopback; expose only through nginx. |
 
-`deploy.sh` (below) looks for **`$DEPLOY_PATH/shared/build.env`** on the server and **sources** it before `npm run build` in `app/`. Put **`VITE_*`** and any other build-time exports there. **Do not commit** secrets; treat `VITE_*` as public (they ship in the bundle).
+`deploy.sh` **sources** **`$DEPLOY_PATH/shared/build.env`** on the server if it exists (optional extras such as **`VITE_YOUTUBE_API_KEY`**), then **exports** `VITE_SOCKET_URL=https://yoochoog.app` and `VITE_BASE_PATH=/` for the production `npm run build` in `app/`. **Do not commit** secrets; treat `VITE_*` as public (they ship in the bundle). Override any default by editing [`deploy.sh`](../deploy.sh) or exporting variables before the remote build if you add a custom flow.
 
 ## Layout on the server (`deploy.sh`)
 
@@ -25,7 +25,7 @@ Align with `engines` in `app/package.json` and `realtime-server/package.json`: *
 
 - **`releases/<timestamp>`** — fresh `git clone` of the ref you deploy, then `npm ci` + `npm run build` in `app/`, `npm ci` in `realtime-server/`.
 - **`current`** — symlink to the active release.
-- **`shared/build.env`** — optional; sourced before the app build (create once on the host).
+- **`shared/build.env`** — optional; sourced before the app build (e.g. extra `VITE_*` keys not set in the script).
 
 **Rollback:** `ln -sfn "$DEPLOY_PATH/releases/<older-timestamp>" "$DEPLOY_PATH/current"`, then restart the realtime service (`systemctl restart …`). Nginx `root` should point at `current/…` so a rollback switches both the static app and the tree used for the systemd `WorkingDirectory` (see [systemd example](#process-manager-systemd) below).
 
@@ -35,29 +35,19 @@ The script prunes old release directories, keeping the last **`DEPLOY_RETAIN`** 
 
 1. **Provision** the host, DNS, and TLS certificates (this repo does not add `certbot` steps; use what you already have on disk, typically under `/etc/letsencrypt/live/<name>/`).
 
-2. **Create a deployment user** (optional) and **`DEPLOY_PATH`**, e.g. `/var/www/yoochog`, owned by that user. Ensure the user can `git clone` your repository from the network (deploy key or readable remote).
+2. **Prepare the tree** on the host. The checked-in `deploy.sh` defaults to **`DEPLOY_PATH=/var/www/yoochog`**, SSH user **`root`**, and host **`yoochoog.app`**. The server must be able to **`git clone`** the repo (public HTTPS or a deploy key is fine). Create **`DEPLOY_PATH`** if needed (`mkdir -p`).
 
-3. **Create** `$DEPLOY_PATH/shared/build.env` on the server, for example:
+3. **Optional:** `$DEPLOY_PATH/shared/build.env` for extra build-time lines only (e.g. YouTube API). You do not need to add `VITE_SOCKET_URL` / `VITE_BASE_PATH` there unless you maintain a custom deploy.
 
-   ```sh
-   export VITE_SOCKET_URL=https://yoochog.example.com
-   export VITE_BASE_PATH=/
-   ```
+4. **Install** the example [nginx vhost](#nginx) and [systemd unit](#process-manager-systemd). The examples use **`yoochoog.app`**; adjust **certificate paths** and `ExecStart=node` if your layout differs.
 
-4. **Install** the example [nginx vhost](#nginx) and [systemd unit](#process-manager-systemd). Adjust **paths, `server_name`, and certificate files** to match the server.
-
-5. **From your laptop** (with SSH access), from a clone of this repo, configure environment variables and run:
+5. **From this machine** (with passwordless SSH to the host, from a clone of this repo):
 
    ```sh
-   export DEPLOY_HOST=yoochog.example.com
-   export DEPLOY_USER=deploy
-   export DEPLOY_PATH=/var/www/yoochog
-   export DEPLOY_GIT_URL=git@github.com:neumerance/yoochog.git
-   export DEPLOY_REF=master
    ./deploy.sh
    ```
 
-   See the header in [`deploy.sh`](../deploy.sh) for optional variables (`DEPLOY_SSH_IDENTITY`, `DEPLOY_RETAIN`, `DEPLOY_SYSTEMD_SERVICE`, `DEPLOY_SKIP_SYSTEMD`).
+   [`deploy.sh`](../deploy.sh) bakes in `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`, and `DEPLOY_GIT_URL`; you can still override any of them in the environment (e.g. `DEPLOY_REF=feature-branch ./deploy.sh`). See the script header for optional variables such as `DEPLOY_SSH_IDENTITY`, `DEPLOY_RETAIN`, `DEPLOY_SYSTEMD_SERVICE`, `DEPLOY_SKIP_SYSTEMD`.
 
 6. **Verify:** HTTPS loads the app; host/guest party flows work (if **WebSocket** or long-polling fails, see [Troubleshooting](#troubleshooting)).
 

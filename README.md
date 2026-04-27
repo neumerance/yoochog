@@ -58,7 +58,7 @@ Example public URL (project site):
 
 For the workflow, one-time GitHub **Settings** (Pages source, permissions), and how SPA routing / `404.html` work on Pages, see **[`docs/github-pages.md`](docs/github-pages.md)**. Use **GitHub Actions** when available; if Actions is blocked, build locally and run **`npm run deploy:gh-pages`** from **`app/`**, then set Pages to **Deploy from branch `gh-pages` / `(root)`** (see that doc). That workflow is **separate** from a **self-managed production server** (nginx, SSH deploy); see **[`docs/server-deployment.md`](docs/server-deployment.md)** and the root **[`deploy.sh`](deploy.sh)** script.
 
-This repository does **not** use GitHub Actions as the “deploy to production server” button for SSH-backed hosting (see [issue #93](https://github.com/neumerance/yoochog/issues/93)); operators use **`./deploy.sh`** from a machine with SSH access when targeting a dedicated host.
+This repository does **not** use GitHub Actions as the “deploy to production server” button for SSH-backed hosting (see [issue #93](https://github.com/neumerance/yoochog/issues/93)); operators run **`./deploy.sh`** from a machine with SSH access. The script defaults in-repo to **yoochoog.app**, user **root**, **`/var/www/yoochog`**, and a public **GitHub** clone URL—override with env vars or edit the script if your host differs.
 
 ### Dedicated server (no Docker, no deploy Action)
 
