@@ -62,6 +62,7 @@ The script prunes old release directories, keeping the last **`DEPLOY_RETAIN`** 
 Example file ( **copy and edit** on the server — not loaded automatically from the repo):
 
 - [`deploy/nginx/yoochog.example.conf`](../deploy/nginx/yoochog.example.conf)
+- If you ran **Certbot** first, it may have set **`root`** to a placeholder such as **`/var/www/<domain>/html`** with a tiny `index.html`. You must point **`root`** (and **SPA** `try_files`) at **`/var/www/yoochog/current/app/dist`**, and add **`/socket.io/`** — see a merged reference: [`deploy/nginx/yoochoog.sites-enabled.conf`](../deploy/nginx/yoochoog.sites-enabled.conf) (kept in sync with the live **Let’s Encrypt** paths we use in production for **yoochoog.app**).
 
 ### Install (Debian/Ubuntu style)
 
