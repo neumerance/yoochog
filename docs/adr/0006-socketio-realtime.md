@@ -32,9 +32,9 @@ Implemented in code as `partySessionRoomId` in [`app/src/lib/realtime/partyRoomI
 
 The development server accepts any connection; **no token** is required for local work. Production deployments should sit the Socket.io service behind TLS and may add application-level connect auth in a follow-up.
 
-### Docker Compose
+### Docker Compose (development / local only)
 
-[`compose.yaml`](../../compose.yaml) defines the **socket** service; [`compose.dev.yaml`](../../compose.dev.yaml) **includes** it and adds the **Vite** dev `web` service so one command brings up both; see root [`README.md`](../../README.md).
+[`compose.yaml`](../../compose.yaml) defines the **socket** service; [`compose.dev.yaml`](../../compose.dev.yaml) **includes** it and adds the **Vite** dev `web` service so one command brings up both; see root [`README.md`](../../README.md). **This is for local and similar non-production use.** A dedicated production host should run the Node realtime process under **process manager + reverse proxy** (e.g. systemd + nginx) as described in [`server-deployment.md`](../server-deployment.md), **not** via Compose in production.
 
 ### Deprecations
 
@@ -42,5 +42,5 @@ The development server accepts any connection; **no token** is required for loca
 
 ## Consequences
 
-- Operators **must** deploy or host a Socket.io-compatible service and set **`VITE_SOCKET_URL`** in CI for production builds.
+- Operators **must** deploy or host a Socket.io-compatible service and set **`VITE_SOCKET_URL`** in CI for **GitHub Pages** builds, or in **`shared/build.env`** (or similar) for **self-hosted** builds — see [`server-deployment.md`](../server-deployment.md). The **browser** must be able to reach the Socket.io origin; **CORS** (`SOCKET_CORS_ORIGIN` on the server) must allow the static app origin.
 - [ADR 0002](./0002-party-data-channel-wire-protocol-v1.md) remains the **message** contract; only the **transport** changes (server relay instead of `RTCDataChannel`).

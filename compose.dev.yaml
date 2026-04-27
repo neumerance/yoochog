@@ -1,4 +1,4 @@
-# Local development: Vite (web) + Socket.io (socket). Includes compose.yaml.
+# Local development: Vite (web) + Socket.io (socket). Includes compose.yaml. Not a production run path—see docs/server-deployment.md.
 # From the repo root:
 #   docker compose -f compose.dev.yaml up --build
 # Open http://localhost:5173 — VITE_SOCKET_URL=http://localhost:3000 (browser → host-mapped port).

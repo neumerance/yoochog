@@ -18,7 +18,9 @@ npm run dev
 
 `npm run dev` serves the app at `/` (Vite dev server). **Party mode** (host + guests) needs **[`VITE_SOCKET_URL`](app/.env.example)** and the Socket.io process — see [Docker (web + socket)](#docker-web--realtime) or [`app/README.md`](app/README.md).
 
-## Docker (web + realtime)
+## Docker (web + realtime) — local / dev only
+
+**Docker Compose and `realtime-server/Dockerfile` are for local development and similar non-production workflows** (one-command Socket.io + optional Vite). They are **not** the supported way to run production on a dedicated server; for that, use **host Node + nginx + systemd** (or similar) as described in [`docs/server-deployment.md`](docs/server-deployment.md).
 
 From the **repository root** (not only `app/`):
 
@@ -42,9 +44,11 @@ npm run build
 npm run preview
 ```
 
-Production builds and `vite preview` use the `/yoochog/` base path; `npm run dev` uses `/`. To verify asset URLs under `/yoochog/` and inspect `dist/`, see [`app/README.md`](app/README.md).
+By default, production builds and `vite preview` use the **`/yoochog/`** base path (GitHub Pages). Set **`VITE_BASE_PATH=/`** (or another prefix) to match a self-hosted nginx layout—see [`docs/server-deployment.md`](docs/server-deployment.md). `npm run dev` uses `/`. To verify asset URLs and inspect `dist/`, see [`app/README.md`](app/README.md).
 
 ## Deployment
+
+### GitHub Pages (static)
 
 Pushes to **`master`** run [`.github/workflows/deploy-github-pages.yml`](.github/workflows/deploy-github-pages.yml): CI installs dependencies in **`app/`**, runs **`npm run build`**, and publishes the static output from **`app/dist`** to **GitHub Pages**.
 
@@ -52,7 +56,13 @@ Example public URL (project site):
 
 **https://neumerance.github.io/yoochog/**
 
-For the workflow, one-time GitHub **Settings** (Pages source, permissions), and how SPA routing / `404.html` work on Pages, see **[`docs/github-pages.md`](docs/github-pages.md)**. Use **GitHub Actions** when available; if Actions is blocked, build locally and run **`npm run deploy:gh-pages`** from **`app/`**, then set Pages to **Deploy from branch `gh-pages` / `(root)`** (see that doc).
+For the workflow, one-time GitHub **Settings** (Pages source, permissions), and how SPA routing / `404.html` work on Pages, see **[`docs/github-pages.md`](docs/github-pages.md)**. Use **GitHub Actions** when available; if Actions is blocked, build locally and run **`npm run deploy:gh-pages`** from **`app/`**, then set Pages to **Deploy from branch `gh-pages` / `(root)`** (see that doc). That workflow is **separate** from a **self-managed production server** (nginx, SSH deploy); see **[`docs/server-deployment.md`](docs/server-deployment.md)** and the root **[`deploy.sh`](deploy.sh)** script.
+
+This repository does **not** use GitHub Actions as the “deploy to production server” button for SSH-backed hosting (see [issue #93](https://github.com/neumerance/yoochog/issues/93)); operators use **`./deploy.sh`** from a machine with SSH access when targeting a dedicated host.
+
+### Dedicated server (no Docker, no deploy Action)
+
+**[`docs/server-deployment.md`](docs/server-deployment.md)** — nginx, existing TLS (e.g. Let’s Encrypt on disk), Socket.io, **systemd** unit examples, and **[`deploy.sh`](deploy.sh)** (Capistrano-style **releases** + `current` symlink). **Does not** add a new workflow that deploys to production via GitHub.
 
 ### Join URL (guests)
 
@@ -66,6 +76,7 @@ Use the same pattern in tests and previews, with the dev server origin and path 
 
 | Area | Variable | Notes |
 |------|-----------|--------|
+| **Public path prefix (build / preview)** | `VITE_BASE_PATH` | Optional. Default **`/yoochog/`** (GitHub Pages). For a **root** or custom-prefix build on your own host, set **`/`** or e.g. **`/watch/`** and match nginx. See [`docs/server-deployment.md`](docs/server-deployment.md). |
 | **Party realtime (Socket.io)** | `VITE_SOCKET_URL` | **Required** for host + guest party flows. Public base URL of the Socket.io server (inlined at build). See [ADR 0006](docs/adr/0006-socketio-realtime.md) and [`docs/github-pages.md`](docs/github-pages.md). |
 | **YouTube titles** | `VITE_YOUTUBE_API_KEY` | Optional. |
 
@@ -82,6 +93,7 @@ The host experience stores a **random, unguessable** id per browser tab (UUID-st
 ## More documentation
 
 - [`app/README.md`](app/README.md) — Vue app details and subpath verification
+- [`docs/server-deployment.md`](docs/server-deployment.md) — dedicated host: **nginx**, TLS, **systemd**, **`./deploy.sh`**
 - [`docs/github-pages.md`](docs/github-pages.md) — full GitHub Pages setup
 - [`docs/realtime-recovery.md`](docs/realtime-recovery.md) — Socket.io reconnect, tab visibility recovery, and ~1 minute background behavior (Epic 4 / [#28](https://github.com/neumerance/yoochog/issues/28))
 - [`docs/adr/0006-socketio-realtime.md`](docs/adr/0006-socketio-realtime.md) — Socket.io transport, `VITE_SOCKET_URL`, room ids (supersedes [0001](docs/adr/0001-webrtc-signaling.md))

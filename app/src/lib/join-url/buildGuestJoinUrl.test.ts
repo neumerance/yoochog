@@ -19,6 +19,14 @@ describe('buildGuestJoinUrl', () => {
     expect(href).toBe('http://localhost:5173/join/demo')
   })
 
+  it('works with a custom subpath (self-hosted `VITE_BASE_PATH`)', () => {
+    const href = buildGuestJoinUrl('sid-1', {
+      origin: 'https://yoochog.example.com',
+      baseUrl: '/watch/',
+    })
+    expect(href).toBe('https://yoochog.example.com/watch/join/sid-1')
+  })
+
   it('encodes reserved characters in the session id for the path segment', () => {
     const href = buildGuestJoinUrl('a/b c', {
       origin: 'https://example.com',

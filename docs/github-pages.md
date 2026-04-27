@@ -1,5 +1,7 @@
 # GitHub Pages deployment (yoochog)
 
+**If you are hosting the app and realtime service on a VM or bare-metal you control** (nginx, Let’s Encrypt, SSH deploy), use **[`server-deployment.md`](server-deployment.md)**. This document is about the **separate** **GitHub Pages** static product surface; default **`VITE_BASE_PATH`** remains **`/yoochog/`** there.
+
 This repository ships the Vue app in `app/` to **GitHub Pages** as a **project site** (URL path includes the repo name).
 
 ## What runs in CI
@@ -129,7 +131,7 @@ Project sites use:
 
 `https://<owner>.github.io/<repository>/`
 
-For this project, production builds use Vite `base` `/yoochog/` and the router follows `import.meta.env.BASE_URL`, so assets and routes align with that prefix. Example:
+For this project, **default** production builds (including CI) use Vite `base` **`/yoochog/`** and the router follows `import.meta.env.BASE_URL`, so assets and routes align with that prefix. (A **dedicated** host may set **`VITE_BASE_PATH=/` or another prefix**; nginx and join URLs must follow [`server-deployment.md`](server-deployment.md) — not this Pages-only path.) Example:
 
 **https://neumerance.github.io/yoochog/**
 
