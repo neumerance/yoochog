@@ -16,13 +16,8 @@
         <h2
           class="w-full font-semibold leading-tight text-indigo-950 text-[length:clamp(0.825rem,calc(0.363rem_+_1.815vmin_+_0.231vw),3.3rem)] dark:text-indigo-100"
         >
-          Join in from your phone
+          Join from your phone
         </h2>
-        <p
-          class="w-full leading-relaxed text-indigo-900/90 text-[length:clamp(0.66rem,calc(0.297rem_+_1.551vmin_+_0.198vw),2.31rem)] dark:text-slate-300"
-        >
-          Scan with a phone camera or QR app—opens this sing-along in the browser, no signup.
-        </p>
       </div>
       <div
         class="flex w-full min-w-0 shrink-0 flex-col items-center gap-[clamp(0.65rem,calc(0.4rem_+_1.1vmin_+_0.35vw),1.25rem)] @min-[720px]:w-[min(27rem,min(88vmin,72vw))] @min-[720px]:shrink-0"
@@ -36,7 +31,7 @@
             :width="qrBitmapSize"
             :height="qrBitmapSize"
             class="block h-full w-full rounded-md bg-white object-contain"
-            alt="QR code to join this sing-along from a phone"
+            alt="QR code to join from your phone"
           />
           <div
             class="pointer-events-none absolute inset-0 flex items-center justify-center"

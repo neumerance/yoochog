@@ -1,6 +1,6 @@
 # yoochog
 
-Yoochog is a Vue 3 + Vite frontend living under [`app/`](app/). This repository is the home for that app and its GitHub Pages deployment. Use this document to **clone and run locally**; see [`app/README.md`](app/README.md) for deeper app notes (subpath checks, IDE setup, and more).
+**Yoochog** is a **YouTube jukebox and group-karaoke** web app: the host runs a synced player on a **TV, laptop, or desktop**, and guests use a **join link** on their phones to **paste YouTube links** into a **shared queue** (see [Party queue (guest adds)](#party-queue-guest-adds) below). The app is a Vue 3 + Vite SPA under [`app/`](app/), published from this repo to **GitHub Pages**. Use this document to **clone and run locally**; see [`app/README.md`](app/README.md) for subpath checks, IDE setup, and more.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` serves the app at `/` (Vite dev server). **Party mode** (host + guests) needs **[`VITE_SOCKET_URL`](app/.env.example)** and the Socket.io process — see [Docker (web + socket)](#docker-web--realtime) or [`app/README.md`](app/README.md).
+`npm run dev` serves the app at `/` (Vite dev server). **Guest jukebox sync** (phones talking to the host) needs **[`VITE_SOCKET_URL`](app/.env.example)** and the Socket.io process — see [Docker (web + socket)](#docker-web--realtime) or [`app/README.md`](app/README.md).
 
 ## Docker (web + realtime) — local / dev only
 

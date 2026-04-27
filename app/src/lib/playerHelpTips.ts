@@ -57,7 +57,7 @@ export const PLAYER_HELP_TIP_DEFINITIONS: PlayerHelpTipDefinition[] = [
     id: 'signaling-missing',
     priority: 10,
     message:
-      'Set VITE_SOCKET_URL (Socket.io server URL) so guests can sync the queue from their phones.',
+      'Set VITE_SOCKET_URL (Socket.io server URL) so guests can sync the jukebox / karaoke queue from their phones.',
     test: (ctx) =>
       !ctx.isSignalingConfigured && !ctx.embedSetupError && !ctx.idleVariant && !!ctx.activeVideoId,
   },
@@ -67,7 +67,7 @@ export const PLAYER_HELP_TIP_DEFINITIONS: PlayerHelpTipDefinition[] = [
     message: (ctx) => {
       const n = ctx.maxGuestQueueRowsPerGuest
       const per = n === 1 ? 'one song' : `${n} songs`
-      return `Guests can paste a YouTube link on the join page to enqueue — up to ${per} per guest (including the song that’s playing) until one finishes.`
+      return `Guests can paste a YouTube link on the join page to add to the karaoke queue — up to ${per} per guest (including the song that’s playing) until one finishes.`
     },
     test: (ctx) =>
       ctx.isSignalingConfigured &&

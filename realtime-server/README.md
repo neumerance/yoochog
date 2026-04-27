@@ -1,6 +1,6 @@
 # yoochog-realtime-server
 
-Small **Socket.io** server that joins host and guests in a room per party id (`yoochog:party:<sessionId>`) and relays JSON party payloads. See [ADR 0006](../docs/adr/0006-socketio-realtime.md).
+Small **Socket.io** server for the **Yoochog** jukebox / karaoke app: it joins host and guests in a room per party id (`yoochog:party:<sessionId>`) and relays JSON party payloads. See [ADR 0006](../docs/adr/0006-socketio-realtime.md).
 
 ## Run locally
 

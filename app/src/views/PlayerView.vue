@@ -37,12 +37,12 @@
             Use a larger screen
           </p>
           <p class="text-base leading-relaxed text-slate-600">
-            The host view is built for a
+            The host jukebox / karaoke view is built for a
             <strong class="font-semibold text-slate-800">laptop, desktop, or TV</strong>.
-            Open this page on a bigger screen to run your session.
+            Open this page on a bigger screen to run the room.
           </p>
           <p class="text-sm leading-relaxed text-slate-500">
-            Guests can still use their phones with the join link.
+            Guests can still queue songs from their phones with the join link.
           </p>
         </div>
       </div>

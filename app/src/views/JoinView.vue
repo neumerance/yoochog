@@ -690,21 +690,21 @@ watch(lastQueueSettingsError, (e) => {
         >
           <img
             :src="logoUrl"
-            alt="Yoohchog"
+            alt="Yoochog"
             class="h-auto max-h-[7.5rem] w-auto max-w-[min(100%,14rem)] object-contain object-center"
             decoding="async"
           />
           <p
             class="max-w-[17rem] text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black dark:text-white"
           >
-            No songs in the queue yet
+            Nothing in the jukebox yet
           </p>
           <p
             class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93] dark:text-slate-400"
           >
             Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, paste a YouTube
-            link, then tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Enqueue</span>—your request
-            appears here for everyone.
+            link, then tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Enqueue</span>—your track shows
+            up here for the room.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 # Yoochog (Vue app)
 
-Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 and Vite.
+**YouTube jukebox & group-karaoke** — one screen plays the queue; guests on phones add songs via the join page. Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 and Vite.
 
 ## GitHub Pages (project site)
 

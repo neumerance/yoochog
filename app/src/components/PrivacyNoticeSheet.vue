@@ -71,8 +71,10 @@ defineExpose({ open })
           </h2>
           <div class="mt-3 space-y-3 text-[15px] leading-[1.4] text-[#3C3C43] sm:text-[16px] sm:leading-[1.45]">
             <p>
-              Yoochog saves helpful information—such as your guest display name, party session details,
-              and what’s in the song queue—<strong class="font-semibold text-black">only in this browser on this device</strong>.
+              Yoochog saves helpful information—such as your guest display name, your jukebox / karaoke
+              session details, and what’s in the song queue—<strong
+                class="font-semibold text-black"
+              >only in this browser on this device</strong>.
               It isn’t stored in a Yoochog account for you, and it doesn’t sync to your other phones or
               computers.
             </p>
@@ -81,7 +83,7 @@ defineExpose({ open })
               <strong class="font-semibold text-black">clear your browser’s stored data</strong>, that
               saved information—including session and queue details—<strong class="font-semibold text-black"
                 >will be removed</strong
-              >. You may need to join again, or the list may refresh once you reconnect to the party.
+              >. You may need to join again, or the list may refresh once you reconnect to the session.
             </p>
           </div>
         </div>
