@@ -60,7 +60,7 @@ The build copies [`app/public/.nojekyll`](../app/public/.nojekyll) into **`dist/
 
 3. **Default branch:** The workflow triggers on **`master`**. If the default branch is renamed, update the `on.push.branches` list in the workflow file.
 
-4. **Build-time `VITE_*` values:** The **Install and build** step reads repository **Secrets** and **Variables** (names match [`app/.env.example`](../app/.env.example)). Values are compiled into the client bundle—treat them like any public web config. TURN credential stays on **Secrets** only.
+4. **Build-time `VITE_*` values:** The **Install and build** step reads repository **Secrets** and **Variables** (names match [`app/.env.example`](../app/.env.example)). Values are compiled into the client bundle—treat `VITE_SOCKET_URL` and similar as **public** client config. Put sensitive API keys in **Secrets** if you also restrict them in the key provider.
 
 ## GitHub CLI (`gh`)
 
@@ -71,20 +71,21 @@ Run these from a clone of this repo (or pass `-R owner/repo`). Requires [`gh` au
 Pipe or read the value (avoid putting secrets in shell history when possible):
 
 ```bash
-printf '%s' 'YOUR_VALUE' | gh secret set VITE_PUBNUB_PUBLISH_KEY
-printf '%s' 'YOUR_VALUE' | gh secret set VITE_PUBNUB_SUBSCRIBE_KEY
-# Optional — same pattern for other keys in app/.env.example, e.g.:
-# printf '%s' 'YOUR_VALUE' | gh secret set VITE_TURN_CREDENTIAL
+# Public Socket.io base URL the browser will use in production (must match your deployed server).
+gh variable set VITE_SOCKET_URL --body 'https://realtime.example.com'
+# Optional — YouTube Data API key (browser-restricted key).
+# gh variable set VITE_YOUTUBE_API_KEY --body 'YOUR_KEY'
 ```
+
+The workflow reads **`VITE_SOCKET_URL`** from **Variables** or **Secrets** (`secrets || vars` pattern). For URLs that are not secret, prefer **Variables**.
 
 ### Set repository variables (non-sensitive optional config)
 
 ```bash
-gh variable set VITE_SIGNALING_URL --body 'https://example.com'
 gh variable set VITE_YOUTUBE_API_KEY --body 'YOUR_KEY'
 ```
 
-Use **either** a secret **or** a variable for optional keys where the workflow supports fallback (`VITE_SIGNALING_URL`, ICE/YouTube as documented in the workflow file).
+Use the workflow’s `secrets || vars` pattern when the build must support both (see [`.github/workflows/deploy-github-pages.yml`](../.github/workflows/deploy-github-pages.yml)).
 
 ### List what is configured
 

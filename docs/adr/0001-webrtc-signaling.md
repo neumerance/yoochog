@@ -1,6 +1,6 @@
 # ADR 0001: WebRTC signaling transport and session → room mapping
 
-**Status:** Accepted  
+**Status:** Superseded by [ADR 0006 — Socket.io realtime](./0006-socketio-realtime.md) (2026-04-27)  
 **Date:** 2026-04-17  
 **Context:** [Epic #4 — Real-time sync — WebRTC, signaling, STUN/TURN](https://github.com/neumerance/yoochog/issues/4) · Task [#23](https://github.com/neumerance/yoochog/issues/23)
 

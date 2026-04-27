@@ -57,7 +57,7 @@ export const PLAYER_HELP_TIP_DEFINITIONS: PlayerHelpTipDefinition[] = [
     id: 'signaling-missing',
     priority: 10,
     message:
-      'Add signaling (VITE_SIGNALING_URL or PubNub keys) so guests can sync the queue from their phones.',
+      'Set VITE_SOCKET_URL (Socket.io server URL) so guests can sync the queue from their phones.',
     test: (ctx) =>
       !ctx.isSignalingConfigured && !ctx.embedSetupError && !ctx.idleVariant && !!ctx.activeVideoId,
   },

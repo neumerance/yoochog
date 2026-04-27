@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { HandshakeUiState } from '@/lib/webrtc/handshakeStatus'
+import type { HandshakeUiState } from '@/lib/realtime/handshakeStatus'
 
 const props = defineProps<{
   status: HandshakeUiState
@@ -62,9 +62,9 @@ const showOfflineBlip = computed(
       </div>
     </template>
     <p v-else class="text-slate-600 dark:text-slate-300">
-      Real-time link is off until you set PubNub keys or
-      <code class="rounded bg-slate-200 px-1 dark:bg-slate-700 dark:text-slate-100">VITE_SIGNALING_URL</code>
-      (see app README).
+      Real-time link is off until you set
+      <code class="rounded bg-slate-200 px-1 dark:bg-slate-700 dark:text-slate-100">VITE_SOCKET_URL</code>
+      (Socket.io; see app README).
     </p>
   </div>
 </template>

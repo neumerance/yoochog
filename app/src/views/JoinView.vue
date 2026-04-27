@@ -27,7 +27,7 @@ import {
 } from '@/lib/host-queue/guestQueueLimits'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
-import { guestSessionIdFromRouteParam } from '@/lib/signaling/guestSessionId'
+import { guestSessionIdFromRouteParam } from '@/lib/party/guestSessionId'
 import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
 

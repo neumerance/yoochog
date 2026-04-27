@@ -1,13 +1,13 @@
 /**
- * Tunables for WebRTC / signaling recovery (guest re-handshake limits, ICE grace, visibility).
+ * Tunables for Socket.io party recovery (guest reconnection limits, visibility).
  */
 
 /** After this many connection-loss events without a successful reconnect, stop retrying. */
 export const RECONNECT_MAX_ATTEMPTS = 10
 
 /**
- * When RTCPeerConnection enters "disconnected", ICE may recover without a full teardown.
- * Wait this long before treating it as a loss (host + guest).
+ * Legacy constant name: reserved for doc alignment; WebRTC ICE grace is no longer used for the party channel.
+ * Kept so recovery timing references in docs remain grep-friendly.
  */
 export const PEER_DISCONNECTED_GRACE_MS = 8_000
 
@@ -18,8 +18,8 @@ export const PEER_DISCONNECTED_GRACE_MS = 8_000
 export const RECONNECT_VISIBILITY_MIN_HIDDEN_MS = 60_000
 
 /**
- * Guest: after a long `hidden` / return to `visible`, wait this long (post-layout) before reading
- * PC/party data channel state, so the visibility probe does not flap on the first frame.
+ * Guest: after a long `hidden` / return to `visible`, wait this long (post-layout) before probing
+ * the party link, so the visibility probe does not flap on the first frame.
  */
 export const VISIBILITY_RESUME_HEALTH_PROBE_MS = 200
 

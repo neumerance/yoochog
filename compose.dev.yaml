@@ -1,0 +1,21 @@
+# Local development: Vite (web) + Socket.io (socket). Includes compose.yaml.
+# From the repo root:
+#   docker compose -f compose.dev.yaml up --build
+# Open http://localhost:5173 — VITE_SOCKET_URL=http://localhost:3000 (browser → host-mapped port).
+
+include:
+  - compose.yaml
+
+services:
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./app:/app
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_SOCKET_URL: http://localhost:3000
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    depends_on:
+      - socket
