@@ -8,6 +8,12 @@ This runbook describes how to run the **static Vue app** (`app/dist/`), the **So
 
 Align with `engines` in `app/package.json` and `realtime-server/package.json`: **`^20.19.0 || >=22.12.0`**. Install Node on the host however your team prefers (distribution packages, **nvm**, **fnm**, etc.). The example **systemd** unit calls `node` from `PATH`; if you use nvm for a dedicated user, use the **absolute** path to `node` in `ExecStart=`.
 
+**Debian/Ubuntu (apt) one-shot:** from the repo on your laptop, pipe [`deploy/bootstrap-server.sh`](../deploy/bootstrap-server.sh) over SSH as **root** — it installs **git**, **Node.js 22** (NodeSource), **nginx**, and creates **`/var/www/yoochog`**:
+
+```sh
+ssh root@yoochoog.app 'bash -s' < deploy/bootstrap-server.sh
+```
+
 ## Environment (build vs runtime)
 
 | Concern | Variable / file | Notes |

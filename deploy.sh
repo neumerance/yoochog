@@ -90,12 +90,13 @@ export VITE_SOCKET_URL=https://yoochoog.app
 export VITE_BASE_PATH=/
 set +a
 echo "==> npm ci (app)…"
-npm ci
+npm ci </dev/null
 echo "==> npm run build (app)…"
-npm run build
+# Do not read from SSH stdin: a build tool (e.g. Vite) may otherwise consume the rest of this script.
+npm run build </dev/null
 cd "${RELEASE_DIR}/realtime-server"
 echo "==> npm ci (realtime-server)…"
-npm ci
+npm ci </dev/null
 
 cd "${DEPLOY_PATH}"
 ln -sfn "releases/${DEPLOY_ID}" current
