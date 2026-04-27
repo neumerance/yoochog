@@ -16,7 +16,7 @@ For this repository the path segment is **`yoochog`**. Example:
 
 **https://neumerance.github.io/yoochog/**
 
-Production builds set Vite’s [`base`](https://vite.dev/config/shared-options.html#base) to `/yoochog/` so scripts, styles, and assets resolve under that prefix. Vue Router uses `import.meta.env.BASE_URL`, so it stays aligned with the build.
+**Default** production/preview builds set Vite’s [`base`](https://vite.dev/config/shared-options.html#base) to **`/yoochog/`** (GitHub Pages) unless you set **`VITE_BASE_PATH`** in `.env` / the environment. Use **`VITE_BASE_PATH=/`** (or another prefix) when serving from your own host so asset URLs and the router match nginx—see [`docs/server-deployment.md`](../docs/server-deployment.md). Vue Router uses `import.meta.env.BASE_URL`, so it stays aligned with the build.
 
 ## Verify the subpath locally
 

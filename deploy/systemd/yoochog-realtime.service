@@ -1,0 +1,23 @@
+[Unit]
+Description=yoochog Socket.io realtime server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Match a dedicated deploy user, or `root` if you run the unit as the same user that owns /var/www/yoochog
+User=root
+Group=root
+WorkingDirectory=/var/www/yoochog/current/realtime-server
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Public https origin of the Vue app (no path) — required when not using default CORS "all".
+Environment=SOCKET_CORS_ORIGIN=https://yoochoog.app
+# Optional: load secrets without editing the unit
+# EnvironmentFile=-/etc/yoochog/realtime.env
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

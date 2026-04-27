@@ -1,4 +1,5 @@
 # Base: Socket.io realtime server (Dockerfile in realtime-server/).
+# For local and non-prod use only; production on a dedicated host: docs/server-deployment.md.
 # Use alone:  docker compose up --build
 # Full dev:   docker compose -f compose.dev.yaml up --build
 
