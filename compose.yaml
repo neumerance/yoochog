@@ -10,5 +10,6 @@ services:
       - "3000:3000"
     environment:
       PORT: "3000"
-      # Set `YOUTUBE_DATA_API_KEY` in repo-root `.env` for local Docker (do not commit secrets).
+      # Set `YOUTUBE_DATA_API_KEY` and optionally `PARTY_ADMIN_PASSWORD` in repo-root `.env` for local Docker (do not commit secrets).
       YOUTUBE_DATA_API_KEY: ${YOUTUBE_DATA_API_KEY:-}
+      PARTY_ADMIN_PASSWORD: ${PARTY_ADMIN_PASSWORD:-}

@@ -24,6 +24,7 @@ import {
   parsePartyMessage,
   PARTY_MESSAGE_SCHEMA_VERSION,
   queueSnapshotToMessage,
+  SESSION_ADMIN_PEER_IDS_MAX,
   serializePartyMessage,
 } from '@/lib/party/partyMessages'
 import type { PartyMessage } from '@/lib/party/partyMessages'
@@ -47,10 +48,10 @@ export function useHostPartySession(
 ) {
   const status = ref<HandshakeUiState>('idle')
   /**
-   * Logical guest id of the session admin (first `guest_identify` or first enqueue in the session).
-   * Kept when that guest disconnects so they remain admin after reconnect.
+   * Logical guest ids with session-admin powers. Seeded by the first `guest_identify` when empty;
+   * additional ids are added when the realtime server validates the shared admin password.
    */
-  const sessionAdminGuestId = ref<string | null>(null)
+  const sessionAdminGuestIds = ref<string[]>([])
   const maxGuestQueueRowsPerGuest = ref(GUEST_QUEUE_ROWS_CAP_DEFAULT)
   const audienceChatEnabled = ref(true)
   /** Per logical guest id (wire `requesterGuestId`) for audience chat rate limits. */
@@ -88,7 +89,7 @@ export function useHostPartySession(
     }
     const msg = queueSnapshotToMessage(
       queue.getSnapshot(),
-      sessionAdminGuestId.value,
+      sessionAdminGuestIds.value,
       maxGuestQueueRowsPerGuest.value,
       audienceChatEnabled.value,
       hostAudioSessionUnlocked.value,
@@ -102,7 +103,7 @@ export function useHostPartySession(
     }
     const msg = queueSnapshotToMessage(
       queue.getSnapshot(),
-      sessionAdminGuestId.value,
+      sessionAdminGuestIds.value,
       maxGuestQueueRowsPerGuest.value,
       audienceChatEnabled.value,
       hostAudioSessionUnlocked.value,
@@ -111,10 +112,25 @@ export function useHostPartySession(
   }
 
   function ensureSessionAdminFromLogicalId(id: string | null) {
-    if (!id || sessionAdminGuestId.value !== null) {
+    if (!id || sessionAdminGuestIds.value.length > 0) {
       return
     }
-    sessionAdminGuestId.value = id
+    sessionAdminGuestIds.value = [id]
+    pushSnapshotToEveryone()
+  }
+
+  function grantAssumeAdminLogicalId(logicalGuestId: string) {
+    const id = logicalGuestId.trim()
+    if (!id || id.length > 64) {
+      return
+    }
+    if (sessionAdminGuestIds.value.includes(id)) {
+      return
+    }
+    if (sessionAdminGuestIds.value.length >= SESSION_ADMIN_PEER_IDS_MAX) {
+      return
+    }
+    sessionAdminGuestIds.value = [...sessionAdminGuestIds.value, id]
     pushSnapshotToEveryone()
   }
 
@@ -173,7 +189,7 @@ export function useHostPartySession(
         return
       }
       const res = resolveQueueSettingsUpdateRequest({
-        sessionAdminGuestId: sessionAdminGuestId.value,
+        sessionAdminGuestIds: sessionAdminGuestIds.value,
         requesterGuestId: msg.requesterGuestId,
       })
       if (!res.ok) {
@@ -215,7 +231,7 @@ export function useHostPartySession(
     if (msg?.type === 'end_current_playback_request') {
       const resolution = resolveSessionAdminEndPlaybackRequest({
         snapshot: queue.getSnapshot(),
-        sessionAdminGuestId: sessionAdminGuestId.value,
+        sessionAdminGuestIds: sessionAdminGuestIds.value,
         peerGuestId: guestId,
         parsedRequesterGuestId: msg.requesterGuestId,
       })
@@ -229,7 +245,7 @@ export function useHostPartySession(
     if (msg?.type === 'pause_current_playback_request') {
       const resolution = resolveSessionAdminPausePlaybackRequest({
         snapshot: queue.getSnapshot(),
-        sessionAdminGuestId: sessionAdminGuestId.value,
+        sessionAdminGuestIds: sessionAdminGuestIds.value,
         peerGuestId: guestId,
         parsedRequesterGuestId: msg.requesterGuestId,
       })
@@ -243,7 +259,7 @@ export function useHostPartySession(
     if (msg?.type === 'resume_current_playback_request') {
       const resolution = resolveSessionAdminResumePlaybackRequest({
         snapshot: queue.getSnapshot(),
-        sessionAdminGuestId: sessionAdminGuestId.value,
+        sessionAdminGuestIds: sessionAdminGuestIds.value,
         peerGuestId: guestId,
         parsedRequesterGuestId: msg.requesterGuestId,
       })
@@ -257,7 +273,7 @@ export function useHostPartySession(
     if (msg?.type === 'remove_queue_row_request') {
       const resolution = resolveSessionAdminRemoveRowRequest({
         snapshot: queue.getSnapshot(),
-        sessionAdminGuestId: sessionAdminGuestId.value,
+        sessionAdminGuestIds: sessionAdminGuestIds.value,
         peerGuestId: guestId,
         rowIndex: msg.rowIndex,
         parsedRequesterGuestId: msg.requesterGuestId,
@@ -372,7 +388,7 @@ export function useHostPartySession(
       dispose = null
       broadcastParty = null
       sendPartyToGuest = null
-      sessionAdminGuestId.value = null
+      sessionAdminGuestIds.value = []
       maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
       audienceChatEnabled.value = true
       audienceChatGuestState.clear()
@@ -418,6 +434,9 @@ export function useHostPartySession(
         },
         onPartyMessage: (guestId, raw) => {
           handleGuestRaw(guestId, raw)
+        },
+        onAssumeAdminGranted: (logicalGuestId) => {
+          grantAssumeAdminLogicalId(logicalGuestId)
         },
       })
       broadcastParty = r.broadcastParty

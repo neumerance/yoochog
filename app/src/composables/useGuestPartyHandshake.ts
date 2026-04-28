@@ -41,7 +41,7 @@ import { useTabVisibilityRecovery } from './useTabVisibilityRecovery'
 export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const status = ref<HandshakeUiState>('idle')
   const queueSnapshot = ref<HostVideoQueueSnapshot | null>(null)
-  const sessionAdminGuestId = ref<string | null>(null)
+  const sessionAdminGuestIds = ref<string[]>([])
   const localPartyPeerId = ref<string | null>(null)
   const lastEnqueueError = ref<string | null>(null)
   const lastChatError = ref<string | null>(null)
@@ -57,6 +57,11 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   let chatErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let queueSettingsErrorDismissTimer: ReturnType<typeof setTimeout> | null = null
   let sendPartyRaw: ((raw: string) => void) | null = null
+  let emitAssumeAdmin:
+    | ((password: string, logicalGuestId: string) => void)
+    | null = null
+
+  const lastAssumeAdminResult = ref<{ ok: boolean; error?: string } | null>(null)
 
   function clearEnqueueErrorDismissTimer() {
     if (enqueueErrorDismissTimer) {
@@ -154,6 +159,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     activeDispose()
     activeDispose = null
     sendPartyRaw = null
+    emitAssumeAdmin = null
     status.value = 'reconnecting'
     offlineRetryTimer = setTimeout(() => {
       offlineRetryTimer = null
@@ -172,8 +178,10 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       activeDispose?.()
       activeDispose = null
       sendPartyRaw = null
+      emitAssumeAdmin = null
       queueSnapshot.value = id ? loadGuestQueueSnapshot(id) : null
-      sessionAdminGuestId.value = null
+      sessionAdminGuestIds.value = []
+      lastAssumeAdminResult.value = null
       localPartyPeerId.value = null
       lastEnqueueError.value = null
       lastChatError.value = null
@@ -223,6 +231,9 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         onError: (m) => {
           console.log('[yoochog guest handshake]', m)
         },
+        onAssumeAdminResult: (result) => {
+          lastAssumeAdminResult.value = result
+        },
         onPartyChannelOpen: () => {
           lastEnqueueError.value = null
           lastChatError.value = null
@@ -248,7 +259,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           const next = applyGuestPartyMessage(
             {
               snapshot: queueSnapshot.value,
-              sessionAdminGuestId: sessionAdminGuestId.value,
+              sessionAdminGuestIds: sessionAdminGuestIds.value,
               maxGuestQueueRowsPerGuest: maxGuestQueueRowsPerGuest.value,
               audienceChatEnabled: audienceChatEnabled.value,
               hostAudioSessionUnlocked: hostAudioSessionUnlocked.value,
@@ -259,7 +270,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
             msg,
           )
           queueSnapshot.value = next.snapshot
-          sessionAdminGuestId.value = next.sessionAdminGuestId
+          sessionAdminGuestIds.value = next.sessionAdminGuestIds
           maxGuestQueueRowsPerGuest.value = next.maxGuestQueueRowsPerGuest
           audienceChatEnabled.value = next.audienceChatEnabled
           hostAudioSessionUnlocked.value = next.hostAudioSessionUnlocked
@@ -276,6 +287,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       })
       localPartyPeerId.value = r.localPartyPeerId
       sendPartyRaw = r.sendPartyRaw
+      emitAssumeAdmin = r.emitAssumeAdmin
       activeDispose = () => {
         ac.abort()
         r.dispose()
@@ -488,12 +500,22 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     return { ok: true }
   }
 
+  function requestAssumeAdmin(password: string, logicalGuestId: string) {
+    lastAssumeAdminResult.value = null
+    if (!emitAssumeAdmin) {
+      lastAssumeAdminResult.value = { ok: false, error: 'Not connected.' }
+      return
+    }
+    emitAssumeAdmin(password, logicalGuestId)
+  }
+
   return {
     status,
     statusLabel,
     isSignalingConfigured: computed(() => hasSignaling),
     queueSnapshot,
-    sessionAdminGuestId,
+    sessionAdminGuestIds,
+    lastAssumeAdminResult,
     localPartyPeerId,
     lastEnqueueError,
     lastChatError,
@@ -509,6 +531,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     requestRemoveRow,
     requestQueueSettingsUpdate,
     requestAudienceChat,
+    requestAssumeAdmin,
     canRequestEnqueue: computed(() => status.value === 'connected'),
   }
 }

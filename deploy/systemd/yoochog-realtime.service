@@ -17,7 +17,7 @@ Environment=SOCKET_CORS_ORIGIN=https://yoochoog.app
 # Environment=YOUTUBE_DATA_API_KEY=
 # Optional: max search GETs per client IP per rolling minute (default 20).
 # Environment=YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE=20
-# Optional: load secrets without editing the unit
+# Optional: load secrets without editing the unit (e.g. PARTY_ADMIN_PASSWORD, YOUTUBE_DATA_API_KEY)
 # EnvironmentFile=-/etc/yoochog/realtime.env
 ExecStart=/usr/bin/node server.mjs
 Restart=on-failure

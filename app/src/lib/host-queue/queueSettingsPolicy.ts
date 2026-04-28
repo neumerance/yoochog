@@ -10,13 +10,10 @@ export type QueueSettingsUpdateResolution = { ok: true } | { ok: false; reason: 
  * rules as other guest→host actions: `requesterGuestId` on the wire is the effective logical id.
  */
 export function resolveQueueSettingsUpdateRequest(input: {
-  sessionAdminGuestId: string | null
+  sessionAdminGuestIds: readonly string[]
   requesterGuestId: string
 }): QueueSettingsUpdateResolution {
-  if (
-    input.sessionAdminGuestId !== null
-    && input.requesterGuestId === input.sessionAdminGuestId
-  ) {
+  if (input.sessionAdminGuestIds.includes(input.requesterGuestId)) {
     return { ok: true }
   }
   return { ok: false, reason: QUEUE_SETTINGS_REJECTED_NOT_ADMIN }

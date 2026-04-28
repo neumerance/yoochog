@@ -5,7 +5,7 @@ import { applyGuestPartyMessage, type GuestPartyUiState } from './guestPartyStat
 function emptyState(over: Partial<GuestPartyUiState> = {}): GuestPartyUiState {
   return {
     snapshot: null,
-    sessionAdminGuestId: null,
+    sessionAdminGuestIds: [],
     maxGuestQueueRowsPerGuest: 2,
     audienceChatEnabled: true,
     hostAudioSessionUnlocked: true,
@@ -37,7 +37,25 @@ describe('applyGuestPartyMessage', () => {
     expect(next.snapshot?.requestedBys).toEqual(['Sam'])
     expect(next.snapshot?.requesterGuestIds).toEqual(['g1'])
     expect(next.snapshot?.currentIndex).toBe(0)
-    expect(next.sessionAdminGuestId).toBe('admin-1')
+    expect(next.sessionAdminGuestIds).toEqual(['admin-1'])
+  })
+
+  it('maps sessionAdminPeerIds to multiple admins', () => {
+    const next = applyGuestPartyMessage(emptyState(), {
+      v: 1,
+      type: 'queue_snapshot',
+      ids: ['a'],
+      currentIndex: 0,
+      titles: [null],
+      requestedBys: [null],
+      requesterGuestIds: [null],
+      sessionAdminPeerId: 'admin-1',
+      sessionAdminPeerIds: ['admin-1', 'admin-2'],
+      maxGuestQueueRowsPerGuest: 2,
+      audienceChatEnabled: true,
+      audioSessionUnlocked: true,
+    })
+    expect(next.sessionAdminGuestIds).toEqual(['admin-1', 'admin-2'])
   })
 
   it('normalizes legacy queue_snapshot rows before current playhead', () => {
@@ -68,7 +86,7 @@ describe('applyGuestPartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
-      sessionAdminGuestId: 'a',
+      sessionAdminGuestIds: ['a'],
     })
     const next = applyGuestPartyMessage(prev, {
       v: 1,
@@ -77,7 +95,7 @@ describe('applyGuestPartyMessage', () => {
     })
     expect(next.lastEnqueueError).toBe('bad id')
     expect(next.snapshot).toEqual(prev.snapshot)
-    expect(next.sessionAdminGuestId).toBe('a')
+    expect(next.sessionAdminGuestIds).toEqual(['a'])
   })
 
   it('leaves state unchanged on heartbeat', () => {
@@ -89,7 +107,7 @@ describe('applyGuestPartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
-      sessionAdminGuestId: null,
+      sessionAdminGuestIds: [],
       lastEnqueueError: 'prior',
     })
     const next = applyGuestPartyMessage(prev, {

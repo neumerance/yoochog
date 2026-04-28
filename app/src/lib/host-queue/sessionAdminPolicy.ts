@@ -32,23 +32,30 @@ export type SessionAdminResolution = { ok: true } | { ok: false; reason: string 
  * **owner** of the now-playing row (`requesterGuestIds[current]` matches `parsedRequesterGuestId ??
  * peerGuestId`). Session admin may also end legacy rows with no stored owner.
  */
+/** Logical guest ids allowed session-admin actions (first guest auto-seeded; others via shared password). */
+export function isLogicalSessionAdmin(
+  sessionAdminGuestIds: readonly string[],
+  effectiveRequester: string,
+): boolean {
+  return sessionAdminGuestIds.includes(effectiveRequester)
+}
+
 export function resolveSessionAdminEndPlaybackRequest(input: {
   snapshot: HostVideoQueueSnapshot
-  /** Logical guest id of the session admin (first guest in the session), or `null` when unset. */
-  sessionAdminGuestId: string | null
+  /** Logical guest ids with session-admin powers; empty means no admins designated yet. */
+  sessionAdminGuestIds: readonly string[]
   /** WebRTC signaling `clientId` for this guest connection (owner fallback when body omits id). */
   peerGuestId: string
   /** Parsed from `end_current_playback_request`; enqueue-style logical id when set. */
   parsedRequesterGuestId: string | null
 }): SessionAdminResolution {
-  const { snapshot, sessionAdminGuestId, peerGuestId, parsedRequesterGuestId } = input
+  const { snapshot, sessionAdminGuestIds, peerGuestId, parsedRequesterGuestId } = input
   if (snapshot.ids.length === 0 || snapshot.currentIndex === null) {
     return { ok: false, reason: SESSION_ADMIN_REJECTED_NOTHING_PLAYING }
   }
 
   const effectiveRequester = parsedRequesterGuestId ?? peerGuestId
-  const isAdmin =
-    sessionAdminGuestId !== null && effectiveRequester === sessionAdminGuestId
+  const isAdmin = isLogicalSessionAdmin(sessionAdminGuestIds, effectiveRequester)
   if (isAdmin) {
     return { ok: true }
   }
@@ -91,20 +98,19 @@ export function resolveSessionAdminResumePlaybackRequest(
  */
 export function resolveSessionAdminRemoveRowRequest(input: {
   snapshot: HostVideoQueueSnapshot
-  sessionAdminGuestId: string | null
+  sessionAdminGuestIds: readonly string[]
   peerGuestId: string
   rowIndex: number
   parsedRequesterGuestId: string | null
 }): SessionAdminResolution {
-  const { snapshot, sessionAdminGuestId, peerGuestId, rowIndex, parsedRequesterGuestId } = input
+  const { snapshot, sessionAdminGuestIds, peerGuestId, rowIndex, parsedRequesterGuestId } = input
   const n = snapshot.ids.length
   if (n === 0 || !Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= n) {
     return { ok: false, reason: REMOVE_ROW_REJECTED_BAD_INDEX }
   }
 
   const effectiveRequester = parsedRequesterGuestId ?? peerGuestId
-  const isAdmin =
-    sessionAdminGuestId !== null && effectiveRequester === sessionAdminGuestId
+  const isAdmin = isLogicalSessionAdmin(sessionAdminGuestIds, effectiveRequester)
   if (isAdmin) {
     return { ok: true }
   }

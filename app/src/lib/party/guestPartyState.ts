@@ -3,12 +3,12 @@ import {
   type HostVideoQueueSnapshot,
 } from '@/lib/host-queue/hostVideoQueue'
 
-import type { PartyMessage } from './partyMessages'
+import { sessionAdminGuestIdsFromSnapshotMessage, type PartyMessage } from './partyMessages'
 
 export type GuestPartyUiState = {
   snapshot: HostVideoQueueSnapshot | null
-  /** Logical guest id of the session admin from `queue_snapshot.sessionAdminPeerId`; `null` if unset. */
-  sessionAdminGuestId: string | null
+  /** Logical guest ids with session-admin powers from `queue_snapshot`. */
+  sessionAdminGuestIds: string[]
   /**
    * Host-enforced per-guest row cap (now playing + waiting), from `queue_snapshot`;
    * default when the field is absent (older hosts).
@@ -44,7 +44,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
           requesterGuestIds: msg.requesterGuestIds,
           currentIndex: msg.currentIndex,
         }),
-        sessionAdminGuestId: msg.sessionAdminPeerId,
+        sessionAdminGuestIds: sessionAdminGuestIdsFromSnapshotMessage(msg),
         maxGuestQueueRowsPerGuest: msg.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: msg.audienceChatEnabled,
         hostAudioSessionUnlocked: msg.audioSessionUnlocked,
@@ -55,7 +55,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
     case 'enqueue_rejected':
       return {
         snapshot: prev.snapshot,
-        sessionAdminGuestId: prev.sessionAdminGuestId,
+        sessionAdminGuestIds: prev.sessionAdminGuestIds,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: prev.audienceChatEnabled,
         hostAudioSessionUnlocked: prev.hostAudioSessionUnlocked,
@@ -66,7 +66,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
     case 'chat_rejected':
       return {
         snapshot: prev.snapshot,
-        sessionAdminGuestId: prev.sessionAdminGuestId,
+        sessionAdminGuestIds: prev.sessionAdminGuestIds,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: prev.audienceChatEnabled,
         hostAudioSessionUnlocked: prev.hostAudioSessionUnlocked,
@@ -77,7 +77,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
     case 'queue_settings_rejected':
       return {
         snapshot: prev.snapshot,
-        sessionAdminGuestId: prev.sessionAdminGuestId,
+        sessionAdminGuestIds: prev.sessionAdminGuestIds,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: prev.audienceChatEnabled,
         hostAudioSessionUnlocked: prev.hostAudioSessionUnlocked,

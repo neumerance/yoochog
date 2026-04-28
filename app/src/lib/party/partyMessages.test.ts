@@ -34,7 +34,7 @@ describe('parsePartyMessage', () => {
         requesterGuestIds: ['g1', null],
         currentIndex: 0,
       },
-      null,
+      [],
     )
     const raw = serializePartyMessage(msg)
     expect(parsePartyMessage(raw)).toEqual(msg)
@@ -49,7 +49,7 @@ describe('parsePartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
-      '550e8400-e29b-41d4-a716-446655440000',
+      ['550e8400-e29b-41d4-a716-446655440000'],
     )
     const raw = serializePartyMessage(msg)
     expect(parsePartyMessage(raw)).toEqual(msg)
@@ -484,7 +484,7 @@ describe('parsePartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
-      'admin-1',
+      ['admin-1'],
       7,
     )
     const raw = serializePartyMessage(msg)
@@ -556,7 +556,7 @@ describe('parsePartyMessage', () => {
         requesterGuestIds: [null],
         currentIndex: 0,
       },
-      null,
+      [],
       2,
       false,
       DEFAULT_AUDIO_SESSION_UNLOCKED,

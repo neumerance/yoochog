@@ -4,6 +4,9 @@ import { connectionStepLog, rtcDebugLog, rtcFailureLog } from '@/lib/debug/rtcDe
 import type { HandshakeUiState } from '@/lib/realtime/handshakeStatus'
 import { partySessionRoomId } from '@/lib/realtime/partyRoomId'
 import {
+  YOOCHOG_ASSUME_ADMIN,
+  YOOCHOG_ASSUME_ADMIN_GRANTED,
+  YOOCHOG_ASSUME_ADMIN_RESULT,
   YOOCHOG_GUEST_JOINED,
   YOOCHOG_GUEST_LEFT,
   YOOCHOG_HOST_LEFT,
@@ -26,6 +29,8 @@ export type HostPartySocketOptions = {
   onPartyChannelOpen?: (guestId: string) => void
   onPartyMessage?: (guestId: string, raw: string) => void
   onGuestConnectionLost?: (guestId: string, detail: string) => void
+  /** Server validated admin password; host should add this logical guest id as a session admin. */
+  onAssumeAdminGranted?: (logicalGuestId: string) => void
 } & PartySocketCallbacks
 
 export type HostPartySocketHandle = {
@@ -40,11 +45,13 @@ export type GuestPartySocketOptions = {
   onPartyChannelOpen?: () => void
   onPartyMessage?: (raw: string) => void
   onConnectionLost?: (detail: string) => void
+  onAssumeAdminResult?: (result: { ok: boolean; error?: string }) => void
 } & PartySocketCallbacks
 
 export type GuestPartySocketHandle = {
   dispose: () => void
   sendPartyRaw: (raw: string) => void
+  emitAssumeAdmin: (password: string, logicalGuestId: string) => void
   localPartyPeerId: string
   isPartyLinkOkForVisibilityResume: () => boolean
 }
@@ -170,6 +177,14 @@ export function runHostPartySocket(options: HostPartySocketOptions): HostPartySo
       },
     )
 
+    socket.on(YOOCHOG_ASSUME_ADMIN_GRANTED, (p: { logicalGuestId?: unknown } | null) => {
+      const id = p && typeof p.logicalGuestId === 'string' ? p.logicalGuestId.trim() : ''
+      if (!id) {
+        return
+      }
+      options.onAssumeAdminGranted?.(id)
+    })
+
     /** Host is alone until first guest; host_left from server targets guests, not host. */
     socket.on(YOOCHOG_HOST_LEFT, () => {
       // no-op (guests)
@@ -198,6 +213,10 @@ export function runGuestPartySocket(options: GuestPartySocketOptions): GuestPart
 
   const sendPartyRaw: GuestPartySocketHandle['sendPartyRaw'] = (raw) => {
     socket.emit(YOOCHOG_PARTY_SEND, { raw })
+  }
+
+  const emitAssumeAdmin: GuestPartySocketHandle['emitAssumeAdmin'] = (password, logicalGuestId) => {
+    socket.emit(YOOCHOG_ASSUME_ADMIN, { password, logicalGuestId })
   }
 
   const dispose = () => {
@@ -291,6 +310,12 @@ export function runGuestPartySocket(options: GuestPartySocketOptions): GuestPart
       options.onPartyMessage?.(p.raw)
     })
 
+    socket.on(YOOCHOG_ASSUME_ADMIN_RESULT, (p: { ok?: unknown; error?: unknown } | null) => {
+      const ok = p?.ok === true
+      const err = typeof p?.error === 'string' ? p.error : undefined
+      options.onAssumeAdminResult?.({ ok, error: err })
+    })
+
     try {
       socket.connect()
     } catch (e) {
@@ -303,6 +328,7 @@ export function runGuestPartySocket(options: GuestPartySocketOptions): GuestPart
   return {
     dispose,
     sendPartyRaw,
+    emitAssumeAdmin,
     localPartyPeerId: clientId,
     isPartyLinkOkForVisibilityResume,
   }

@@ -13,6 +13,10 @@ import QueueSettingsPanel from '@/components/QueueSettingsPanel.vue'
 import { useGuestPartyHandshake } from '@/composables/useGuestPartyHandshake'
 import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
 import {
+  readAssumeAdminEligible,
+  saveAssumeAdminEligible,
+} from '@/lib/guest/guestAssumeAdminSetting'
+import {
   readGuestDisplayName,
   saveGuestDisplayName,
   validateGuestDisplayName,
@@ -56,7 +60,7 @@ const {
   statusLabel,
   isSignalingConfigured,
   queueSnapshot,
-  sessionAdminGuestId,
+  sessionAdminGuestIds,
   lastEnqueueError,
   lastChatError,
   lastQueueSettingsError,
@@ -70,6 +74,8 @@ const {
   requestRemoveRow,
   requestQueueSettingsUpdate,
   requestAudienceChat,
+  requestAssumeAdmin,
+  lastAssumeAdminResult,
   canRequestEnqueue,
 } = useGuestPartyHandshake(handshakeSessionId)
 
@@ -92,6 +98,11 @@ const chatDialog = ref<HTMLDialogElement | null>(null)
 const chatTriggerRef = ref<HTMLButtonElement | null>(null)
 const chatInput = ref('')
 const chatFieldError = ref<string | null>(null)
+const assumeAdminEligible = ref(readAssumeAdminEligible())
+watch(assumeAdminEligible, (on) => saveAssumeAdminEligible(on))
+
+const assumeAdminSubmitting = ref(false)
+
 const queueSettingsOpen = ref(false)
 const queueSettingsSavePending = ref(false)
 const queueSettingsTarget = ref<{
@@ -187,16 +198,44 @@ function isMyQueueRow(index: number): boolean {
   return s.requesterGuestIds[index] === mine
 }
 
-/** First guest in the session (stable logical id from host); used for admin-only actions. */
+/** Session admins: first identifying guest on the host and anyone granted via shared password. */
 const isSessionAdmin = computed(() => {
   const sid = routeSessionId.value
   if (!sid) {
     return false
   }
-  const admin = sessionAdminGuestId.value
   const mine = getOrCreatePartyGuestRequesterId(sid)
-  return admin !== null && mine === admin
+  return sessionAdminGuestIds.value.includes(mine)
 })
+
+const canOfferAssumeAdmin = computed(
+  () =>
+    isSignalingConfigured.value
+    && assumeAdminEligible.value
+    && canRequestEnqueue.value
+    && !isSessionAdmin.value,
+)
+
+watch(lastAssumeAdminResult, (r) => {
+  if (!r) {
+    return
+  }
+  assumeAdminSubmitting.value = false
+})
+
+function onAssumeAdminSubmit(password: string) {
+  const sid = routeSessionId.value
+  if (!sid || assumeAdminSubmitting.value) {
+    return
+  }
+  assumeAdminSubmitting.value = true
+  requestAssumeAdmin(password, getOrCreatePartyGuestRequesterId(sid))
+}
+
+/** Queue panel: assume-admin row when connected but not yet a session admin. */
+const showAssumeAdminSectionInPanel = computed(
+  () => !isSessionAdmin.value && isSignalingConfigured.value,
+)
 
 const guestDisplayNameLabel = computed(() => {
   const n = guestDisplayName.value?.trim()
@@ -601,7 +640,7 @@ const addSongAtCapAria = computed(() => {
 })
 
 function openQueueSettings() {
-  if (!isSessionAdmin.value) {
+  if (!canRequestEnqueue.value || !isSignalingConfigured.value) {
     return
   }
   queueSettingsOpen.value = true
@@ -611,6 +650,9 @@ function onQueueSettingsSave(payload: {
   maxGuestQueueRowsPerGuest: number
   audienceChatEnabled: boolean
 }) {
+  if (!isSessionAdmin.value) {
+    return
+  }
   const sid = routeSessionId.value
   if (!sid) {
     return
@@ -756,10 +798,10 @@ watch(lastQueueSettingsError, (e) => {
         <h2 class="m-0 text-[12px] font-semibold uppercase tracking-[0.02em] text-[#6D6D72] dark:text-slate-400">
           Queue
         </h2>
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1">
           <AppearanceToggle compact />
           <button
-            v-if="isSessionAdmin"
+            v-if="canRequestEnqueue && isSignalingConfigured"
             type="button"
             class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#6D6D72] transition-colors active:bg-black/5 dark:text-slate-400 dark:active:bg-white/5"
             aria-label="Open queue settings"
@@ -1294,11 +1336,18 @@ watch(lastQueueSettingsError, (e) => {
 
     <QueueSettingsPanel
       v-model="queueSettingsOpen"
+      v-model:assume-admin-eligible="assumeAdminEligible"
       :max-from-host="maxGuestQueueRowsPerGuest"
       :chat-enabled-from-host="audienceChatEnabled"
       :is-saving="queueSettingsSavePending"
       :last-error="lastQueueSettingsError"
+      :is-session-admin="isSessionAdmin"
+      :show-assume-admin-section="showAssumeAdminSectionInPanel"
+      :can-show-become-admin-button="canOfferAssumeAdmin"
+      :last-assume-admin-result="lastAssumeAdminResult"
+      :assume-admin-submitting="assumeAdminSubmitting"
       @save="onQueueSettingsSave"
+      @assume-admin-submit="onAssumeAdminSubmit"
     />
     <HostPlayerSplash v-if="showJoinSplash" @complete="onJoinSplashComplete" />
     <PrivacyNoticeSheet ref="privacyNoticeSheet" @dismissed="onPrivacyNoticeDismissed" />

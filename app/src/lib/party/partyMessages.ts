@@ -58,6 +58,9 @@ export const PARTY_QUEUE_REQUESTED_BY_MAX_LENGTH = 64
 /** Logical guest id on wire (UUID from guest session storage or legacy peer id fallback). */
 export const PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH = 64
 
+/** Max logical guest ids listed as session admins in one snapshot (wire guard). */
+export const SESSION_ADMIN_PEER_IDS_MAX = 24
+
 export type PartyMessage =
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -70,8 +73,14 @@ export type PartyMessage =
       /**
        * Stable logical guest id (`requesterGuestId`) of the session admin — the first guest to
        * identify in the session. Same JSON field name as early builds; not a signaling peer id.
+       * Same as `sessionAdminPeerIds[0]` when that array is non-empty.
        */
       sessionAdminPeerId: string | null
+      /**
+       * Full admin set (additive field). When absent or empty on the wire, guests derive admins
+       * from `sessionAdminPeerId` only.
+       */
+      sessionAdminPeerIds?: string[]
       /**
        * Max queue rows (now playing + waiting) per guest. Older snapshots omit the key on the wire
        * → default 2. After parse this is always 1–10.
@@ -307,6 +316,54 @@ function parseNullableSessionAdminPeerId(value: unknown): string | null | 'inval
   return t
 }
 
+function parseOptionalSessionAdminPeerIds(raw: unknown): string[] | 'invalid' {
+  if (raw === undefined || raw === null) {
+    return []
+  }
+  if (!Array.isArray(raw)) {
+    return 'invalid'
+  }
+  if (raw.length > SESSION_ADMIN_PEER_IDS_MAX) {
+    return 'invalid'
+  }
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const x of raw) {
+    const id = parseNullableRequesterGuestId(x)
+    if (id === 'invalid') {
+      return 'invalid'
+    }
+    if (id === null) {
+      continue
+    }
+    if (seen.has(id)) {
+      continue
+    }
+    seen.add(id)
+    out.push(id)
+  }
+  return out
+}
+
+function mergeSessionAdminWireFields(o: Record<string, unknown>): {
+  sessionAdminPeerId: string | null
+  sessionAdminPeerIds: string[]
+} | 'invalid' {
+  const legacy = parseNullableSessionAdminPeerId(o.sessionAdminPeerId)
+  if (legacy === 'invalid') {
+    return 'invalid'
+  }
+  const parsedArr = parseOptionalSessionAdminPeerIds(o.sessionAdminPeerIds)
+  if (parsedArr === 'invalid') {
+    return 'invalid'
+  }
+  const merged = parsedArr.length > 0 ? parsedArr : legacy ? [legacy] : []
+  return {
+    sessionAdminPeerIds: merged,
+    sessionAdminPeerId: merged[0] ?? null,
+  }
+}
+
 function parseSnapshotPayload(
   v: unknown,
 ): Pick<
@@ -317,6 +374,7 @@ function parseSnapshotPayload(
   | 'requestedBys'
   | 'requesterGuestIds'
   | 'sessionAdminPeerId'
+  | 'sessionAdminPeerIds'
   | 'maxGuestQueueRowsPerGuest'
   | 'audienceChatEnabled'
   | 'audioSessionUnlocked'
@@ -342,8 +400,8 @@ function parseSnapshotPayload(
     if (o.currentIndex !== null) {
       return null
     }
-    const sessionAdminPeerIdEmpty = parseNullableSessionAdminPeerId(o.sessionAdminPeerId)
-    if (sessionAdminPeerIdEmpty === 'invalid') {
+    const adm = mergeSessionAdminWireFields(o)
+    if (adm === 'invalid') {
       return null
     }
     return {
@@ -352,7 +410,8 @@ function parseSnapshotPayload(
       titles: [],
       requestedBys: [],
       requesterGuestIds: [],
-      sessionAdminPeerId: sessionAdminPeerIdEmpty,
+      sessionAdminPeerId: adm.sessionAdminPeerId,
+      sessionAdminPeerIds: adm.sessionAdminPeerIds,
       maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
       audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
       audioSessionUnlocked: normalizeAudioSessionUnlocked(o.audioSessionUnlocked),
@@ -378,8 +437,8 @@ function parseSnapshotPayload(
     return null
   }
 
-  const sessionAdminPeerId = parseNullableSessionAdminPeerId(o.sessionAdminPeerId)
-  if (sessionAdminPeerId === 'invalid') {
+  const adm = mergeSessionAdminWireFields(o)
+  if (adm === 'invalid') {
     return null
   }
 
@@ -389,7 +448,8 @@ function parseSnapshotPayload(
     titles: meta.titles,
     requestedBys: meta.requestedBys,
     requesterGuestIds,
-    sessionAdminPeerId,
+    sessionAdminPeerId: adm.sessionAdminPeerId,
+    sessionAdminPeerIds: adm.sessionAdminPeerIds,
     maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
     audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
     audioSessionUnlocked: normalizeAudioSessionUnlocked(o.audioSessionUnlocked),
@@ -422,6 +482,7 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     if (!snap) {
       return null
     }
+    const peerAdmins = snap.sessionAdminPeerIds ?? []
     return {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'queue_snapshot',
@@ -431,6 +492,7 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       requestedBys: snap.requestedBys,
       requesterGuestIds: snap.requesterGuestIds,
       sessionAdminPeerId: snap.sessionAdminPeerId,
+      ...(peerAdmins.length > 0 ? { sessionAdminPeerIds: peerAdmins } : {}),
       maxGuestQueueRowsPerGuest: snap.maxGuestQueueRowsPerGuest,
       audienceChatEnabled: snap.audienceChatEnabled,
       audioSessionUnlocked: snap.audioSessionUnlocked,
@@ -602,13 +664,25 @@ export function serializePartyMessage(msg: PartyMessage): string {
   return JSON.stringify(msg)
 }
 
+/** Canonical session-admin logical ids from a parsed queue snapshot message. */
+export function sessionAdminGuestIdsFromSnapshotMessage(
+  msg: Extract<PartyMessage, { type: 'queue_snapshot' }>,
+): string[] {
+  if (msg.sessionAdminPeerIds && msg.sessionAdminPeerIds.length > 0) {
+    return [...msg.sessionAdminPeerIds]
+  }
+  return msg.sessionAdminPeerId ? [msg.sessionAdminPeerId] : []
+}
+
 export function queueSnapshotToMessage(
   snapshot: HostVideoQueueSnapshot,
-  sessionAdminPeerId: string | null = null,
+  sessionAdminGuestIds: readonly string[],
   maxGuestQueueRowsPerGuest: number = GUEST_QUEUE_ROWS_CAP_DEFAULT,
   audienceChatEnabled: boolean = DEFAULT_AUDIENCE_CHAT_ENABLED,
   audioSessionUnlocked: boolean = DEFAULT_AUDIO_SESSION_UNLOCKED,
 ): PartyMessage {
+  const adminIds = [...sessionAdminGuestIds]
+  const sessionAdminPeerId = adminIds[0] ?? null
   return {
     v: PARTY_MESSAGE_SCHEMA_VERSION,
     type: 'queue_snapshot',
@@ -618,6 +692,7 @@ export function queueSnapshotToMessage(
     requestedBys: [...snapshot.requestedBys],
     requesterGuestIds: [...snapshot.requesterGuestIds],
     sessionAdminPeerId,
+    ...(adminIds.length > 0 ? { sessionAdminPeerIds: adminIds } : {}),
     maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(maxGuestQueueRowsPerGuest),
     audienceChatEnabled,
     audioSessionUnlocked,

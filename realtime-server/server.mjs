@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
 
@@ -6,6 +7,19 @@ import { createYoutubeSearchApiHandler, parseRequestUrl } from './lib/youtubeSea
 
 /** Keep in sync with `app/src/lib/party/partyMessages.ts` (ADR 0002). */
 const PARTY_MESSAGE_MAX_RAW_BYTES = 256_000
+
+const PARTY_ADMIN_PASSWORD_MAX_BYTES = 512
+/** Same cap as `PARTY_QUEUE_REQUESTER_GUEST_ID_MAX_LENGTH` in app. */
+const LOGICAL_GUEST_ID_MAX_CHARS = 64
+
+function timingSafePasswordEq(provided, expected) {
+  const a = Buffer.from(provided, 'utf8')
+  const b = Buffer.from(expected, 'utf8')
+  if (a.length !== b.length || a.length === 0) {
+    return false
+  }
+  return timingSafeEqual(a, b)
+}
 
 const port = Number(process.env.PORT || 3000)
 const allowOrigin = process.env.SOCKET_CORS_ORIGIN?.trim() || true
@@ -214,6 +228,50 @@ io.on('connection', (socket) => {
         }
       }
     }
+  })
+
+  socket.on('assume_admin', (payload) => {
+    if (!reg || reg.role !== 'guest') {
+      return
+    }
+    const secret = process.env.PARTY_ADMIN_PASSWORD
+    if (typeof secret !== 'string' || secret.length === 0) {
+      socket.emit('assume_admin_result', {
+        ok: false,
+        error: 'Party admin password is not configured on this server.',
+      })
+      return
+    }
+    if (!payload || typeof payload !== 'object') {
+      socket.emit('assume_admin_result', { ok: false, error: 'Invalid request.' })
+      return
+    }
+    const { password, logicalGuestId } = /** @type {{ password?: unknown, logicalGuestId?: unknown }} */ (payload)
+    if (typeof password !== 'string' || typeof logicalGuestId !== 'string') {
+      socket.emit('assume_admin_result', { ok: false, error: 'Invalid request.' })
+      return
+    }
+    if (Buffer.byteLength(password, 'utf8') > PARTY_ADMIN_PASSWORD_MAX_BYTES) {
+      socket.emit('assume_admin_result', { ok: false, error: 'Invalid request.' })
+      return
+    }
+    const id = logicalGuestId.trim()
+    if (!id || id.length > LOGICAL_GUEST_ID_MAX_CHARS) {
+      socket.emit('assume_admin_result', { ok: false, error: 'Invalid request.' })
+      return
+    }
+    if (!timingSafePasswordEq(password, secret)) {
+      socket.emit('assume_admin_result', { ok: false, error: 'Incorrect password.' })
+      return
+    }
+    const m = getRoom(reg.roomId)
+    const hostSock = m ? findHostSocket(m) : null
+    if (!hostSock) {
+      socket.emit('assume_admin_result', { ok: false, error: 'Host is not connected.' })
+      return
+    }
+    hostSock.emit('assume_admin_granted', { logicalGuestId: id })
+    socket.emit('assume_admin_result', { ok: true })
   })
 
   socket.on('disconnect', () => {
