@@ -49,7 +49,8 @@ export type GuestPartySocketHandle = {
   isPartyLinkOkForVisibilityResume: () => boolean
 }
 
-function socketBaseUrl(): string {
+/** Build-time Socket.io / HTTP API base (same origin as `GET /api/v1/youtube/search`). */
+export function partySocketBaseUrl(): string {
   return import.meta.env.VITE_SOCKET_URL?.trim() ?? ''
 }
 
@@ -66,7 +67,7 @@ function createNoReconnectSocket(url: string): Socket {
  */
 export function runHostPartySocket(options: HostPartySocketOptions): HostPartySocketHandle {
   const clientId = crypto.randomUUID()
-  const url = socketBaseUrl()
+  const url = partySocketBaseUrl()
   const roomId = partySessionRoomId(options.sessionId)
   const socket = createNoReconnectSocket(url)
   let reportedConnected = false
@@ -191,7 +192,7 @@ export function runHostPartySocket(options: HostPartySocketOptions): HostPartySo
  */
 export function runGuestPartySocket(options: GuestPartySocketOptions): GuestPartySocketHandle {
   const clientId = crypto.randomUUID()
-  const url = socketBaseUrl()
+  const url = partySocketBaseUrl()
   const roomId = partySessionRoomId(options.sessionId)
   const socket = createNoReconnectSocket(url)
 

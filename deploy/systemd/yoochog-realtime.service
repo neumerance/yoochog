@@ -13,6 +13,10 @@ Environment=NODE_ENV=production
 Environment=PORT=3000
 # Public https origin of the Vue app (no path) — required when not using default CORS "all".
 Environment=SOCKET_CORS_ORIGIN=https://yoochoog.app
+# Optional: server-only YouTube Data API key for guest search (search.list). Omit to disable search; guests use paste flow.
+# Environment=YOUTUBE_DATA_API_KEY=
+# Optional: max search GETs per client IP per rolling minute (default 20).
+# Environment=YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE=20
 # Optional: load secrets without editing the unit
 # EnvironmentFile=-/etc/yoochog/realtime.env
 ExecStart=/usr/bin/node server.mjs

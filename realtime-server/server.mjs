@@ -1,11 +1,25 @@
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
 
+import { DEFAULT_YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE } from './lib/youtubeSearch.mjs'
+import { createYoutubeSearchApiHandler, parseRequestUrl } from './lib/youtubeSearchHttp.mjs'
+
 /** Keep in sync with `app/src/lib/party/partyMessages.ts` (ADR 0002). */
 const PARTY_MESSAGE_MAX_RAW_BYTES = 256_000
 
 const port = Number(process.env.PORT || 3000)
 const allowOrigin = process.env.SOCKET_CORS_ORIGIN?.trim() || true
+
+const youtubeDataApiKey = process.env.YOUTUBE_DATA_API_KEY?.trim()
+const youtubeSearchRateLimit = Number(process.env.YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE)
+const handleYoutubeSearch = createYoutubeSearchApiHandler({
+  apiKey: youtubeDataApiKey,
+  allowOrigin,
+  rateLimitPerMinute:
+    Number.isFinite(youtubeSearchRateLimit) && youtubeSearchRateLimit > 0
+      ? youtubeSearchRateLimit
+      : DEFAULT_YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE,
+})
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
@@ -205,6 +219,14 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     cleanupRegistration()
   })
+})
+
+httpServer.on('request', (req, res) => {
+  const url = parseRequestUrl(req)
+  if (!url || url.pathname !== '/api/v1/youtube/search') {
+    return
+  }
+  void handleYoutubeSearch(req, res, url)
 })
 
 httpServer.listen(port, () => {
