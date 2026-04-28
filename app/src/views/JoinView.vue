@@ -30,6 +30,8 @@ import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed
 import { guestSessionIdFromRouteParam } from '@/lib/party/guestSessionId'
 import { extractYoutubeVideoId } from '@/lib/youtube/extractYoutubeVideoId'
 import { fetchYoutubeVideoTitle } from '@/lib/youtube/fetchYoutubeVideoTitle'
+import { searchYoutubeOnServer } from '@/lib/youtube/searchYoutubeOnServer'
+import type { YoutubeSearchItem } from '@/lib/youtube/searchYoutubeOnServer'
 
 const route = useRoute()
 const routeSessionId = computed(() => guestSessionIdFromRouteParam(String(route.params.sessionId ?? '')))
@@ -124,9 +126,16 @@ const audienceChatCooldownSecondsLeft = computed(() => {
   return Math.max(0, Math.ceil((end - Date.now()) / 1000))
 })
 const addSongStep = ref<1 | 2>(1)
+/** Step 2 sub-flow: server search vs paste link. */
+const addSongStep2Tab = ref<'search' | 'paste'>('search')
 const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
 const isEnqueueSubmitting = ref(false)
+const youtubeSearchQuery = ref('')
+const youtubeSearchResults = ref<YoutubeSearchItem[]>([])
+const youtubeSearchNextPage = ref<string | null>(null)
+const youtubeSearchError = ref<string | null>(null)
+const youtubeSearchLoading = ref(false)
 
 /** True when the name dialog was opened from “Add my song”; after save, open that flow. */
 const openAddSongAfterGuestName = ref(false)
@@ -400,14 +409,119 @@ function closeAddSongModal() {
 
 function onAddSongDialogClose() {
   addSongStep.value = 1
+  addSongStep2Tab.value = 'search'
   pasteInput.value = ''
   pasteValidationError.value = null
+  youtubeSearchQuery.value = ''
+  youtubeSearchResults.value = []
+  youtubeSearchNextPage.value = null
+  youtubeSearchError.value = null
+  youtubeSearchLoading.value = false
   void nextTick(() => addSongTriggerRef.value?.focus())
+}
+
+function focusAddSongStep2Field() {
+  if (addSongStep2Tab.value === 'search') {
+    document.getElementById('guest-add-song-search-q')?.focus()
+  } else {
+    document.getElementById('guest-add-song-paste')?.focus()
+  }
 }
 
 function goToPasteStep() {
   addSongStep.value = 2
-  void nextTick(() => document.getElementById('guest-add-song-paste')?.focus())
+  void nextTick(() => focusAddSongStep2Field())
+}
+
+function setAddSongStep2Tab(tab: 'search' | 'paste') {
+  addSongStep2Tab.value = tab
+  if (addSongStep.value === 2) {
+    void nextTick(() => focusAddSongStep2Field())
+  }
+}
+
+function validateGuestAndCapForEnqueue(): string | null {
+  const guestName = readGuestDisplayName()
+  if (!guestName) {
+    return 'Set your display name before adding a song.'
+  }
+  if (atMaxMySongsInQueue.value) {
+    return buildEnqueueRejectedAlreadyHasRequest(maxGuestQueueRowsPerGuest.value)
+  }
+  return null
+}
+
+async function runYoutubeSearch() {
+  youtubeSearchError.value = null
+  youtubeSearchNextPage.value = null
+  youtubeSearchResults.value = []
+  if (youtubeSearchLoading.value) {
+    return
+  }
+  youtubeSearchLoading.value = true
+  try {
+    const r = await searchYoutubeOnServer(youtubeSearchQuery.value)
+    if (!r.ok) {
+      youtubeSearchError.value = r.message
+      return
+    }
+    youtubeSearchResults.value = r.data.items
+    youtubeSearchNextPage.value = r.data.nextPageToken ?? null
+  } finally {
+    youtubeSearchLoading.value = false
+  }
+}
+
+async function loadMoreYoutubeSearch() {
+  const tok = youtubeSearchNextPage.value
+  if (!tok || youtubeSearchLoading.value) {
+    return
+  }
+  youtubeSearchError.value = null
+  youtubeSearchLoading.value = true
+  try {
+    const r = await searchYoutubeOnServer(youtubeSearchQuery.value, { pageToken: tok })
+    if (!r.ok) {
+      youtubeSearchError.value = r.message
+      return
+    }
+    const seen = new Set(youtubeSearchResults.value.map((i) => i.videoId))
+    for (const row of r.data.items) {
+      if (!seen.has(row.videoId)) {
+        seen.add(row.videoId)
+        youtubeSearchResults.value.push(row)
+      }
+    }
+    youtubeSearchNextPage.value = r.data.nextPageToken ?? null
+  } finally {
+    youtubeSearchLoading.value = false
+  }
+}
+
+async function enqueueFromSearchSelection(item: YoutubeSearchItem) {
+  youtubeSearchError.value = null
+  pasteValidationError.value = null
+  const err = validateGuestAndCapForEnqueue()
+  if (err) {
+    youtubeSearchError.value = err
+    return
+  }
+  if (isEnqueueSubmitting.value) {
+    return
+  }
+  isEnqueueSubmitting.value = true
+  try {
+    const guestName = readGuestDisplayName()
+    if (!guestName) {
+      youtubeSearchError.value = 'Set your display name before adding a song.'
+      return
+    }
+    const requesterId = getOrCreatePartyGuestRequesterId(routeSessionId.value)
+    requestEnqueue(item.videoId, item.title, guestName, requesterId)
+    closeAddSongModal()
+  } finally {
+    isEnqueueSubmitting.value = false
+  }
 }
 
 /** Advances to the paste step without opening external sites. */
@@ -417,15 +531,9 @@ function continueFromStep1() {
 
 async function submitPasteEnqueue() {
   pasteValidationError.value = null
-  const guestName = readGuestDisplayName()
-  if (!guestName) {
-    pasteValidationError.value = 'Set your display name before adding a song.'
-    return
-  }
-  if (atMaxMySongsInQueue.value) {
-    pasteValidationError.value = buildEnqueueRejectedAlreadyHasRequest(
-      maxGuestQueueRowsPerGuest.value,
-    )
+  const err = validateGuestAndCapForEnqueue()
+  if (err) {
+    pasteValidationError.value = err
     return
   }
   const id = extractYoutubeVideoId(pasteInput.value)
@@ -438,6 +546,11 @@ async function submitPasteEnqueue() {
   }
   isEnqueueSubmitting.value = true
   try {
+    const guestName = readGuestDisplayName()
+    if (!guestName) {
+      pasteValidationError.value = 'Set your display name before adding a song.'
+      return
+    }
     const title = await fetchYoutubeVideoTitle(id)
     const requesterId = getOrCreatePartyGuestRequesterId(routeSessionId.value)
     requestEnqueue(id, title, guestName, requesterId)
@@ -702,9 +815,8 @@ watch(lastQueueSettingsError, (e) => {
           <p
             class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93] dark:text-slate-400"
           >
-            Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, paste a YouTube
-            link, then tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Enqueue</span>—your track shows
-            up here for the room.
+            Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, search or paste a
+            YouTube link, then add your track—it shows up here for the room.
           </p>
         </div>
 
@@ -842,24 +954,24 @@ watch(lastQueueSettingsError, (e) => {
 
     <dialog
       ref="guestNameDialog"
-      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none dark:text-slate-100 [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
       aria-labelledby="guest-name-title"
       aria-modal="true"
       @cancel.prevent
       @close="onGuestNameDialogClose"
     >
       <div
-        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4 dark:bg-slate-950 dark:shadow-black/40"
       >
-        <h2 id="guest-name-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black">
+        <h2 id="guest-name-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black dark:text-white">
           Your nickname
         </h2>
-        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
-          <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40">
+          <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
             The host will see this label when you request songs.
           </p>
-          <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
-            <label for="guest-display-name-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
+          <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3 dark:border-slate-700">
+            <label for="guest-display-name-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72] dark:text-slate-400">
               Nickname
             </label>
             <input
@@ -868,17 +980,17 @@ watch(lastQueueSettingsError, (e) => {
               type="text"
               autocomplete="nickname"
               maxlength="10"
-              class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+              class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
               @keydown.enter.prevent="submitGuestName"
             />
-            <p v-if="guestNameError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status">
+            <p v-if="guestNameError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30] dark:text-red-400" role="status">
               {{ guestNameError }}
             </p>
           </div>
-          <div class="border-t border-[#C6C6C8]">
+          <div class="border-t border-[#C6C6C8] dark:border-slate-700">
             <button
               type="button"
-              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30]"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] dark:bg-slate-900 dark:active:bg-slate-800"
               @click="submitGuestName"
             >
               Continue
@@ -890,34 +1002,33 @@ watch(lastQueueSettingsError, (e) => {
 
     <dialog
       ref="addSongDialog"
-      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none dark:text-slate-100 [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
       aria-labelledby="guest-add-song-title"
       aria-modal="true"
       @close="onAddSongDialogClose"
     >
       <!-- iOS alert-style sheet: grouped white actions + separate Cancel pill on system gray -->
       <div
-        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4 dark:bg-slate-950 dark:shadow-black/40"
       >
-        <h2 id="guest-add-song-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black">
+        <h2 id="guest-add-song-title" class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black dark:text-white">
           Add my song
         </h2>
 
         <div
           v-if="addSongStep === 1"
-          class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]"
+          class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40"
         >
-          <p id="guest-add-song-step1" class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
-            Find a video in the YouTube app or site, tap
-            <span class="font-semibold text-black">Share</span>
-            , then
-            <span class="font-semibold text-black">Copy link</span>
-            . When you’re ready, continue and paste that link here.
+          <p id="guest-add-song-step1" class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
+            Next, you can <span class="font-semibold text-black dark:text-slate-100">search</span> for a video or
+            <span class="font-semibold text-black dark:text-slate-100">paste a link</span>. To paste: in the YouTube app or site, tap
+            <span class="font-semibold text-black dark:text-slate-100">Share</span>, then
+            <span class="font-semibold text-black dark:text-slate-100">Copy link</span>.
           </p>
-          <div class="border-t border-[#C6C6C8]">
+          <div class="border-t border-[#C6C6C8] dark:border-slate-700">
             <button
               type="button"
-              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30]"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] dark:bg-slate-900 dark:active:bg-slate-800"
               @click="continueFromStep1"
             >
               Continue
@@ -925,13 +1036,127 @@ watch(lastQueueSettingsError, (e) => {
           </div>
         </div>
 
-        <div v-else class="flex flex-col gap-2.5" aria-describedby="guest-add-song-step2-hint">
-          <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
-            <p id="guest-add-song-step2-hint" class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+        <div v-else class="flex flex-col gap-2.5">
+          <div
+            class="flex overflow-hidden rounded-[10px] bg-[#E5E5EA] p-0.5 dark:bg-slate-800"
+            role="tablist"
+            aria-label="How to add your song"
+          >
+            <button
+              type="button"
+              role="tab"
+              class="min-h-[40px] flex-1 rounded-[8px] px-2 text-[15px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+              :class="
+                addSongStep2Tab === 'search'
+                  ? 'bg-white text-black shadow-sm dark:bg-slate-900 dark:text-slate-100'
+                  : 'bg-transparent text-[#6D6D72] dark:text-slate-400'
+              "
+              :aria-selected="addSongStep2Tab === 'search'"
+              aria-controls="guest-add-song-panel-search"
+              id="guest-add-song-tab-search"
+              @click="setAddSongStep2Tab('search')"
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="min-h-[40px] flex-1 rounded-[8px] px-1.5 text-[12px] font-semibold leading-snug transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] sm:px-2 sm:text-[13px]"
+              :class="
+                addSongStep2Tab === 'paste'
+                  ? 'bg-white text-black shadow-sm dark:bg-slate-900 dark:text-slate-100'
+                  : 'bg-transparent text-[#6D6D72] dark:text-slate-400'
+              "
+              :aria-selected="addSongStep2Tab === 'paste'"
+              aria-controls="guest-add-song-panel-paste"
+              id="guest-add-song-tab-paste"
+              @click="setAddSongStep2Tab('paste')"
+            >
+              Paste a YouTube link
+            </button>
+          </div>
+
+          <div
+            v-show="addSongStep2Tab === 'search'"
+            id="guest-add-song-panel-search"
+            role="tabpanel"
+            aria-labelledby="guest-add-song-tab-search"
+            class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40"
+          >
+            <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
+              Type a song or artist, then search. Pick a result to add it to the queue.
+            </p>
+            <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3 dark:border-slate-700">
+              <label for="guest-add-song-search-q" class="block text-[13px] font-normal leading-4 text-[#6D6D72] dark:text-slate-400">
+                Search YouTube
+              </label>
+              <input
+                id="guest-add-song-search-q"
+                v-model="youtubeSearchQuery"
+                type="search"
+                autocomplete="off"
+                maxlength="200"
+                enterkeyhint="search"
+                class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
+                :disabled="!canRequestEnqueue || youtubeSearchLoading"
+                @keydown.enter.prevent="runYoutubeSearch"
+              />
+              <p v-if="youtubeSearchError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30] dark:text-red-400" role="status" aria-live="polite">
+                {{ youtubeSearchError }}
+              </p>
+            </div>
+            <div class="border-t border-[#C6C6C8] dark:border-slate-700">
+              <button
+                type="button"
+                class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white dark:bg-slate-900 dark:active:bg-slate-800 dark:disabled:bg-slate-900"
+                :disabled="!canRequestEnqueue || !youtubeSearchQuery.trim() || youtubeSearchLoading"
+                @click="runYoutubeSearch"
+              >
+                {{ youtubeSearchLoading ? '…' : 'Search' }}
+              </button>
+            </div>
+            <ul
+              v-if="youtubeSearchResults.length > 0"
+              class="max-h-[40vh] divide-y divide-[#C6C6C8] overflow-y-auto border-t border-[#C6C6C8] dark:divide-slate-700 dark:border-slate-700"
+              aria-label="Search results"
+            >
+              <li v-for="(row, idx) in youtubeSearchResults" :key="`${row.videoId}-${idx}`">
+                <button
+                  type="button"
+                  class="flex w-full min-h-[48px] flex-col items-start gap-0.5 px-4 py-3 text-left active:bg-black/5 dark:active:bg-white/5 disabled:opacity-50"
+                  :disabled="!canRequestEnqueue || isEnqueueSubmitting"
+                  @click="enqueueFromSearchSelection(row)"
+                >
+                  <span class="line-clamp-2 text-[15px] font-medium leading-snug text-black dark:text-slate-100">{{ row.title }}</span>
+                  <span class="text-[11px] font-normal text-[#8E8E93] dark:text-slate-500">{{ row.videoId }}</span>
+                </button>
+              </li>
+            </ul>
+            <div v-if="youtubeSearchNextPage" class="border-t border-[#C6C6C8] dark:border-slate-700">
+              <button
+                type="button"
+                class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[15px] font-semibold leading-[22px] text-[#007AFF] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#007AFF] disabled:cursor-not-allowed disabled:text-[#C7C7CC] dark:bg-slate-900 dark:active:bg-slate-800"
+                :disabled="!canRequestEnqueue || youtubeSearchLoading"
+                @click="loadMoreYoutubeSearch"
+              >
+                {{ youtubeSearchLoading ? '…' : 'Load more' }}
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-show="addSongStep2Tab === 'paste'"
+            id="guest-add-song-panel-paste"
+            role="tabpanel"
+            aria-labelledby="guest-add-song-tab-paste"
+            class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40"
+            aria-describedby="guest-add-song-step2-hint"
+          >
+            <p id="guest-add-song-step2-hint" class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
               Paste the link you copied from YouTube (Share → Copy link).
             </p>
-            <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
-              <label for="guest-add-song-paste" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
+            <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3 dark:border-slate-700">
+              <label for="guest-add-song-paste" class="block text-[13px] font-normal leading-4 text-[#6D6D72] dark:text-slate-400">
                 YouTube link
               </label>
               <input
@@ -941,18 +1166,18 @@ watch(lastQueueSettingsError, (e) => {
                 inputmode="url"
                 autocomplete="off"
                 maxlength="2048"
-                class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+                class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
                 :disabled="!canRequestEnqueue || isEnqueueSubmitting"
                 @keydown.enter.prevent="submitPasteEnqueue"
               />
-              <p v-if="pasteValidationError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status" aria-live="polite">
+              <p v-if="pasteValidationError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30] dark:text-red-400" role="status" aria-live="polite">
                 {{ pasteValidationError }}
               </p>
             </div>
-            <div class="border-t border-[#C6C6C8]">
+            <div class="border-t border-[#C6C6C8] dark:border-slate-700">
               <button
                 type="button"
-                class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white"
+                class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white dark:bg-slate-900 dark:active:bg-slate-800 dark:disabled:bg-slate-900"
                 :disabled="!canRequestEnqueue || !pasteInput.trim() || isEnqueueSubmitting"
                 @click="submitPasteEnqueue"
               >
@@ -964,7 +1189,7 @@ watch(lastQueueSettingsError, (e) => {
 
         <button
           type="button"
-          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] dark:bg-slate-800 dark:text-[#3D8FFF] dark:shadow-black/40 dark:active:bg-slate-700"
           @click="closeAddSongModal"
         >
           Cancel
@@ -974,29 +1199,29 @@ watch(lastQueueSettingsError, (e) => {
 
     <dialog
       ref="chatDialog"
-      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none dark:text-slate-100 [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
       aria-labelledby="guest-chat-title"
       aria-modal="true"
       @close="onChatDialogClose"
     >
       <div
-        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4 dark:bg-slate-950 dark:shadow-black/40"
       >
         <h2
           id="guest-chat-title"
-          class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
+          class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black dark:text-white"
         >
           Chat
         </h2>
-        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
-          <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40">
+          <p class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
             Cheer from your phone, show up on the TV. Keep it short: 5 words, 30 characters.
             <span class="mt-1 block font-bold text-[#0039C7] dark:text-[#3D8FFF]">
               We’re all here to have fun—be nice.
             </span>
           </p>
-          <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3">
-            <label for="guest-chat-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72]">
+          <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3 dark:border-slate-700">
+            <label for="guest-chat-input" class="block text-[13px] font-normal leading-4 text-[#6D6D72] dark:text-slate-400">
               Message
             </label>
             <input
@@ -1005,7 +1230,7 @@ watch(lastQueueSettingsError, (e) => {
               type="text"
               maxlength="40"
               autocomplete="off"
-              class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20"
+              class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
               :disabled="!canRequestEnqueue"
               @keydown.enter.prevent="submitChat"
             />
@@ -1016,14 +1241,14 @@ watch(lastQueueSettingsError, (e) => {
             >
               You can send again in {{ audienceChatCooldownSecondsLeft }}s.
             </p>
-            <p v-if="chatFieldError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30]" role="status">
+            <p v-if="chatFieldError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30] dark:text-red-400" role="status">
               {{ chatFieldError }}
             </p>
           </div>
-          <div class="border-t border-[#C6C6C8]">
+          <div class="border-t border-[#C6C6C8] dark:border-slate-700">
             <button
               type="button"
-              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white dark:bg-slate-900 dark:active:bg-slate-800 dark:disabled:bg-slate-900"
               :disabled="!canSubmitAudienceChat"
               @click="submitChat"
             >
@@ -1033,7 +1258,7 @@ watch(lastQueueSettingsError, (e) => {
         </div>
         <button
           type="button"
-          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] dark:bg-slate-800 dark:text-[#3D8FFF] dark:shadow-black/40 dark:active:bg-slate-700"
           @click="closeChatModal"
         >
           Cancel
@@ -1043,27 +1268,27 @@ watch(lastQueueSettingsError, (e) => {
 
     <dialog
       ref="endSongDialog"
-      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
+      class="fixed left-1/2 top-1/2 z-[200] m-0 max-h-[min(90dvh,32rem)] w-[min(100%-1.5rem,20rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border-0 bg-transparent p-0 text-black shadow-none dark:text-slate-100 [&::backdrop]:bg-black/40 [&::backdrop]:backdrop-blur-[2px]"
       aria-labelledby="guest-end-song-title"
       aria-modal="true"
     >
       <div
-        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4"
+        class="flex max-h-[min(90dvh,32rem)] flex-col gap-2.5 rounded-[14px] bg-[#F2F2F7] px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_1px_4px_rgba(0,0,0,0.12)] sm:px-3 sm:pt-4 dark:bg-slate-950 dark:shadow-black/40"
       >
         <h2
           id="guest-end-song-title"
-          class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black"
+          class="px-2 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.41px] text-black dark:text-white"
         >
           End this song?
         </h2>
-        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)]">
-          <p class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43]">
+        <div class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40">
+          <p class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
             This stops playback for everyone and continues like the song finished on its own.
           </p>
-          <div class="border-t border-[#C6C6C8]">
+          <div class="border-t border-[#C6C6C8] dark:border-slate-700">
             <button
               type="button"
-              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30]"
+              class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] dark:bg-slate-900 dark:active:bg-slate-800"
               @click="confirmEndSong"
             >
               End
@@ -1072,7 +1297,7 @@ watch(lastQueueSettingsError, (e) => {
         </div>
         <button
           type="button"
-          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          class="flex min-h-[44px] w-full items-center justify-center rounded-[10px] bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#007AFF] shadow-[0_0.5px_0_rgba(0,0,0,0.12)] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF] dark:bg-slate-800 dark:text-[#3D8FFF] dark:shadow-black/40 dark:active:bg-slate-700"
           @click="closeEndSongDialog"
         >
           Cancel

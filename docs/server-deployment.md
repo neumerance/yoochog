@@ -22,6 +22,8 @@ ssh root@yoochoog.app 'bash -s' < deploy/bootstrap-server.sh
 | Vite public path / router | `VITE_BASE_PATH` | **Build-time.** Default in repo is `/yoochog/` (GitHub Pages). For the app at the **site root**, use **`/`** and match **nginx** `location` and static `root` / `alias`. The checked-in `deploy.sh` hardcodes `https://yoochoog.app` and `/` for its server build. |
 | CORS for Socket.io | `SOCKET_CORS_ORIGIN` | **Runtime** on the realtime server. Set to the **browser origin** of the app (e.g. `https://yoochoog.app`). |
 | Realtime listen port | `PORT` | **Runtime** (default **3000**). Bind to loopback; expose only through nginx. |
+| YouTube search (guest join flow) | `YOUTUBE_DATA_API_KEY` | **Runtime**, **server-only** on the realtime process. Enables `GET /api/v1/youtube/search` (YouTube Data API v3 `search.list`). If unset, the endpoint returns **503** and the app tells guests to use **Paste a YouTube link**. Never use `VITE_*` for this key — it would ship in the static bundle. |
+| Search rate limit | `YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE` | **Runtime** (optional). Per-client IP cap on search requests (rolling 1-minute window). Default **20**. Complements nginx `limit_req` if you add a zone. |
 
 `deploy.sh` **sources** **`$DEPLOY_PATH/shared/build.env`** on the server if it exists (optional extras such as **`VITE_YOUTUBE_API_KEY`**), then **exports** `VITE_SOCKET_URL=https://yoochoog.app` and `VITE_BASE_PATH=/` for the production `npm run build` in `app/`. **Do not commit** secrets; treat `VITE_*` as public (they ship in the bundle). Override any default by editing [`deploy.sh`](../deploy.sh) or exporting variables before the remote build if you add a custom flow.
 
@@ -80,6 +82,10 @@ Example file ( **copy and edit** on the server — not loaded automatically from
 - If **`VITE_BASE_PATH=/`**, the example serves `app/dist` at **`/`** and proxies **`/socket.io/`** to the Node process.
 - If you intentionally mirror the **GitHub Pages** shape (`/yoochog/`), you must set **`VITE_BASE_PATH=/yoochog/`** at build time **and** add matching **`location /yoochog/`** blocks (and SPA fallback) in nginx; the example file includes a short commented stub for that.
 
+### Guest YouTube search API (`/api/`)
+
+The Vue app calls **`GET /api/v1/youtube/search?q=…`** on the **same origin as `VITE_SOCKET_URL`** (nginx proxies **`location /api/`** to the realtime Node port). The handler uses an in-memory **TTL cache** (default **10 minutes**) and **per-IP rate limiting** so casual use does not exhaust the shared [YouTube Data API quota](https://developers.google.com/youtube/v3/getting-started): each **`search.list`** call costs **100 units** vs **`videos.list`** at **1 unit** ([quota costs](https://developers.google.com/youtube/v3/determine_quota_cost)). Deploy the realtime server with **`YOUTUBE_DATA_API_KEY`** set; without it, guests rely on the paste flow only.
+
 ### Headers and WebSocket
 
 The example sets **`Host`**, **`X-Real-IP`**, **`X-Forwarded-For`**, **`X-Forwarded-Proto`**, and **HTTP/1.1** upgrade headers for **Socket.io** (including long-polling and **WebSocket**). Tune **`proxy_read_timeout`** if you see disconnects under load.
@@ -108,6 +114,7 @@ If you use **pm2** instead of systemd: `cd $DEPLOY_PATH/current/realtime-server`
 | Symptom | Things to check |
 |--------|-------------------|
 | **502** from nginx to Node | Realtime process running? `PORT` matches `proxy_pass`? `systemctl status` or `curl -v http://127.0.0.1:3000/socket.io/?EIO=4&transport=polling` |
+| **Search always “unavailable”** on join | Is **`YOUTUBE_DATA_API_KEY`** set on the realtime service? Does nginx proxy **`/api/`** to Node (see examples)? `curl -sS "https://<host>/api/v1/youtube/search?q=test"` should return JSON (503 if key missing). |
 | **CORS** errors in the browser | **`SOCKET_CORS_ORIGIN`** on the server matches the app’s `https://` origin (scheme + host, no path). |
 | **WebSocket** fails or **400** on `/socket.io/` | nginx **`Upgrade`** / **`Connection`** headers, **`proxy_http_version 1.1`**, and that **only one** of HTTP upgrade or long-poll is misconfigured. Compare with [`yoochog.example.conf`](../deploy/nginx/yoochog.example.conf). |
 | **Wrong asset or join URL** | **`VITE_BASE_PATH`** in the last build, **`import.meta.env.BASE_URL`**, and nginx **`root`/`location`** must agree. Rebuild the app after changing `VITE_BASE_PATH`. |
