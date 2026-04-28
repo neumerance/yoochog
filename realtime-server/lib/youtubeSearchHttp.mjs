@@ -10,6 +10,29 @@ import {
   youtubeSearchCacheKey,
 } from './youtubeSearch.mjs'
 
+const CORS_COMMON = {
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+}
+
+/**
+ * @param {import('node:http').ServerResponse} res
+ * @param {number} status
+ * @param {Record<string, string>} cors
+ * @param {unknown} body — object serialized to JSON, or string (e.g. cached)
+ * @param {Record<string, string>} [extraHeaders]
+ */
+function sendJson(res, status, cors, body, extraHeaders = {}) {
+  const payload = typeof body === 'string' ? body : JSON.stringify(body)
+  res.writeHead(status, {
+    ...cors,
+    'Content-Type': 'application/json; charset=utf-8',
+    ...extraHeaders,
+  })
+  res.end(payload)
+}
+
 /**
  * @param {import('node:http').IncomingMessage} req
  * @returns {string}
@@ -32,31 +55,15 @@ export function corsHeadersForYoutubeSearch(allowOrigin, req) {
   const reqOrigin = req.headers.origin
   if (allowOrigin === true) {
     const o = typeof reqOrigin === 'string' && reqOrigin.length > 0 ? reqOrigin : '*'
-    return {
-      'Access-Control-Allow-Origin': o,
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400',
-    }
+    return { ...CORS_COMMON, 'Access-Control-Allow-Origin': o }
   }
   const allowed = typeof allowOrigin === 'string' ? allowOrigin.trim() : ''
   if (allowed.length === 0) {
-    return {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400',
-    }
+    return { ...CORS_COMMON, 'Access-Control-Allow-Origin': '*' }
   }
   const originHeader = typeof reqOrigin === 'string' ? reqOrigin : ''
   const value = originHeader === allowed ? originHeader : allowed
-  return {
-    'Access-Control-Allow-Origin': value,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400',
-    'Vary': 'Origin',
-  }
+  return { ...CORS_COMMON, 'Access-Control-Allow-Origin': value, Vary: 'Origin' }
 }
 
 /**
@@ -98,40 +105,32 @@ export function createYoutubeSearchApiHandler(config) {
     }
 
     if (req.method !== 'GET') {
-      res.writeHead(405, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-      res.end(JSON.stringify({ error: 'method_not_allowed', message: 'Use GET.' }))
+      sendJson(res, 405, cors, { error: 'method_not_allowed', message: 'Use GET.' })
       return
     }
 
     const apiKey = config.apiKey?.trim()
     if (!apiKey) {
-      res.writeHead(503, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-      res.end(
-        JSON.stringify({
-          error: 'search_unavailable',
-          message: 'YouTube search is not enabled on this server. Use “Paste a YouTube link” instead.',
-        }),
-      )
+      sendJson(res, 503, cors, {
+        error: 'search_unavailable',
+        message: 'YouTube search is not enabled on this server. Use “Paste a YouTube link” instead.',
+      })
       return
     }
 
     const rawQ = url.searchParams.get('q') ?? ''
     const q = normalizeYoutubeSearchQuery(rawQ)
     if (!q) {
-      res.writeHead(400, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-      res.end(
-        JSON.stringify({
-          error: 'invalid_query',
-          message: 'Enter a short search phrase and try again.',
-        }),
-      )
+      sendJson(res, 400, cors, {
+        error: 'invalid_query',
+        message: 'Enter a short search phrase and try again.',
+      })
       return
     }
 
     const pageToken = url.searchParams.get('pageToken')?.trim() ?? ''
     if (pageToken.length > 500) {
-      res.writeHead(400, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-      res.end(JSON.stringify({ error: 'invalid_page_token', message: 'Invalid pagination token.' }))
+      sendJson(res, 400, cors, { error: 'invalid_page_token', message: 'Invalid pagination token.' })
       return
     }
 
@@ -139,22 +138,18 @@ export function createYoutubeSearchApiHandler(config) {
     const rl = rateLimiter.check(client)
     if (!rl.ok) {
       log(`[youtube-search] rate_limited key=${client}`)
-      res.writeHead(429, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-      res.end(
-        JSON.stringify({
-          error: 'rate_limited',
-          message: 'Too many searches. Wait a moment or paste a YouTube link instead.',
-          retryAfterSec: rl.retryAfterSec,
-        }),
-      )
+      sendJson(res, 429, cors, {
+        error: 'rate_limited',
+        message: 'Too many searches. Wait a moment or paste a YouTube link instead.',
+        retryAfterSec: rl.retryAfterSec,
+      })
       return
     }
 
     const ckey = youtubeSearchCacheKey(q, pageToken)
     const cached = cache.get(ckey)
     if (cached) {
-      res.writeHead(200, { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'X-Cache': 'HIT' })
-      res.end(cached)
+      sendJson(res, 200, cors, cached, { 'X-Cache': 'HIT' })
       return
     }
 
@@ -185,30 +180,23 @@ export function createYoutubeSearchApiHandler(config) {
         } else {
           log(`[youtube-search] google_error status=${gRes.status}`)
         }
-        res.writeHead(502, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-        res.end(
-          JSON.stringify({
-            error: 'upstream_error',
-            message: 'Search is temporarily unavailable. Try “Paste a YouTube link” from YouTube → Share.',
-          }),
-        )
+        sendJson(res, 502, cors, {
+          error: 'upstream_error',
+          message: 'Search is temporarily unavailable. Try “Paste a YouTube link” from YouTube → Share.',
+        })
         return
       }
 
       const mapped = mapYoutubeSearchListPayload(data)
       const body = JSON.stringify(mapped)
       cache.set(ckey, body)
-      res.writeHead(200, { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'X-Cache': 'MISS' })
-      res.end(body)
+      sendJson(res, 200, cors, body, { 'X-Cache': 'MISS' })
     } catch (e) {
       log(`[youtube-search] fetch_failed ${e instanceof Error ? e.message : 'unknown'}`)
-      res.writeHead(502, { ...cors, 'Content-Type': 'application/json; charset=utf-8' })
-      res.end(
-        JSON.stringify({
-          error: 'upstream_error',
-          message: 'Could not reach YouTube. Check your connection or paste a link instead.',
-        }),
-      )
+      sendJson(res, 502, cors, {
+        error: 'upstream_error',
+        message: 'Could not reach YouTube. Check your connection or paste a link instead.',
+      })
     }
   }
 }

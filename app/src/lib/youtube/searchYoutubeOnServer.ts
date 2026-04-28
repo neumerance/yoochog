@@ -1,3 +1,5 @@
+import { partySocketBaseUrl } from '@/lib/realtime/partySocket'
+
 /** Response item from realtime-server `GET /api/v1/youtube/search`. */
 export type YoutubeSearchItem = {
   videoId: string
@@ -24,12 +26,11 @@ export type YoutubeSearchResult =
   | { ok: true; data: YoutubeSearchSuccessBody }
   | { ok: false; code: YoutubeSearchFailureCode; message: string; retryAfterSec?: number }
 
-function socketBaseUrl(): string {
-  return import.meta.env.VITE_SOCKET_URL?.trim() ?? ''
-}
+const SERVER_MESSAGE_PASTE_HINT =
+  ' You can also open the “Paste a YouTube link” tab and add a song with a link from YouTube → Share → Copy link.'
 
 export function buildYoutubeSearchApiUrl(query: string, pageToken?: string): string | null {
-  const base = socketBaseUrl()
+  const base = partySocketBaseUrl()
   if (!base) {
     return null
   }
@@ -51,7 +52,7 @@ function userMessageForFailure(
     return `Too many searches. Wait about ${retryAfterSec}s or use “Paste a YouTube link” below (YouTube → Share → Copy link).`
   }
   if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
-    return `${serverMessage.trim()} You can also open the “Paste a YouTube link” tab and add a song with a link from YouTube → Share → Copy link.`
+    return `${serverMessage.trim()}${SERVER_MESSAGE_PASTE_HINT}`
   }
   switch (code) {
     case 'no_socket_url':
@@ -128,7 +129,6 @@ export async function searchYoutubeOnServer(
           message: userMessageForFailure('bad_response', undefined),
         }
       }
-      /** @type {YoutubeSearchItem[]} */
       const items: YoutubeSearchItem[] = []
       for (const row of itemsRaw) {
         if (!row || typeof row !== 'object') {

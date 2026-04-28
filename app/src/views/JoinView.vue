@@ -451,51 +451,57 @@ function validateGuestAndCapForEnqueue(): string | null {
   return null
 }
 
-async function runYoutubeSearch() {
-  youtubeSearchError.value = null
-  youtubeSearchNextPage.value = null
-  youtubeSearchResults.value = []
+/** After `validateGuestAndCapForEnqueue()` succeeds, `guestName` is non-null. */
+function commitGuestSongRequest(videoId: string, title: string | null) {
+  const guestName = readGuestDisplayName()!
+  const requesterId = getOrCreatePartyGuestRequesterId(routeSessionId.value)
+  requestEnqueue(videoId, title, guestName, requesterId)
+  closeAddSongModal()
+}
+
+async function runYoutubeSearch(append: boolean) {
   if (youtubeSearchLoading.value) {
     return
   }
+  const pageToken = append ? youtubeSearchNextPage.value : null
+  if (append && !pageToken) {
+    return
+  }
+  youtubeSearchError.value = null
+  if (!append) {
+    youtubeSearchNextPage.value = null
+    youtubeSearchResults.value = []
+  }
   youtubeSearchLoading.value = true
   try {
-    const r = await searchYoutubeOnServer(youtubeSearchQuery.value)
+    const r = await searchYoutubeOnServer(youtubeSearchQuery.value, pageToken ? { pageToken } : undefined)
     if (!r.ok) {
       youtubeSearchError.value = r.message
       return
     }
-    youtubeSearchResults.value = r.data.items
+    if (append) {
+      const seen = new Set(youtubeSearchResults.value.map((i) => i.videoId))
+      for (const row of r.data.items) {
+        if (!seen.has(row.videoId)) {
+          seen.add(row.videoId)
+          youtubeSearchResults.value.push(row)
+        }
+      }
+    } else {
+      youtubeSearchResults.value = r.data.items
+    }
     youtubeSearchNextPage.value = r.data.nextPageToken ?? null
   } finally {
     youtubeSearchLoading.value = false
   }
 }
 
-async function loadMoreYoutubeSearch() {
-  const tok = youtubeSearchNextPage.value
-  if (!tok || youtubeSearchLoading.value) {
-    return
-  }
-  youtubeSearchError.value = null
-  youtubeSearchLoading.value = true
-  try {
-    const r = await searchYoutubeOnServer(youtubeSearchQuery.value, { pageToken: tok })
-    if (!r.ok) {
-      youtubeSearchError.value = r.message
-      return
-    }
-    const seen = new Set(youtubeSearchResults.value.map((i) => i.videoId))
-    for (const row of r.data.items) {
-      if (!seen.has(row.videoId)) {
-        seen.add(row.videoId)
-        youtubeSearchResults.value.push(row)
-      }
-    }
-    youtubeSearchNextPage.value = r.data.nextPageToken ?? null
-  } finally {
-    youtubeSearchLoading.value = false
-  }
+function submitYoutubeSearch() {
+  void runYoutubeSearch(false)
+}
+
+function loadMoreYoutubeSearch() {
+  void runYoutubeSearch(true)
 }
 
 async function enqueueFromSearchSelection(item: YoutubeSearchItem) {
@@ -511,22 +517,10 @@ async function enqueueFromSearchSelection(item: YoutubeSearchItem) {
   }
   isEnqueueSubmitting.value = true
   try {
-    const guestName = readGuestDisplayName()
-    if (!guestName) {
-      youtubeSearchError.value = 'Set your display name before adding a song.'
-      return
-    }
-    const requesterId = getOrCreatePartyGuestRequesterId(routeSessionId.value)
-    requestEnqueue(item.videoId, item.title, guestName, requesterId)
-    closeAddSongModal()
+    commitGuestSongRequest(item.videoId, item.title)
   } finally {
     isEnqueueSubmitting.value = false
   }
-}
-
-/** Advances to the paste step without opening external sites. */
-function continueFromStep1() {
-  goToPasteStep()
 }
 
 async function submitPasteEnqueue() {
@@ -546,15 +540,8 @@ async function submitPasteEnqueue() {
   }
   isEnqueueSubmitting.value = true
   try {
-    const guestName = readGuestDisplayName()
-    if (!guestName) {
-      pasteValidationError.value = 'Set your display name before adding a song.'
-      return
-    }
     const title = await fetchYoutubeVideoTitle(id)
-    const requesterId = getOrCreatePartyGuestRequesterId(routeSessionId.value)
-    requestEnqueue(id, title, guestName, requesterId)
-    closeAddSongModal()
+    commitGuestSongRequest(id, title)
   } finally {
     isEnqueueSubmitting.value = false
   }
@@ -1029,7 +1016,7 @@ watch(lastQueueSettingsError, (e) => {
             <button
               type="button"
               class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] dark:bg-slate-900 dark:active:bg-slate-800"
-              @click="continueFromStep1"
+              @click="goToPasteStep"
             >
               Continue
             </button>
@@ -1099,7 +1086,7 @@ watch(lastQueueSettingsError, (e) => {
                 enterkeyhint="search"
                 class="mt-2 min-h-[44px] w-full rounded-[8px] border border-[#C6C6C8] bg-[#FAFAFA] px-3 text-[17px] leading-[22px] text-black placeholder:text-[#C7C7CC] focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
                 :disabled="!canRequestEnqueue || youtubeSearchLoading"
-                @keydown.enter.prevent="runYoutubeSearch"
+                @keydown.enter.prevent="submitYoutubeSearch"
               />
               <p v-if="youtubeSearchError" class="mt-2 text-center text-[13px] leading-[1.38] text-[#FF3B30] dark:text-red-400" role="status" aria-live="polite">
                 {{ youtubeSearchError }}
@@ -1110,7 +1097,7 @@ watch(lastQueueSettingsError, (e) => {
                 type="button"
                 class="flex min-h-[44px] w-full items-center justify-center bg-white px-4 text-[17px] font-semibold leading-[22px] text-[#FF3B30] active:bg-[#E5E5EA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF3B30] disabled:cursor-not-allowed disabled:text-[#C7C7CC] disabled:active:bg-white dark:bg-slate-900 dark:active:bg-slate-800 dark:disabled:bg-slate-900"
                 :disabled="!canRequestEnqueue || !youtubeSearchQuery.trim() || youtubeSearchLoading"
-                @click="runYoutubeSearch"
+                @click="submitYoutubeSearch"
               >
                 {{ youtubeSearchLoading ? '…' : 'Search' }}
               </button>
