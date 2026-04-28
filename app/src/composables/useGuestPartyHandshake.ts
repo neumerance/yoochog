@@ -28,8 +28,8 @@ import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
 import { runGuestPartySocket } from '@/lib/realtime/partySocket'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/realtime/handshakeStatus'
 import {
+  PARTY_OFFLINE_RETRY_INTERVAL_MS,
   RECONNECT_VISIBILITY_MIN_HIDDEN_MS,
-  shouldStopRetry,
   VISIBILITY_RESUME_HEALTH_PROBE_MS,
 } from '@/lib/realtime/reconnectPolicy'
 
@@ -113,8 +113,15 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   })
 
   const reconnectTrigger = ref(0)
-  let failureCount = 0
   let activeDispose: (() => void) | null = null
+  let offlineRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearOfflineRetryTimer() {
+    if (offlineRetryTimer) {
+      clearTimeout(offlineRetryTimer)
+      offlineRetryTimer = null
+    }
+  }
 
   const socketUrl = import.meta.env.VITE_SOCKET_URL?.trim() ?? ''
   const hasSignaling = !!socketUrl
@@ -143,22 +150,15 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       return
     }
 
+    clearOfflineRetryTimer()
     activeDispose()
     activeDispose = null
     sendPartyRaw = null
-
-    if (shouldStopRetry(failureCount)) {
-      status.value = 'failed'
-      console.log(
-        '[yoochog guest handshake]',
-        'Reconnect limit reached. Refresh the page or rejoin.',
-      )
-      return
-    }
-
-    failureCount++
     status.value = 'reconnecting'
-    reconnectTrigger.value++
+    offlineRetryTimer = setTimeout(() => {
+      offlineRetryTimer = null
+      reconnectTrigger.value++
+    }, PARTY_OFFLINE_RETRY_INTERVAL_MS)
   }
 
   const prevSessionId = ref<string | null>(null)
@@ -167,6 +167,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     () => [sessionId.value, reconnectTrigger.value] as const,
     ([id, trig]) => {
       clearVisibilityResumeProbeTimer()
+      clearOfflineRetryTimer()
       partyLinkHealth.value = null
       activeDispose?.()
       activeDispose = null
@@ -186,7 +187,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       lastGuestChatSend.value = null
 
       if (id !== prevSessionId.value) {
-        failureCount = 0
         prevSessionId.value = id
         if (trig !== 0) {
           reconnectTrigger.value = 0
@@ -219,9 +219,6 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         signal: ac.signal,
         onStatus: (s) => {
           status.value = s
-          if (s === 'connected') {
-            failureCount = 0
-          }
         },
         onError: (m) => {
           console.log('[yoochog guest handshake]', m)
@@ -315,7 +312,29 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     { immediate: true },
   )
 
+  watch(
+    () => status.value,
+    (s) => {
+      if (s === 'connected' || s === 'missing_config') {
+        clearOfflineRetryTimer()
+        return
+      }
+      if (s !== 'failed') {
+        return
+      }
+      if (!hasSignaling || !sessionId.value) {
+        return
+      }
+      clearOfflineRetryTimer()
+      offlineRetryTimer = setTimeout(() => {
+        offlineRetryTimer = null
+        reconnectTrigger.value++
+      }, PARTY_OFFLINE_RETRY_INTERVAL_MS)
+    },
+  )
+
   onUnmounted(() => {
+    clearOfflineRetryTimer()
     clearVisibilityResumeProbeTimer()
     clearEnqueueErrorDismissTimer()
     clearChatErrorDismissTimer()

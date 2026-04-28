@@ -30,6 +30,7 @@ import type { PartyMessage } from '@/lib/party/partyMessages'
 import { runHostPartySocket } from '@/lib/realtime/partySocket'
 import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
 import { handshakeStatusLabel, type HandshakeUiState } from '@/lib/realtime/handshakeStatus'
+import { PARTY_OFFLINE_RETRY_INTERVAL_MS } from '@/lib/realtime/reconnectPolicy'
 
 /**
  * Host Socket.io + party channel: broadcasts queue snapshots and applies guest enqueue requests.
@@ -64,6 +65,16 @@ export function useHostPartySession(
     }>
   >([])
   let dispose: (() => void) | null = null
+  const reconnectTrigger = ref(0)
+  const prevHostSessionId = ref<string | null>(null)
+  let hostOfflineRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearHostOfflineRetryTimer() {
+    if (hostOfflineRetryTimer) {
+      clearTimeout(hostOfflineRetryTimer)
+      hostOfflineRetryTimer = null
+    }
+  }
 
   const socketUrl = import.meta.env.VITE_SOCKET_URL?.trim() ?? ''
   const hasSignaling = !!socketUrl
@@ -333,8 +344,30 @@ export function useHostPartySession(
   }
 
   watch(
-    () => hostSessionId.value,
-    (id) => {
+    () => status.value,
+    (s) => {
+      if (s === 'connected' || s === 'missing_config') {
+        clearHostOfflineRetryTimer()
+        return
+      }
+      if (s !== 'failed') {
+        return
+      }
+      if (!hasSignaling || !hostSessionId.value) {
+        return
+      }
+      clearHostOfflineRetryTimer()
+      hostOfflineRetryTimer = setTimeout(() => {
+        hostOfflineRetryTimer = null
+        reconnectTrigger.value++
+      }, PARTY_OFFLINE_RETRY_INTERVAL_MS)
+    },
+  )
+
+  watch(
+    () => [hostSessionId.value, reconnectTrigger.value] as const,
+    ([id, trig]) => {
+      clearHostOfflineRetryTimer()
       dispose?.()
       dispose = null
       broadcastParty = null
@@ -344,6 +377,14 @@ export function useHostPartySession(
       audienceChatEnabled.value = true
       audienceChatGuestState.clear()
       audienceChatLines.value = []
+
+      if (id !== prevHostSessionId.value) {
+        prevHostSessionId.value = id
+        if (trig !== 0) {
+          reconnectTrigger.value = 0
+          return
+        }
+      }
 
       if (!hasSignaling) {
         connectionStepLog('host', 'session:skip', 'missing VITE_SOCKET_URL (Socket.io base URL)')
@@ -355,8 +396,10 @@ export function useHostPartySession(
         return
       }
 
-      connectionStepLog('host', 'session:startPartySocket', { sessionId: id })
-      status.value = 'idle'
+      connectionStepLog('host', 'session:startPartySocket', { sessionId: id, reconnectAttempt: trig })
+      if (trig === 0) {
+        status.value = 'idle'
+      }
       const ac = new AbortController()
       const r = runHostPartySocket({
         sessionId: id,
@@ -405,6 +448,7 @@ export function useHostPartySession(
   )
 
   onUnmounted(() => {
+    clearHostOfflineRetryTimer()
     dispose?.()
   })
 

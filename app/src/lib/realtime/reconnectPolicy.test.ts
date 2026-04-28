@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { RECONNECT_MAX_ATTEMPTS, shouldStopRetry } from './reconnectPolicy'
+import { PARTY_OFFLINE_RETRY_INTERVAL_MS } from './reconnectPolicy'
 
 describe('reconnectPolicy', () => {
-  it('shouldStopRetry is true at and beyond max attempts', () => {
-    expect(shouldStopRetry(0)).toBe(false)
-    expect(shouldStopRetry(RECONNECT_MAX_ATTEMPTS - 1)).toBe(false)
-    expect(shouldStopRetry(RECONNECT_MAX_ATTEMPTS)).toBe(true)
+  it('offline retry interval is 3 seconds', () => {
+    expect(PARTY_OFFLINE_RETRY_INTERVAL_MS).toBe(3000)
   })
 })

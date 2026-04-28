@@ -1,9 +1,9 @@
 /**
- * Tunables for Socket.io party recovery (guest reconnection limits, visibility).
+ * Tunables for Socket.io party recovery (visibility, offline retry pacing).
  */
 
-/** After this many connection-loss events without a successful reconnect, stop retrying. */
-export const RECONNECT_MAX_ATTEMPTS = 10
+/** After a disconnect or failed connect/register, wait this long before opening a new Socket.io connection. */
+export const PARTY_OFFLINE_RETRY_INTERVAL_MS = 3_000
 
 /**
  * Legacy constant name: reserved for doc alignment; WebRTC ICE grace is no longer used for the party channel.
@@ -23,7 +23,3 @@ export const RECONNECT_VISIBILITY_MIN_HIDDEN_MS = 60_000
  */
 export const VISIBILITY_RESUME_HEALTH_PROBE_MS = 200
 
-/** True when failureCount consecutive losses have reached the limit (no more retries). */
-export function shouldStopRetry(failureCount: number): boolean {
-  return failureCount >= RECONNECT_MAX_ATTEMPTS
-}
