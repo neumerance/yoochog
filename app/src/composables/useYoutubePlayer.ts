@@ -93,13 +93,13 @@ export function useYoutubePlayer(
   }
 
   /**
-   * Nudge the embed toward the highest renditions the client will honor. YouTube’s ABR ultimately
-   * picks quality; `setPlaybackQuality` is officially deprecated and may be a no-op, but on some
-   * clients it still records a *preference* (actual delivery depends on connection + player size).
+   * Hint adaptive playback with a ceiling at HD 720p (not 1080 / highres). YouTube’s ABR still picks
+   * the delivered ladder step; `setPlaybackQuality` is officially deprecated and may be a no-op, but
+   * on some clients it still records a *preference*.
    */
   const suggestMaxPlaybackQuality = (p: YT.Player) => {
     try {
-      p.setPlaybackQuality('highres')
+      p.setPlaybackQuality('hd720')
     } catch {
       // API removed or player destroyed.
     }
