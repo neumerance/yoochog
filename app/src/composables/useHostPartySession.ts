@@ -491,3 +491,4 @@ export function useHostPartySession(
     audienceChatEnabled: computed(() => audienceChatEnabled.value),
     playerResolutionPreference,
   }
+}
