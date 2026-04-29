@@ -29,6 +29,7 @@ import {
   GUEST_QUEUE_ROWS_CAP_MAX,
   GUEST_QUEUE_ROWS_CAP_MIN,
 } from '@/lib/host-queue/guestQueueLimits'
+import type { PlayerResolutionPreference } from '@/lib/host-queue/playerResolutionPreference'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readPrivacyNoticeDismissed } from '@/lib/privacy/privacyNoticeDismissed'
 import { guestSessionIdFromRouteParam } from '@/lib/party/guestSessionId'
@@ -66,6 +67,7 @@ const {
   lastQueueSettingsError,
   maxGuestQueueRowsPerGuest,
   audienceChatEnabled,
+  playerResolutionPreference,
   hostAudioSessionUnlocked,
   audienceChatCooldownEndsAt,
   requestEnqueue,
@@ -108,6 +110,7 @@ const queueSettingsSavePending = ref(false)
 const queueSettingsTarget = ref<{
   maxGuestQueueRowsPerGuest: number
   audienceChatEnabled: boolean
+  playerResolution: PlayerResolutionPreference
 } | null>(null)
 
 const nowMonotonic = ref(Date.now())
@@ -649,6 +652,7 @@ function openQueueSettings() {
 function onQueueSettingsSave(payload: {
   maxGuestQueueRowsPerGuest: number
   audienceChatEnabled: boolean
+  playerResolution: PlayerResolutionPreference
 }) {
   if (!isSessionAdmin.value) {
     return
@@ -662,20 +666,29 @@ function onQueueSettingsSave(payload: {
     Math.max(GUEST_QUEUE_ROWS_CAP_MIN, Math.round(Number(payload.maxGuestQueueRowsPerGuest))),
   )
   const chat = payload.audienceChatEnabled
-  if (v === maxGuestQueueRowsPerGuest.value && chat === audienceChatEnabled.value) {
+  const res = payload.playerResolution
+  if (
+    v === maxGuestQueueRowsPerGuest.value
+    && chat === audienceChatEnabled.value
+    && res === playerResolutionPreference.value
+  ) {
     queueSettingsOpen.value = false
     return
   }
-  queueSettingsTarget.value = { maxGuestQueueRowsPerGuest: v, audienceChatEnabled: chat }
+  queueSettingsTarget.value = {
+    maxGuestQueueRowsPerGuest: v,
+    audienceChatEnabled: chat,
+    playerResolution: res,
+  }
   queueSettingsSavePending.value = true
   requestQueueSettingsUpdate(
-    { maxGuestQueueRowsPerGuest: v, audienceChatEnabled: chat },
+    { maxGuestQueueRowsPerGuest: v, audienceChatEnabled: chat, playerResolution: res },
     getOrCreatePartyGuestRequesterId(sid),
   )
 }
 
 watch(
-  [maxGuestQueueRowsPerGuest, audienceChatEnabled],
+  [maxGuestQueueRowsPerGuest, audienceChatEnabled, playerResolutionPreference],
   () => {
     if (!queueSettingsSavePending.value || queueSettingsTarget.value === null) {
       return
@@ -684,6 +697,7 @@ watch(
     if (
       maxGuestQueueRowsPerGuest.value === t.maxGuestQueueRowsPerGuest
       && audienceChatEnabled.value === t.audienceChatEnabled
+      && playerResolutionPreference.value === t.playerResolution
     ) {
       queueSettingsSavePending.value = false
       queueSettingsTarget.value = null
@@ -1339,6 +1353,7 @@ watch(lastQueueSettingsError, (e) => {
       v-model:assume-admin-eligible="assumeAdminEligible"
       :max-from-host="maxGuestQueueRowsPerGuest"
       :chat-enabled-from-host="audienceChatEnabled"
+      :player-resolution-from-host="playerResolutionPreference"
       :is-saving="queueSettingsSavePending"
       :last-error="lastQueueSettingsError"
       :is-session-admin="isSessionAdmin"

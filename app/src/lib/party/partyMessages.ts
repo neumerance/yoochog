@@ -5,11 +5,19 @@ import {
   normalizeGuestQueueRowsCap,
 } from '@/lib/host-queue/guestQueueLimits'
 import type { HostVideoQueueSnapshot } from '@/lib/host-queue/hostVideoQueue'
+import {
+  DEFAULT_PLAYER_RESOLUTION_PREFERENCE,
+  type PlayerResolutionPreference,
+  isPlayerResolutionPreferenceWire,
+  normalizePlayerResolutionPreference,
+} from '@/lib/host-queue/playerResolutionPreference'
 
 import {
   normalizeAudienceChatInput,
   validateAudienceChatText,
 } from '@/lib/party/audienceChatValidation'
+
+export type { PlayerResolutionPreference } from '@/lib/host-queue/playerResolutionPreference'
 
 /** Re-export for wire protocol / ADR (issue #79). */
 export {
@@ -95,6 +103,11 @@ export type PartyMessage =
        * on older hosts → treat as `true` (unlocked) for join UI.
        */
       audioSessionUnlocked: boolean
+      /**
+       * Host TV YouTube quality hint. Omitted on older hosts → {@link DEFAULT_PLAYER_RESOLUTION_PREFERENCE}
+       * (**auto**, max 720p).
+       */
+      playerResolution: PlayerResolutionPreference
     }
   | {
       v: typeof PARTY_MESSAGE_SCHEMA_VERSION
@@ -163,6 +176,10 @@ export type PartyMessage =
        * When set, updates host audience chat toggle. Older guests omit → host keeps current value.
        */
       audienceChatEnabled?: boolean
+      /**
+       * When set, updates host playback quality pref. Omit on older guests → host keeps current value.
+       */
+      playerResolution?: PlayerResolutionPreference
       requesterGuestId: string
     }
   | {
@@ -378,6 +395,7 @@ function parseSnapshotPayload(
   | 'maxGuestQueueRowsPerGuest'
   | 'audienceChatEnabled'
   | 'audioSessionUnlocked'
+  | 'playerResolution'
 > | null {
   if (typeof v !== 'object' || v === null) {
     return null
@@ -415,6 +433,7 @@ function parseSnapshotPayload(
       maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
       audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
       audioSessionUnlocked: normalizeAudioSessionUnlocked(o.audioSessionUnlocked),
+      playerResolution: normalizePlayerResolutionPreference(o.playerResolution),
     }
   }
   if (o.currentIndex === null) {
@@ -453,6 +472,7 @@ function parseSnapshotPayload(
     maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(o.maxGuestQueueRowsPerGuest),
     audienceChatEnabled: normalizeAudienceChatEnabled(o.audienceChatEnabled),
     audioSessionUnlocked: normalizeAudioSessionUnlocked(o.audioSessionUnlocked),
+    playerResolution: normalizePlayerResolutionPreference(o.playerResolution),
   }
 }
 
@@ -496,6 +516,7 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       maxGuestQueueRowsPerGuest: snap.maxGuestQueueRowsPerGuest,
       audienceChatEnabled: snap.audienceChatEnabled,
       audioSessionUnlocked: snap.audioSessionUnlocked,
+      playerResolution: snap.playerResolution,
     }
   }
   if (o.type === 'enqueue_request') {
@@ -641,6 +662,12 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
     if ('audienceChatEnabled' in o && typeof o.audienceChatEnabled !== 'boolean') {
       return null
     }
+    if (
+      'playerResolution' in o
+      && !isPlayerResolutionPreferenceWire(o.playerResolution)
+    ) {
+      return null
+    }
     return {
       v: PARTY_MESSAGE_SCHEMA_VERSION,
       type: 'queue_settings_update_request',
@@ -648,6 +675,9 @@ export function parsePartyMessage(raw: string): PartyMessage | null {
       requesterGuestId,
       ...(typeof o.audienceChatEnabled === 'boolean'
         ? { audienceChatEnabled: o.audienceChatEnabled }
+        : {}),
+      ...(isPlayerResolutionPreferenceWire(o.playerResolution)
+        ? { playerResolution: o.playerResolution }
         : {}),
     }
   }
@@ -680,6 +710,7 @@ export function queueSnapshotToMessage(
   maxGuestQueueRowsPerGuest: number = GUEST_QUEUE_ROWS_CAP_DEFAULT,
   audienceChatEnabled: boolean = DEFAULT_AUDIENCE_CHAT_ENABLED,
   audioSessionUnlocked: boolean = DEFAULT_AUDIO_SESSION_UNLOCKED,
+  playerResolution: PlayerResolutionPreference = DEFAULT_PLAYER_RESOLUTION_PREFERENCE,
 ): PartyMessage {
   const adminIds = [...sessionAdminGuestIds]
   const sessionAdminPeerId = adminIds[0] ?? null
@@ -696,5 +727,6 @@ export function queueSnapshotToMessage(
     maxGuestQueueRowsPerGuest: normalizeGuestQueueRowsCap(maxGuestQueueRowsPerGuest),
     audienceChatEnabled,
     audioSessionUnlocked,
+    playerResolution,
   }
 }

@@ -10,6 +10,11 @@ import {
 } from 'vue'
 
 import { shouldEmitYoutubeEndedToHost } from '@/lib/playback/youtubeEndGate'
+import {
+  DEFAULT_PLAYER_RESOLUTION_PREFERENCE,
+  type PlayerResolutionPreference,
+  youtubePlaybackQualityForPreference,
+} from '@/lib/host-queue/playerResolutionPreference'
 import { loadYouTubeIframeApi } from '@/lib/youtube/loadIframeApi'
 
 export interface UseYoutubePlayerOptions {
@@ -52,6 +57,11 @@ export interface UseYoutubePlayerOptions {
   onSetupError?: (error: unknown) => void
   /** Merged with defaults; `origin` is always `window.location.origin` when in browser. */
   playerVars?: YT.PlayerVars
+  /**
+   * Host/admin playback hint for {@link YT.Player.setPlaybackQuality}.
+   * **`auto`** (default when omitted) caps at **720p**; see {@link youtubePlaybackQualityForPreference}.
+   */
+  playbackResolution?: MaybeRefOrGetter<PlayerResolutionPreference>
 }
 
 export function useYoutubePlayer(
@@ -93,13 +103,13 @@ export function useYoutubePlayer(
   }
 
   /**
-   * Hint adaptive playback with a ceiling at HD 720p (not 1080 / highres). YouTube’s ABR still picks
-   * the delivered ladder step; `setPlaybackQuality` is officially deprecated and may be a no-op, but
-   * on some clients it still records a *preference*.
+   * Maps admin preference to a YouTube quality label (deprecated API; may be a no-op on some clients).
    */
-  const suggestMaxPlaybackQuality = (p: YT.Player) => {
+  const applyPlaybackQualityHint = (p: YT.Player) => {
+    const pref = toValue(options.playbackResolution ?? DEFAULT_PLAYER_RESOLUTION_PREFERENCE)
+    const q = youtubePlaybackQualityForPreference(pref)
     try {
-      p.setPlaybackQuality('hd720')
+      p.setPlaybackQuality(q)
     } catch {
       // API removed or player destroyed.
     }
@@ -158,7 +168,7 @@ export function useYoutubePlayer(
         } else {
           player.value.mute()
         }
-        suggestMaxPlaybackQuality(player.value)
+        applyPlaybackQualityHint(player.value)
       } catch {
         // Player may be torn down mid-call.
       }
@@ -218,7 +228,7 @@ export function useYoutubePlayer(
             }
             isReady.value = true
             applySessionAudio(event.target)
-            suggestMaxPlaybackQuality(event.target)
+            applyPlaybackQualityHint(event.target)
             options.onReady?.(event.target)
           },
           onStateChange: (event) => {
@@ -239,7 +249,7 @@ export function useYoutubePlayer(
             }
             options.onPlaying?.()
             applySessionAudio(event.target)
-            suggestMaxPlaybackQuality(event.target)
+            applyPlaybackQualityHint(event.target)
           },
         },
       })
@@ -262,6 +272,17 @@ export function useYoutubePlayer(
         return
       }
       applySessionAudio(p)
+    },
+  )
+
+  watch(
+    () => toValue(options.playbackResolution ?? DEFAULT_PLAYER_RESOLUTION_PREFERENCE),
+    () => {
+      const p = player.value
+      if (!p || !isReady.value) {
+        return
+      }
+      applyPlaybackQualityHint(p)
     },
   )
 

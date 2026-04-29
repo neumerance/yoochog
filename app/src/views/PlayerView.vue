@@ -388,6 +388,7 @@ const {
   audienceChatLines,
   removeAudienceChatLine,
   maxGuestQueueRowsPerGuest,
+  playerResolutionPreference,
 } = useHostPartySession(
   hostSessionId,
   queue,
@@ -480,6 +481,7 @@ const { player, isReady } = useYoutubePlayer(playerContainer, {
     modestbranding: 1,
     rel: 0,
   },
+  playbackResolution: playerResolutionPreference,
   onEnded: handlePlaybackEnded,
   onPlaying: () => {
     skipMessage.value = null

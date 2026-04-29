@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { DEFAULT_PLAYER_RESOLUTION_PREFERENCE } from '@/lib/host-queue/playerResolutionPreference'
+
 import { applyGuestPartyMessage, type GuestPartyUiState } from './guestPartyState'
 
 function emptyState(over: Partial<GuestPartyUiState> = {}): GuestPartyUiState {
@@ -8,6 +10,7 @@ function emptyState(over: Partial<GuestPartyUiState> = {}): GuestPartyUiState {
     sessionAdminGuestIds: [],
     maxGuestQueueRowsPerGuest: 2,
     audienceChatEnabled: true,
+    playerResolution: DEFAULT_PLAYER_RESOLUTION_PREFERENCE,
     hostAudioSessionUnlocked: true,
     lastEnqueueError: null,
     lastChatError: null,
@@ -30,6 +33,7 @@ describe('applyGuestPartyMessage', () => {
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: true,
       audioSessionUnlocked: true,
+      playerResolution: 'auto',
     })
     expect(next.hostAudioSessionUnlocked).toBe(true)
     expect(next.snapshot?.ids).toEqual(['a'])
@@ -54,6 +58,7 @@ describe('applyGuestPartyMessage', () => {
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: true,
       audioSessionUnlocked: true,
+      playerResolution: 'auto',
     })
     expect(next.sessionAdminGuestIds).toEqual(['admin-1', 'admin-2'])
   })
@@ -71,6 +76,7 @@ describe('applyGuestPartyMessage', () => {
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: true,
       audioSessionUnlocked: true,
+      playerResolution: 'auto',
     })
     expect(next.snapshot?.ids).toEqual(['bbbbbbbbbbb'])
     expect(next.snapshot?.titles).toEqual(['B'])
@@ -150,6 +156,7 @@ describe('applyGuestPartyMessage', () => {
       maxGuestQueueRowsPerGuest: 5,
       audienceChatEnabled: true,
       audioSessionUnlocked: true,
+      playerResolution: 'auto',
     })
     expect(a.maxGuestQueueRowsPerGuest).toBe(5)
     const b = applyGuestPartyMessage(a, { v: 1, type: 'heartbeat' })
@@ -169,6 +176,7 @@ describe('applyGuestPartyMessage', () => {
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: false,
       audioSessionUnlocked: true,
+      playerResolution: 'auto',
     })
     expect(a.audienceChatEnabled).toBe(false)
   })

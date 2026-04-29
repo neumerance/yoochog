@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 
 import type { HostVideoQueue } from '@/lib/host-queue/hostVideoQueue'
 import { normalizeGuestQueueRowsCap, GUEST_QUEUE_ROWS_CAP_DEFAULT } from '@/lib/host-queue/guestQueueLimits'
+import { DEFAULT_PLAYER_RESOLUTION_PREFERENCE } from '@/lib/host-queue/playerResolutionPreference'
 import { resolveGuestEnqueueRequest } from '@/lib/host-queue/guestEnqueuePolicy'
 import { isValidQueueSettingsCapValue, resolveQueueSettingsUpdateRequest } from '@/lib/host-queue/queueSettingsPolicy'
 import {
@@ -65,6 +66,7 @@ export function useHostPartySession(
       fontFamily: string
     }>
   >([])
+  const playerResolutionPreference = ref(DEFAULT_PLAYER_RESOLUTION_PREFERENCE)
   let dispose: (() => void) | null = null
   const reconnectTrigger = ref(0)
   const prevHostSessionId = ref<string | null>(null)
@@ -93,6 +95,7 @@ export function useHostPartySession(
       maxGuestQueueRowsPerGuest.value,
       audienceChatEnabled.value,
       hostAudioSessionUnlocked.value,
+      playerResolutionPreference.value,
     )
     broadcastParty(serializePartyMessage(msg))
   }
@@ -107,6 +110,7 @@ export function useHostPartySession(
       maxGuestQueueRowsPerGuest.value,
       audienceChatEnabled.value,
       hostAudioSessionUnlocked.value,
+      playerResolutionPreference.value,
     )
     sendPartyToGuest(guestId, serializePartyMessage(msg))
   }
@@ -202,6 +206,9 @@ export function useHostPartySession(
         if (wasOn && !msg.audienceChatEnabled) {
           audienceChatLines.value = []
         }
+      }
+      if (typeof msg.playerResolution !== 'undefined') {
+        playerResolutionPreference.value = msg.playerResolution
       }
       maxGuestQueueRowsPerGuest.value = normalizeGuestQueueRowsCap(
         msg.maxGuestQueueRowsPerGuest,
@@ -391,6 +398,7 @@ export function useHostPartySession(
       sessionAdminGuestIds.value = []
       maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
       audienceChatEnabled.value = true
+      playerResolutionPreference.value = DEFAULT_PLAYER_RESOLUTION_PREFERENCE
       audienceChatGuestState.clear()
       audienceChatLines.value = []
 
@@ -481,5 +489,5 @@ export function useHostPartySession(
     removeAudienceChatLine,
     maxGuestQueueRowsPerGuest: computed(() => maxGuestQueueRowsPerGuest.value),
     audienceChatEnabled: computed(() => audienceChatEnabled.value),
+    playerResolutionPreference,
   }
-}

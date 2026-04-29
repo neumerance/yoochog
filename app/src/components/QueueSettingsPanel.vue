@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { useHostPlayerDarkMode } from '@/composables/useHostPlayerDarkMode'
+import type { PlayerResolutionPreference } from '@/lib/host-queue/playerResolutionPreference'
 import {
   GUEST_QUEUE_ROWS_CAP_MAX,
   GUEST_QUEUE_ROWS_CAP_MIN,
@@ -15,6 +16,8 @@ const props = defineProps<{
   maxFromHost: number
   /** Host toggle: guests can send short messages to the TV overlay. */
   chatEnabledFromHost: boolean
+  /** Host TV YouTube quality hint from the host (mirrors snapshot). */
+  playerResolutionFromHost: PlayerResolutionPreference
   isSaving: boolean
   lastError: string | null
   /** Guest has session-admin powers — unlocks queue limit / chat controls. */
@@ -30,7 +33,14 @@ const props = defineProps<{
 const assumeAdminEligible = defineModel<boolean>('assumeAdminEligible', { required: true })
 
 const emit = defineEmits<{
-  (e: 'save', value: { maxGuestQueueRowsPerGuest: number; audienceChatEnabled: boolean }): void
+  (
+    e: 'save',
+    value: {
+      maxGuestQueueRowsPerGuest: number
+      audienceChatEnabled: boolean
+      playerResolution: PlayerResolutionPreference
+    },
+  ): void
   (e: 'assume-admin-submit', password: string): void
 }>()
 
@@ -38,6 +48,7 @@ const modelValue = defineModel<boolean>({ required: true })
 
 const draft = ref(GUEST_QUEUE_ROWS_CAP_MIN)
 const draftChatEnabled = ref(true)
+const draftPlayerResolution = ref<PlayerResolutionPreference>('auto')
 
 const assumeAdminNestedDialog = ref<HTMLDialogElement | null>(null)
 const assumeAdminPassword = ref('')
@@ -50,11 +61,12 @@ const isOpen = computed({
 })
 
 watch(
-  () => [modelValue.value, props.maxFromHost, props.chatEnabledFromHost] as const,
-  ([open, max, chat]) => {
+  () => [modelValue.value, props.maxFromHost, props.chatEnabledFromHost, props.playerResolutionFromHost] as const,
+  ([open, max, chat, res]) => {
     if (open) {
       draft.value = max
       draftChatEnabled.value = chat
+      draftPlayerResolution.value = res
     }
   },
   { immediate: true },
@@ -99,6 +111,7 @@ function onSave() {
   emit('save', {
     maxGuestQueueRowsPerGuest: draft.value,
     audienceChatEnabled: draftChatEnabled.value,
+    playerResolution: draftPlayerResolution.value,
   })
 }
 
@@ -311,6 +324,30 @@ function submitAssumeAdmin() {
                     :class="draftChatEnabled ? 'translate-x-5' : 'translate-x-0'"
                   />
                 </button>
+              </div>
+              <div
+                class="flex min-h-11 flex-col gap-1.5 border-t border-[#C6C6C8] py-2 pl-4 pr-3 dark:border-slate-600"
+              >
+                <label
+                  id="queue-player-resolution-label"
+                  for="queue-player-resolution"
+                  class="text-[1.0625rem] font-normal leading-tight text-black dark:text-slate-100"
+                >Host playback quality</label>
+                <select
+                  id="queue-player-resolution"
+                  v-model="draftPlayerResolution"
+                  class="w-full min-h-10 rounded-lg border border-[#C6C6C8] bg-white px-3 py-2 text-[1.0625rem] text-black dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                  :disabled="isSaving"
+                  aria-labelledby="queue-player-resolution-label"
+                >
+                  <option value="auto">Auto (cap at 720p)</option>
+                  <option value="480">480p</option>
+                  <option value="720">720p</option>
+                  <option value="1080">1080p</option>
+                </select>
+                <p class="m-0 text-[0.75rem] leading-snug text-[#6D6D72] dark:text-slate-500">
+                  Hint for the host’s YouTube player. When unset, the app uses Auto (max 720p).
+                </p>
               </div>
             </div>
             <p

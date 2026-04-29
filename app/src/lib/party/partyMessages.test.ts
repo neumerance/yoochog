@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { DEFAULT_PLAYER_RESOLUTION_PREFERENCE } from '@/lib/host-queue/playerResolutionPreference'
 import {
   isPlausibleYoutubeVideoId,
   parsePartyMessage,
@@ -74,6 +75,7 @@ describe('parsePartyMessage', () => {
       maxGuestQueueRowsPerGuest: 2,
       audienceChatEnabled: DEFAULT_AUDIENCE_CHAT_ENABLED,
       audioSessionUnlocked: DEFAULT_AUDIO_SESSION_UNLOCKED,
+      playerResolution: DEFAULT_PLAYER_RESOLUTION_PREFERENCE,
     })
   })
 
@@ -117,6 +119,7 @@ describe('parsePartyMessage', () => {
       expect(p.maxGuestQueueRowsPerGuest).toBe(2)
       expect(p.audienceChatEnabled).toBe(true)
       expect(p.audioSessionUnlocked).toBe(DEFAULT_AUDIO_SESSION_UNLOCKED)
+      expect(p.playerResolution).toBe(DEFAULT_PLAYER_RESOLUTION_PREFERENCE)
     }
   })
 
@@ -534,6 +537,29 @@ describe('parsePartyMessage', () => {
       requesterGuestId: 'g1',
     }
     expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
+  })
+
+  it('round-trips queue_settings_update_request with playerResolution', () => {
+    const a = {
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request' as const,
+      maxGuestQueueRowsPerGuest: 3,
+      audienceChatEnabled: true,
+      playerResolution: '1080' as const,
+      requesterGuestId: 'g1',
+    }
+    expect(parsePartyMessage(serializePartyMessage(a))).toEqual(a)
+  })
+
+  it('rejects queue_settings_update_request when playerResolution is present but invalid', () => {
+    const raw = JSON.stringify({
+      v: PARTY_MESSAGE_SCHEMA_VERSION,
+      type: 'queue_settings_update_request',
+      maxGuestQueueRowsPerGuest: 3,
+      requesterGuestId: 'g1',
+      playerResolution: 'cinema',
+    })
+    expect(parsePartyMessage(raw)).toBeNull()
   })
 
   it('rejects queue_settings_update_request when audienceChatEnabled is not boolean', () => {

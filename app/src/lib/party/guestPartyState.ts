@@ -2,6 +2,7 @@ import {
   normalizeHostVideoQueueSnapshot,
   type HostVideoQueueSnapshot,
 } from '@/lib/host-queue/hostVideoQueue'
+import { type PlayerResolutionPreference } from '@/lib/host-queue/playerResolutionPreference'
 
 import { sessionAdminGuestIdsFromSnapshotMessage, type PartyMessage } from './partyMessages'
 
@@ -18,6 +19,10 @@ export type GuestPartyUiState = {
    * When `false`, guests must not send audience chat. Absent on older hosts → treat as on.
    */
   audienceChatEnabled: boolean
+  /**
+   * From `queue_snapshot`: preferred YouTube playback quality on the host (`auto` = max 720p).
+   */
+  playerResolution: PlayerResolutionPreference
   /**
    * From `queue_snapshot`: host has cleared the “Click here to start singing” gate (`true`), or
    * is re-locked for the room (`false`). Omitted on older hosts → default unlocked in parse.
@@ -47,6 +52,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         sessionAdminGuestIds: sessionAdminGuestIdsFromSnapshotMessage(msg),
         maxGuestQueueRowsPerGuest: msg.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: msg.audienceChatEnabled,
+        playerResolution: msg.playerResolution,
         hostAudioSessionUnlocked: msg.audioSessionUnlocked,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: prev.lastChatError,
@@ -58,6 +64,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         sessionAdminGuestIds: prev.sessionAdminGuestIds,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: prev.audienceChatEnabled,
+        playerResolution: prev.playerResolution,
         hostAudioSessionUnlocked: prev.hostAudioSessionUnlocked,
         lastEnqueueError: msg.reason,
         lastChatError: prev.lastChatError,
@@ -69,6 +76,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         sessionAdminGuestIds: prev.sessionAdminGuestIds,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: prev.audienceChatEnabled,
+        playerResolution: prev.playerResolution,
         hostAudioSessionUnlocked: prev.hostAudioSessionUnlocked,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: msg.reason,
@@ -80,6 +88,7 @@ export function applyGuestPartyMessage(prev: GuestPartyUiState, msg: PartyMessag
         sessionAdminGuestIds: prev.sessionAdminGuestIds,
         maxGuestQueueRowsPerGuest: prev.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: prev.audienceChatEnabled,
+        playerResolution: prev.playerResolution,
         hostAudioSessionUnlocked: prev.hostAudioSessionUnlocked,
         lastEnqueueError: prev.lastEnqueueError,
         lastChatError: prev.lastChatError,

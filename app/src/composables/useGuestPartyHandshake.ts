@@ -22,6 +22,7 @@ import {
   PARTY_MESSAGE_SCHEMA_VERSION,
   serializePartyMessage,
 } from '@/lib/party/partyMessages'
+import { DEFAULT_PLAYER_RESOLUTION_PREFERENCE } from '@/lib/host-queue/playerResolutionPreference'
 import { getOrCreatePartyGuestRequesterId } from '@/lib/party/partyGuestRequesterId'
 import { readGuestDisplayName } from '@/lib/guest/guestDisplayName'
 import { connectionStepLog } from '@/lib/debug/rtcDebugLog'
@@ -48,6 +49,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   const lastQueueSettingsError = ref<string | null>(null)
   const maxGuestQueueRowsPerGuest = ref(GUEST_QUEUE_ROWS_CAP_DEFAULT)
   const audienceChatEnabled = ref(DEFAULT_AUDIENCE_CHAT_ENABLED)
+  const playerResolutionPreference = ref(DEFAULT_PLAYER_RESOLUTION_PREFERENCE)
   const hostAudioSessionUnlocked = ref(DEFAULT_AUDIO_SESSION_UNLOCKED)
   /** Wall-clock ms when guest chat cooldown ends (`0` = none). */
   const audienceChatCooldownEndsAt = ref(0)
@@ -188,6 +190,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
       lastQueueSettingsError.value = null
       maxGuestQueueRowsPerGuest.value = GUEST_QUEUE_ROWS_CAP_DEFAULT
       audienceChatEnabled.value = DEFAULT_AUDIENCE_CHAT_ENABLED
+      playerResolutionPreference.value = DEFAULT_PLAYER_RESOLUTION_PREFERENCE
       hostAudioSessionUnlocked.value = DEFAULT_AUDIO_SESSION_UNLOCKED
       clearChatErrorDismissTimer()
       clearQueueSettingsErrorDismissTimer()
@@ -262,6 +265,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
               sessionAdminGuestIds: sessionAdminGuestIds.value,
               maxGuestQueueRowsPerGuest: maxGuestQueueRowsPerGuest.value,
               audienceChatEnabled: audienceChatEnabled.value,
+              playerResolution: playerResolutionPreference.value,
               hostAudioSessionUnlocked: hostAudioSessionUnlocked.value,
               lastEnqueueError: lastEnqueueError.value,
               lastChatError: lastChatError.value,
@@ -273,6 +277,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
           sessionAdminGuestIds.value = next.sessionAdminGuestIds
           maxGuestQueueRowsPerGuest.value = next.maxGuestQueueRowsPerGuest
           audienceChatEnabled.value = next.audienceChatEnabled
+          playerResolutionPreference.value = next.playerResolution
           hostAudioSessionUnlocked.value = next.hostAudioSessionUnlocked
           lastEnqueueError.value = next.lastEnqueueError
           lastChatError.value = next.lastChatError
@@ -433,7 +438,11 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
   }
 
   function requestQueueSettingsUpdate(
-    payload: { maxGuestQueueRowsPerGuest: number; audienceChatEnabled: boolean },
+    payload: {
+      maxGuestQueueRowsPerGuest: number
+      audienceChatEnabled: boolean
+      playerResolution: typeof playerResolutionPreference.value
+    },
     requesterGuestId: string,
   ) {
     if (!sendPartyRaw) {
@@ -446,6 +455,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
         type: 'queue_settings_update_request',
         maxGuestQueueRowsPerGuest: payload.maxGuestQueueRowsPerGuest,
         audienceChatEnabled: payload.audienceChatEnabled,
+        playerResolution: payload.playerResolution,
         requesterGuestId,
       }),
     )
@@ -524,6 +534,7 @@ export function useGuestPartyHandshake(sessionId: Ref<string>) {
     audienceChatEnabled,
     hostAudioSessionUnlocked,
     audienceChatCooldownEndsAt,
+    playerResolutionPreference,
     requestEnqueue,
     requestEndCurrentPlayback,
     requestPauseCurrentPlayback,
