@@ -16,6 +16,9 @@ export const DEFAULT_YOUTUBE_SEARCH_CACHE_TTL_MS = 600_000 // 10 minutes
 /** Default max cache entries before evicting oldest. */
 export const DEFAULT_YOUTUBE_SEARCH_CACHE_MAX_ENTRIES = 500
 
+/** Appended to every keyword search so results skew toward karaoke tracks. */
+export const YOUTUBE_SEARCH_API_KARAOKE_SUFFIX = ' karaoke'
+
 /**
  * @param {string} raw
  * @returns {string | null} normalized query or null if empty / too long
@@ -32,6 +35,25 @@ export function normalizeYoutubeSearchQuery(raw) {
     return null
   }
   return collapsed
+}
+
+/**
+ * Builds the `q` parameter sent to YouTube `search.list` (user phrase + karaoke suffix).
+ * Truncates the user portion if needed so the final string stays within
+ * {@link YOUTUBE_SEARCH_QUERY_MAX_LENGTH}.
+ *
+ * @param {string} normalizedQ — non-empty output of {@link normalizeYoutubeSearchQuery}
+ * @returns {string}
+ */
+export function youtubeSearchQueryForApi(normalizedQ) {
+  const suffix = YOUTUBE_SEARCH_API_KARAOKE_SUFFIX
+  const max = YOUTUBE_SEARCH_QUERY_MAX_LENGTH
+  if (normalizedQ.length + suffix.length <= max) {
+    return normalizedQ + suffix
+  }
+  const maxBase = max - suffix.length
+  const base = normalizedQ.slice(0, maxBase).replace(/\s+$/, '')
+  return (base.length > 0 ? base : normalizedQ.slice(0, maxBase)) + suffix
 }
 
 /**

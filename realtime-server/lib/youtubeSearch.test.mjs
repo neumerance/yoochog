@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  YOUTUBE_SEARCH_API_KARAOKE_SUFFIX,
   YOUTUBE_SEARCH_QUERY_MAX_LENGTH,
   buildGoogleSearchListUrl,
   clampYoutubeSearchTitle,
@@ -10,6 +11,7 @@ import {
   mapYoutubeSearchListPayload,
   normalizeYoutubeSearchQuery,
   youtubeSearchCacheKey,
+  youtubeSearchQueryForApi,
 } from './youtubeSearch.mjs'
 
 test('normalizeYoutubeSearchQuery trims and collapses whitespace', () => {
@@ -26,6 +28,21 @@ test('normalizeYoutubeSearchQuery rejects empty and non-string', () => {
 test('normalizeYoutubeSearchQuery rejects over max length', () => {
   const q = 'a'.repeat(YOUTUBE_SEARCH_QUERY_MAX_LENGTH + 1)
   assert.equal(normalizeYoutubeSearchQuery(q), null)
+})
+
+test('youtubeSearchQueryForApi appends karaoke suffix', () => {
+  assert.equal(youtubeSearchQueryForApi('bohemian rhapsody'), 'bohemian rhapsody karaoke')
+  assert.equal(youtubeSearchQueryForApi('x'), `x${YOUTUBE_SEARCH_API_KARAOKE_SUFFIX}`)
+})
+
+test('youtubeSearchQueryForApi truncates base so total stays within max length', () => {
+  const baseLen = YOUTUBE_SEARCH_QUERY_MAX_LENGTH - YOUTUBE_SEARCH_API_KARAOKE_SUFFIX.length
+  const long = 'a'.repeat(YOUTUBE_SEARCH_QUERY_MAX_LENGTH)
+  assert.equal(long.length, YOUTUBE_SEARCH_QUERY_MAX_LENGTH)
+  const out = youtubeSearchQueryForApi(long)
+  assert.equal(out.length, YOUTUBE_SEARCH_QUERY_MAX_LENGTH)
+  assert.ok(out.endsWith(YOUTUBE_SEARCH_API_KARAOKE_SUFFIX))
+  assert.equal(out.slice(0, baseLen), 'a'.repeat(baseLen))
 })
 
 test('clampYoutubeSearchTitle enforces max length', () => {

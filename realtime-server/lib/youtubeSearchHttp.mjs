@@ -8,6 +8,7 @@ import {
   mapYoutubeSearchListPayload,
   normalizeYoutubeSearchQuery,
   youtubeSearchCacheKey,
+  youtubeSearchQueryForApi,
 } from './youtubeSearch.mjs'
 
 const CORS_COMMON = {
@@ -146,7 +147,8 @@ export function createYoutubeSearchApiHandler(config) {
       return
     }
 
-    const ckey = youtubeSearchCacheKey(q, pageToken)
+    const qForApi = youtubeSearchQueryForApi(q)
+    const ckey = youtubeSearchCacheKey(qForApi, pageToken)
     const cached = cache.get(ckey)
     if (cached) {
       sendJson(res, 200, cors, cached, { 'X-Cache': 'HIT' })
@@ -155,7 +157,7 @@ export function createYoutubeSearchApiHandler(config) {
 
     const googleUrl = buildGoogleSearchListUrl({
       apiKey,
-      q,
+      q: qForApi,
       pageToken: pageToken.length > 0 ? pageToken : undefined,
     })
 
