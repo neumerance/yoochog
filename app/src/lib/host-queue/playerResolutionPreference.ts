@@ -18,10 +18,13 @@ export function normalizePlayerResolutionPreference(raw: unknown): PlayerResolut
   return isPlayerResolutionPreferenceWire(raw) ? raw : DEFAULT_PLAYER_RESOLUTION_PREFERENCE
 }
 
+/** Values accepted by {@link YT.Player.setPlaybackQuality} for our presets. */
+export type YoutubePlaybackQualityHint = 'hd1080' | 'hd720' | 'large'
+
 /**
  * Maps a preference to a YouTube `setPlaybackQuality` label. **`auto`** uses **`hd720`** as the cap.
  */
-export function youtubePlaybackQualityForPreference(pref: PlayerResolutionPreference): string {
+export function youtubePlaybackQualityForPreference(pref: PlayerResolutionPreference): YoutubePlaybackQualityHint {
   switch (pref) {
     case '1080':
       return 'hd1080'
