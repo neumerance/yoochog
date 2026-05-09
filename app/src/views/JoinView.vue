@@ -858,8 +858,8 @@ watch(lastQueueSettingsError, (e) => {
           <p
             class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93] dark:text-slate-400"
           >
-            Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, search or paste a
-            YouTube link, then add your track—it shows up here for the room.
+            Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, search YouTube for
+            your track (or switch to paste link if you already copied a URL), then enqueue—it shows up here for the room.
           </p>
         </div>
 
@@ -1063,10 +1063,11 @@ watch(lastQueueSettingsError, (e) => {
           class="overflow-hidden rounded-[10px] bg-white shadow-[0_0.5px_0_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-black/40"
         >
           <p id="guest-add-song-step1" class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
-            Next, you can <span class="font-semibold text-black dark:text-slate-100">search</span> for a video or
-            <span class="font-semibold text-black dark:text-slate-100">paste a link</span>. To paste: in the YouTube app or site, tap
-            <span class="font-semibold text-black dark:text-slate-100">Share</span>, then
-            <span class="font-semibold text-black dark:text-slate-100">Copy link</span>.
+            Next, <span class="font-semibold text-black dark:text-slate-100">search</span> for a song or artist and pick a
+            result—that's the usual path. If you already copied a URL from YouTube
+            (<span class="font-semibold text-black dark:text-slate-100">Share</span>
+            → <span class="font-semibold text-black dark:text-slate-100">Copy link</span>), switch to the
+            <span class="font-semibold text-black dark:text-slate-100">Paste link</span> tab instead.
           </p>
           <div class="border-t border-[#C6C6C8] dark:border-slate-700">
             <button
@@ -1115,7 +1116,7 @@ watch(lastQueueSettingsError, (e) => {
               id="guest-add-song-tab-paste"
               @click="setAddSongStep2Tab('paste')"
             >
-              Paste a YouTube link
+              Paste link
             </button>
           </div>
 

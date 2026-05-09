@@ -26,8 +26,8 @@ export type YoutubeSearchResult =
   | { ok: true; data: YoutubeSearchSuccessBody }
   | { ok: false; code: YoutubeSearchFailureCode; message: string; retryAfterSec?: number }
 
-const SERVER_MESSAGE_PASTE_HINT =
-  ' You can also open the “Paste a YouTube link” tab and add a song with a link from YouTube → Share → Copy link.'
+const SERVER_MESSAGE_PASTE_FALLBACK =
+  ' As a fallback, use the “Paste link” tab with a URL from YouTube (Share → Copy link).'
 
 export function buildYoutubeSearchApiUrl(query: string, pageToken?: string): string | null {
   const base = partySocketBaseUrl()
@@ -49,28 +49,28 @@ function userMessageForFailure(
   retryAfterSec?: number,
 ): string {
   if (code === 'rate_limited' && retryAfterSec !== undefined && retryAfterSec > 0) {
-    return `Too many searches. Wait about ${retryAfterSec}s or use “Paste a YouTube link” below (YouTube → Share → Copy link).`
+    return `Too many searches. Wait about ${retryAfterSec}s, or use the “Paste link” tab with Share → Copy link from YouTube.`
   }
   if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
-    return `${serverMessage.trim()}${SERVER_MESSAGE_PASTE_HINT}`
+    return `${serverMessage.trim()}${SERVER_MESSAGE_PASTE_FALLBACK}`
   }
   switch (code) {
     case 'no_socket_url':
-      return 'This app is not connected to a party server, so search is unavailable. Use “Paste a YouTube link” with a link from YouTube → Share → Copy link.'
+      return 'This app is not connected to a party server, so search is unavailable. Use the “Paste link” tab with Share → Copy link from YouTube.'
     case 'search_unavailable':
-      return 'Search is not available on this party right now. Use “Paste a YouTube link” with a link from YouTube → Share → Copy link.'
+      return 'Search is not available on this party right now. Use the “Paste link” tab with Share → Copy link from YouTube.'
     case 'invalid_query':
-      return 'Try a shorter search phrase. You can also paste a link from YouTube → Share → Copy link.'
+      return 'Try a shorter search phrase—or use “Paste link” if you already copied a URL from YouTube (Share → Copy link).'
     case 'invalid_page_token':
-      return 'Could not load more results. Try a new search or paste a YouTube link.'
+      return 'Could not load more results. Try a new search, or use “Paste link” with a URL from YouTube.'
     case 'upstream_error':
-      return 'Search hit a temporary problem. Try again in a moment, or use “Paste a YouTube link” from YouTube → Share → Copy link.'
+      return 'Search hit a temporary problem. Try again in a moment, or use “Paste link” from YouTube (Share → Copy link).'
     case 'bad_response':
-      return 'Unexpected response from the party server. Try “Paste a YouTube link” instead.'
+      return 'Unexpected response from the party server. Try “Paste link” with a URL instead.'
     case 'network':
-      return 'Could not reach the party server. Check your connection, or paste a YouTube link from YouTube → Share → Copy link.'
+      return 'Could not reach the party server. Check your connection, or use “Paste link” with Share → Copy link from YouTube.'
     default:
-      return 'Something went wrong. Use “Paste a YouTube link” from YouTube → Share → Copy link.'
+      return 'Something went wrong. Try “Paste link” with Share → Copy link from YouTube.'
   }
 }
 

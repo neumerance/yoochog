@@ -22,14 +22,14 @@
         :class="idleCopyClass"
       >
         <template v-if="props.variant === 'empty'">
-          Scan the QR code, grab your go-to karaoke songs on YouTube, and
+          Scan the QR code, search for tracks on the join page, and tap
           <strong class="text-yellow-200">Enqueue</strong>
           to get the party <strong class="text-red-500">chogging!</strong>
         </template>
         <template v-else>
-          The queue is clear. Guests can add more anytime from the join page:
+          The queue is clear. Guests add songs from
           <strong class="text-yellow-200">Add my song</strong>
-          → paste a YouTube link →
+          — search YouTube there first (paste a link if they already have one), then
           <strong class="text-yellow-200">Enqueue</strong>.
         </template>
       </p>

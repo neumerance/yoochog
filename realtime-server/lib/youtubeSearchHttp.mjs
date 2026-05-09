@@ -114,7 +114,7 @@ export function createYoutubeSearchApiHandler(config) {
     if (!apiKey) {
       sendJson(res, 503, cors, {
         error: 'search_unavailable',
-        message: 'YouTube search is not enabled on this server. Use “Paste a YouTube link” instead.',
+        message: 'YouTube search is not enabled on this server. Use the “Paste link” tab instead.',
       })
       return
     }
@@ -141,7 +141,7 @@ export function createYoutubeSearchApiHandler(config) {
       log(`[youtube-search] rate_limited key=${client}`)
       sendJson(res, 429, cors, {
         error: 'rate_limited',
-        message: 'Too many searches. Wait a moment or paste a YouTube link instead.',
+        message: 'Too many searches. Wait a moment or use “Paste link” instead.',
         retryAfterSec: rl.retryAfterSec,
       })
       return
@@ -184,7 +184,7 @@ export function createYoutubeSearchApiHandler(config) {
         }
         sendJson(res, 502, cors, {
           error: 'upstream_error',
-          message: 'Search is temporarily unavailable. Try “Paste a YouTube link” from YouTube → Share.',
+          message: 'Search is temporarily unavailable. Try again shortly or use “Paste link” from YouTube (Share → Copy link).',
         })
         return
       }
