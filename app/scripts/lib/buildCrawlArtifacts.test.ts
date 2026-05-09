@@ -43,6 +43,19 @@ describe('disallowPrefixForSegment', () => {
 })
 
 describe('makeRobotsTxt', () => {
+  it('allowlists Meta link-preview crawlers before the generic block', () => {
+    const robots = makeRobotsTxt({
+      origin: 'https://yoochoog.app',
+      basePath: '/',
+    })
+    const ixFb = robots.indexOf('User-agent: facebookexternalhit')
+    const ixStar = robots.indexOf('\nUser-agent: *\n')
+    expect(ixFb).toBeGreaterThanOrEqual(0)
+    expect(ixStar).toBeGreaterThan(ixFb)
+    expect(robots).toContain('User-agent: Facebot')
+    expect(robots).toContain('Allow: /')
+  })
+
   it('matches GitHub Pages + neumerance host', () => {
     const robots = makeRobotsTxt({
       origin: 'https://neumerance.github.io',

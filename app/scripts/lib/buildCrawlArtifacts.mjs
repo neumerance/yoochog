@@ -88,7 +88,15 @@ function escapeXmlText(s) {
  */
 export function makeRobotsTxt(opts) {
   const { origin, basePath } = opts
-  const lines = ['User-agent: *']
+  const lines = [
+    'User-agent: facebookexternalhit',
+    'Allow: /',
+    '',
+    'User-agent: Facebot',
+    'Allow: /',
+    '',
+    'User-agent: *',
+  ]
   for (const seg of DISALLOW_SEGMENTS) {
     lines.push(`Disallow: ${disallowPrefixForSegment(basePath, seg)}`)
   }

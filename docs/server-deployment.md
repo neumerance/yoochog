@@ -120,6 +120,7 @@ If you use **pm2** instead of systemd: `cd $DEPLOY_PATH/current/realtime-server`
 | **WebSocket** fails or **400** on `/socket.io/` | nginx **`Upgrade`** / **`Connection`** headers, **`proxy_http_version 1.1`**, and that **only one** of HTTP upgrade or long-poll is misconfigured. Compare with [`yoochog.example.conf`](../deploy/nginx/yoochog.example.conf). |
 | **Wrong asset or join URL** | **`VITE_BASE_PATH`** in the last build, **`import.meta.env.BASE_URL`**, and nginx **`root`/`location`** must agree. Rebuild the app after changing `VITE_BASE_PATH`. |
 | **Party works on Pages but not on custom host** | Rebuild with **`VITE_SOCKET_URL`** pointing at the public Socket.io origin behind nginx, not a stale or internal-only URL. |
+| **Facebook Sharing Debugger: 403 / “missing Open Graph”** | **403 means the scraper was blocked before HTML.** Meta crawls as **`facebookexternalhit`** / **`Facebot`**. Allow those (or Meta’s published crawler IP ranges) in any **WAF, Cloudflare Bot Fight Mode, fail2ban, or geo block** in front of nginx. After deploy, **`robots.txt`** includes explicit **`Allow: /`** stanzas for those user agents (see `makeRobotsTxt`); that does not override nginx **403**, but satisfies Meta’s robots hint. Verify: `curl -sSIL -A 'facebookexternalhit/1.1' 'https://yoochoog.app/'` → **200**, then **Scrape Again** in the [Sharing Debugger](https://developers.facebook.com/tools/debug/). |
 
 ## References
 
