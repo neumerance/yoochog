@@ -18,14 +18,15 @@ ssh root@yoochoog.app 'bash -s' < deploy/bootstrap-server.sh
 
 | Concern | Variable / file | Notes |
 |--------|-----------------|--------|
-| Socket.io client target | `VITE_SOCKET_URL` | **Build-time** (Vite). Public URL the browser must use, e.g. `https://yoochoog.app` if nginx terminates TLS on the same host and Socket.io is proxied on that origin (path `/socket.io/` by default). [`deploy.sh`](../deploy.sh) sets this and **`VITE_BASE_PATH`** for production deploys. |
-| Vite public path / router | `VITE_BASE_PATH` | **Build-time.** Default in repo is `/yoochog/` (GitHub Pages). For the app at the **site root**, use **`/`** and match **nginx** `location` and static `root` / `alias`. The checked-in `deploy.sh` hardcodes `https://yoochoog.app` and `/` for its server build. |
+| Socket.io client target | `VITE_SOCKET_URL` | **Build-time** (Vite). Public URL the browser must use, e.g. `https://yoochoog.app` if nginx terminates TLS on the same host and Socket.io is proxied on that origin (path `/socket.io/` by default). [`deploy.sh`](../deploy.sh) exports this, **`VITE_PUBLIC_SITE_ORIGIN`**, and **`VITE_BASE_PATH`** for production deploys. |
+| Vite public path / router | `VITE_BASE_PATH` | **Build-time.** Default in repo is `/yoochog/` (GitHub Pages). For the app at the **site root**, use **`/`** and match **nginx** `location` and static `root` / `alias`. The checked-in `deploy.sh` pairs **`/`** with the yoochoog.app **`VITE_*`** URLs below. |
+| Crawl metadata (`robots.txt`, `sitemap.xml`) | `VITE_PUBLIC_SITE_ORIGIN` | **Build-time.** HTTPS origin (**scheme + host**, no path) where **this** build is served—typically **`https://yoochoog.app`** with **`deploy.sh`**. Omitting it fails **`npm run build`**. **`Disallow:`** paths and **`Sitemap:`** / `<loc>` use this plus **`VITE_BASE_PATH`**. See [issue #98](https://github.com/neumerance/yoochog/issues/98). |
 | CORS for Socket.io | `SOCKET_CORS_ORIGIN` | **Runtime** on the realtime server. Set to the **browser origin** of the app (e.g. `https://yoochoog.app`). |
 | Realtime listen port | `PORT` | **Runtime** (default **3000**). Bind to loopback; expose only through nginx. |
 | YouTube search (guest join flow) | `YOUTUBE_DATA_API_KEY` | **Runtime**, **server-only** on the realtime process. Enables `GET /api/v1/youtube/search` (YouTube Data API v3 `search.list`). If unset, the endpoint returns **503** and guests add tracks via **Video URL** only (no in-app search). Never use `VITE_*` for this key — it would ship in the static bundle. |
 | Search rate limit | `YOUTUBE_SEARCH_RATE_LIMIT_PER_MINUTE` | **Runtime** (optional). Per-client IP cap on search requests (rolling 1-minute window). Default **20**. Complements nginx `limit_req` if you add a zone. |
 
-`deploy.sh` **sources** **`$DEPLOY_PATH/shared/build.env`** on the server if it exists (optional extras such as **`VITE_YOUTUBE_API_KEY`**), then **exports** `VITE_SOCKET_URL=https://yoochoog.app` and `VITE_BASE_PATH=/` for the production `npm run build` in `app/`. **Do not commit** secrets; treat `VITE_*` as public (they ship in the bundle). Override any default by editing [`deploy.sh`](../deploy.sh) or exporting variables before the remote build if you add a custom flow.
+`deploy.sh` **sources** **`$DEPLOY_PATH/shared/build.env`** on the server if it exists (optional extras such as **`VITE_YOUTUBE_API_KEY`**), then **exports** `VITE_SOCKET_URL=https://yoochoog.app`, `VITE_PUBLIC_SITE_ORIGIN=https://yoochoog.app`, and `VITE_BASE_PATH=/` for the production `npm run build` in `app/`. **Do not commit** secrets; treat `VITE_*` as public (they ship in the bundle). Override any default by editing [`deploy.sh`](../deploy.sh) or exporting variables before the remote build if you add a custom flow.
 
 ## Layout on the server (`deploy.sh`)
 
@@ -45,7 +46,7 @@ The script prunes old release directories, keeping the last **`DEPLOY_RETAIN`** 
 
 2. **Prepare the tree** on the host. The checked-in `deploy.sh` defaults to **`DEPLOY_PATH=/var/www/yoochog`**, SSH user **`root`**, and host **`yoochoog.app`**. The server must be able to **`git clone`** the repo (public HTTPS or a deploy key is fine). Create **`DEPLOY_PATH`** if needed (`mkdir -p`).
 
-3. **Optional:** `$DEPLOY_PATH/shared/build.env` for extra build-time lines only (e.g. YouTube API). You do not need to add `VITE_SOCKET_URL` / `VITE_BASE_PATH` there unless you maintain a custom deploy.
+3. **Optional:** `$DEPLOY_PATH/shared/build.env` for extra build-time lines only (e.g. YouTube API). You do not need to add `VITE_SOCKET_URL`, **`VITE_PUBLIC_SITE_ORIGIN`**, or **`VITE_BASE_PATH`** there unless you maintain a custom deploy.
 
 4. **Install** the example [nginx vhost](#nginx) and [systemd unit](#process-manager-systemd). The examples use **`yoochoog.app`**; adjust **certificate paths** and `ExecStart=node` if your layout differs.
 

@@ -35,12 +35,23 @@ jobs:
           # Set via `gh secret set` / `gh variable set` (see docs/github-pages.md). Vite inlines at build time.
           VITE_SOCKET_URL: ${{ secrets.VITE_SOCKET_URL || vars.VITE_SOCKET_URL }}
           VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY || vars.VITE_YOUTUBE_API_KEY }}
+          VITE_PUBLIC_SITE_ORIGIN: ${{ secrets.VITE_PUBLIC_SITE_ORIGIN || vars.VITE_PUBLIC_SITE_ORIGIN }}
         run: |
           npm ci
           npm run build
 
       - name: Verify GitHub Pages SPA fallback (404.html)
         run: test -f app/dist/404.html
+
+      - name: Verify crawl helpers (robots.txt + sitemap.xml)
+        run: |
+          test -f app/dist/robots.txt app/dist/sitemap.xml
+          grep -q '^Sitemap: https://' app/dist/robots.txt
+          grep -q 'Disallow: /yoochog/host' app/dist/robots.txt
+          grep -q 'Disallow: /yoochog/join' app/dist/robots.txt
+          grep -q '/yoochog/sitemap.xml' app/dist/robots.txt
+          grep -q '<loc>https://' app/dist/sitemap.xml
+          grep -q '/yoochog/</loc>' app/dist/sitemap.xml
 
       - uses: actions/upload-pages-artifact@v3
         with:

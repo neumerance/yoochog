@@ -81,6 +81,7 @@ Use the path shape that matches your deployed **`BASE_URL`**. QR and share featu
 | Area | Variable | Notes |
 |------|-----------|--------|
 | **Public path prefix (build / preview)** | `VITE_BASE_PATH` | Optional. Default **`/yoochog/`** (GitHub Pages). For a **root** or custom-prefix build on your own host, set **`/`** or e.g. **`/watch/`** and match nginx. See [`docs/server-deployment.md`](docs/server-deployment.md). |
+| **`robots.txt` / `sitemap.xml` canonical URLs** | `VITE_PUBLIC_SITE_ORIGIN` | **Required for production `npm run build`.** HTTPS site origin (**scheme + host**, no path)—e.g. **`https://neumerance.github.io`** (Pages) or **`https://yoochoog.app`** (root deploy). Must match where that build is served alongside **`VITE_BASE_PATH`**. See [`docs/github-pages.md`](docs/github-pages.md). |
 | **Party realtime (Socket.io)** | `VITE_SOCKET_URL` | **Required** for host + guest party flows. Public base URL of the Socket.io server (inlined at build). See [ADR 0006](docs/adr/0006-socketio-realtime.md) and [`docs/github-pages.md`](docs/github-pages.md). |
 | **YouTube titles** | `VITE_YOUTUBE_API_KEY` | Optional. |
 

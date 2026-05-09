@@ -6,7 +6,7 @@
 
 CI deploys the production build from `master` when **GitHub Actions** is available. If Actions is blocked, run **`npm run deploy:gh-pages`** from this directory (after **`npm install`**) to push **`dist/`** to the **`gh-pages`** branch; then set the repo’s **Pages** source to that branch. Details: **[docs/github-pages.md](../docs/github-pages.md)**.
 
-- Production **`npm run build`** also emits **`dist/404.html`** (a copy of `index.html`) so GitHub Pages serves the Vue app shell for deep links and refreshes. See **Deep links / SPA routing** in that doc for behavior and tradeoffs versus hash-based routing.
+- Production **`npm run build`** also emits **`dist/404.html`** (a copy of `index.html`) so GitHub Pages serves the Vue app shell for deep links and refreshes, plus **`robots.txt`** / **`sitemap.xml`** derived from **`VITE_PUBLIC_SITE_ORIGIN`** (required) and **`VITE_BASE_PATH`**. See **`app/.env.example`**, **`docs/github-pages.md`**, and **Deep links / SPA routing** there for SPA fallback behavior versus hash routing.
 
 This repo is published as a **project** site, not the account root. The URL shape is:
 

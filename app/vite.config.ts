@@ -5,24 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-const appRoot = fileURLToPath(new URL('.', import.meta.url))
+// Shared with `scripts/` post-build crawl helpers (`generate-seo-static.mjs`) — keep `base` aligned.
+// @ts-expect-error TS7016 — plain `.mjs`; no DTS in this package
+import { productionBaseFromEnv } from './scripts/lib/productionBaseFromEnv.mjs'
 
-/**
- * Production / preview `base` for static hosting.
- * Default matches GitHub Pages project-site layout (`/yoochog/`).
- * Set `VITE_BASE_PATH` for a self-hosted build (e.g. `/` on a custom domain); see `docs/server-deployment.md`.
- */
-function productionBaseFromEnv(env: Record<string, string>): string {
-  const raw = env.VITE_BASE_PATH
-  if (raw === undefined || raw === '') {
-    return '/yoochog/'
-  }
-  const t = raw.trim()
-  if (t === '' || t === '/') {
-    return '/'
-  }
-  return t.endsWith('/') ? t : `${t}/`
-}
+const appRoot = fileURLToPath(new URL('.', import.meta.url))
 
 // https://vite.dev/config/
 // GitHub Pages project site: https://<user>.github.io/yoochog/ — default production + preview base; dev stays `/`.
