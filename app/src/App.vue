@@ -2,6 +2,8 @@
 import { computed, onUnmounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
+import AnalyticsConsentBar from '@/components/AnalyticsConsentBar.vue'
+
 const route = useRoute()
 /** Player + guest join: fixed viewport, no document scroll */
 const viewportLocked = computed(() => route.name === 'player' || route.name === 'join')
@@ -26,6 +28,7 @@ onUnmounted(() => {
       viewportLocked ? 'h-dvh max-h-dvh min-h-0 overflow-hidden' : 'min-h-screen',
     ]"
   >
+    <AnalyticsConsentBar />
     <!-- Layout wrapper only; marketing HomeView supplies <main id="main"> for landmarks. -->
     <div
       :class="[
