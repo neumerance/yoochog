@@ -8,7 +8,7 @@ const ALLOWED_HOSTS = new Set([
   'www.music.youtube.com',
 ])
 
-function normalizePaste(input: string): string {
+function normalizeVideoUrlInput(input: string): string {
   let s = input.trim()
   if (
     (s.startsWith('"') && s.endsWith('"')) ||
@@ -61,11 +61,11 @@ function matchPathVideoId(pathname: string): string | null {
 }
 
 /**
- * Returns a plausible 11-character YouTube video id from pasted text (bare id or typical URL),
+ * Returns a plausible 11-character YouTube video id from user input (bare id or typical URL),
  * or null if none can be extracted. Aligns with host `isPlausibleYoutubeVideoId`.
  */
 export function extractYoutubeVideoId(input: string): string | null {
-  const normalized = normalizePaste(input)
+  const normalized = normalizeVideoUrlInput(input)
   if (!normalized) {
     return null
   }

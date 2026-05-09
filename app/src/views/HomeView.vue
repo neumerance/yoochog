@@ -346,7 +346,7 @@ onUnmounted(() => {
                 Queue it up and pass the mic
               </h3>
               <p class="mt-3 flex-1 text-base leading-relaxed text-neutral-600">
-                Search for your karaoke pick on the join page (paste a link if you already have one), tap
+                Search for your karaoke pick on the join page, tap
                 <strong class="font-semibold text-black">Enqueue</strong>, and the room hears it when it's your
                 turn—fair rotation, everyone in sync, every chorus together.
               </p>
@@ -382,8 +382,8 @@ onUnmounted(() => {
                   <span
                     class="break-words rounded-md bg-black/[0.06] px-1.5 py-0.5 font-mono text-sm font-medium text-black sm:whitespace-nowrap"
                     >/join/your-room-code</span
-                  >. Open it on your phone, add your name if asked, then search for the karaoke track you want
-                  (you can paste a link instead if you already have one). The big screen shows who's on the mic
+                  >. Open it on your phone, add your name if asked, then search for the karaoke track you want.
+                  The big screen shows who's on the mic
                   and who's next—the whole crew stays in the same moment.
                 </p>
               </div>

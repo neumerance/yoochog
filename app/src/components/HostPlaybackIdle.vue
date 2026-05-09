@@ -29,7 +29,7 @@
         <template v-else>
           The queue is clear. Guests add songs from
           <strong class="text-yellow-200">Add my song</strong>
-          — search YouTube there first (paste a link if they already have one), then
+          — search YouTube there first, then
           <strong class="text-yellow-200">Enqueue</strong>.
         </template>
       </p>

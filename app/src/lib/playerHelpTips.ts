@@ -67,7 +67,7 @@ export const PLAYER_HELP_TIP_DEFINITIONS: PlayerHelpTipDefinition[] = [
     message: (ctx) => {
       const n = ctx.maxGuestQueueRowsPerGuest
       const per = n === 1 ? 'one song' : `${n} songs`
-      return `Guests search YouTube from the join page and enqueue — up to ${per} per guest (including the song that’s playing) until one finishes. Paste link is there too if they already copied a URL.`
+      return `Guests search YouTube from the join page and enqueue — up to ${per} per guest (including the song that’s playing) until one finishes.`
     },
     test: (ctx) =>
       ctx.isSignalingConfigured &&

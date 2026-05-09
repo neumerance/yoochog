@@ -140,7 +140,7 @@ const audienceChatCooldownSecondsLeft = computed(() => {
   return Math.max(0, Math.ceil((end - Date.now()) / 1000))
 })
 const addSongStep = ref<1 | 2>(1)
-/** Step 2 sub-flow: server search vs paste link. */
+/** Step 2 sub-flow: server search vs direct video URL. */
 const addSongStep2Tab = ref<'search' | 'paste'>('search')
 const pasteInput = ref('')
 const pasteValidationError = ref<string | null>(null)
@@ -574,7 +574,7 @@ async function submitPasteEnqueue() {
   }
   const id = extractYoutubeVideoId(pasteInput.value)
   if (!id) {
-    pasteValidationError.value = "That doesn't look like a valid YouTube link."
+    pasteValidationError.value = "That doesn't look like a valid video URL or ID."
     return
   }
   if (isEnqueueSubmitting.value) {
@@ -859,7 +859,7 @@ watch(lastQueueSettingsError, (e) => {
             class="max-w-[18rem] text-[13px] font-normal leading-[1.38] text-[#8E8E93] dark:text-slate-400"
           >
             Tap <span class="font-semibold text-[#6D6D72] dark:text-slate-300">Add my song</span> below, search YouTube for
-            your track (or switch to paste link if you already copied a URL), then enqueue—it shows up here for the room.
+            your track, then enqueue—it shows up here for the room.
           </p>
         </div>
 
@@ -1064,10 +1064,7 @@ watch(lastQueueSettingsError, (e) => {
         >
           <p id="guest-add-song-step1" class="px-4 pb-3 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
             Next, <span class="font-semibold text-black dark:text-slate-100">search</span> for a song or artist and pick a
-            result—that's the usual path. If you already copied a URL from YouTube
-            (<span class="font-semibold text-black dark:text-slate-100">Share</span>
-            → <span class="font-semibold text-black dark:text-slate-100">Copy link</span>), switch to the
-            <span class="font-semibold text-black dark:text-slate-100">Paste link</span> tab instead.
+            result to add it to the queue.
           </p>
           <div class="border-t border-[#C6C6C8] dark:border-slate-700">
             <button
@@ -1116,7 +1113,7 @@ watch(lastQueueSettingsError, (e) => {
               id="guest-add-song-tab-paste"
               @click="setAddSongStep2Tab('paste')"
             >
-              Paste link
+              Video URL
             </button>
           </div>
 
@@ -1197,11 +1194,11 @@ watch(lastQueueSettingsError, (e) => {
             aria-describedby="guest-add-song-step2-hint"
           >
             <p id="guest-add-song-step2-hint" class="px-4 pb-2 pt-3.5 text-center text-[13px] leading-[1.38] text-[#3C3C43] dark:text-slate-300">
-              Paste the link you copied from YouTube (Share → Copy link).
+              Enter a YouTube watch URL or an 11-character video ID.
             </p>
             <div class="border-t border-[#C6C6C8] px-4 pb-1 pt-3 dark:border-slate-700">
               <label for="guest-add-song-paste" class="block text-[13px] font-normal leading-4 text-[#6D6D72] dark:text-slate-400">
-                YouTube link
+                Video URL or ID
               </label>
               <input
                 id="guest-add-song-paste"

@@ -54,7 +54,7 @@ describe('searchYoutubeOnServer', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.code).toBe('search_unavailable')
-      expect(r.message).toContain('Paste link')
+      expect(r.message).toContain('Video URL')
     }
   })
 
