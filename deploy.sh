@@ -22,7 +22,8 @@
 #   DEPLOY_SKIP_SYSTEMD    If set to 1, skip systemctl after deploy.
 #
 # On the host, $DEPLOY_PATH/shared/build.env is sourced before the app build (optional extras such as
-# VITE_YOUTUBE_API_KEY). VITE_SOCKET_URL and VITE_BASE_PATH are then set to https://yoochoog.app and /.
+# VITE_YOUTUBE_API_KEY). VITE_SOCKET_URL, VITE_PUBLIC_SITE_ORIGIN, and VITE_BASE_PATH are then set for
+# yoochoog.app (canonical URLs in robots.txt / sitemap.xml match the deployed origin).
 #
 # Node on the host must satisfy app/realtime-server engines (^20.19.0 || >=22.12.0).
 # ------------------------------------------------------------------------------
@@ -87,6 +88,7 @@ if [[ -f "${DEPLOY_PATH}/shared/build.env" ]]; then
 fi
 # Production app origin (browser-reachable) and static path; fixed for yoochoog.app.
 export VITE_SOCKET_URL=https://yoochoog.app
+export VITE_PUBLIC_SITE_ORIGIN=https://yoochoog.app
 export VITE_BASE_PATH=/
 set +a
 echo "==> npm ci (app)…"

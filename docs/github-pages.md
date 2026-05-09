@@ -12,7 +12,7 @@ On every **push to `master`** (the current default branch), or when the workflow
 
 1. Check out the repository.
 2. Install Node **20** (matches `app/package.json` `engines`: `^20.19.0 || >=22.12.0`).
-3. In **`app/`**: `npm ci`, then `npm run build` (output: `app/dist/`).
+3. In **`app/`**: `npm ci`, then `npm run build` (output: `app/dist/`). The build writes **`robots.txt`** and **`sitemap.xml`** into **`dist/`** using **`VITE_PUBLIC_SITE_ORIGIN`** and **`VITE_BASE_PATH`** (see **step 4** under **One-time repository settings** below).
 4. Upload `app/dist` as the **GitHub Pages** deployment artifact.
 5. Deploy that artifact with GitHub’s official **`actions/deploy-pages`** job.
 
@@ -64,6 +64,8 @@ The build copies [`app/public/.nojekyll`](../app/public/.nojekyll) into **`dist/
 
 4. **Build-time `VITE_*` values:** The **Install and build** step reads repository **Secrets** and **Variables** (names match [`app/.env.example`](../app/.env.example)). Values are compiled into the client bundle—treat `VITE_SOCKET_URL` and similar as **public** client config. Put sensitive API keys in **Secrets** if you also restrict them in the key provider.
 
+   **`VITE_PUBLIC_SITE_ORIGIN`** (required for production builds) is the **HTTPS origin** of the Pages site—**no path**—for example **`https://neumerance.github.io`** for user/organization Pages. It must match the host where the static files are served (with the default **`VITE_BASE_PATH=/yoochog/`**, crawlers see **`https://<host>/yoochog/robots.txt`**, **`…/yoochog/sitemap.xml`**, and absolute URLs inside those files). Set it with **`gh variable set VITE_PUBLIC_SITE_ORIGIN --body 'https://neumerance.github.io'`** (adjust for your account). Forks and new repos must define this variable (or the build fails at the SEO static step) so `Sitemap:` and `<loc>` are never emitted with a bogus default.
+
 ## GitHub CLI (`gh`)
 
 Run these from a clone of this repo (or pass `-R owner/repo`). Requires [`gh` auth](https://cli.github.com/manual/gh_auth_login).
@@ -75,11 +77,15 @@ Pipe or read the value (avoid putting secrets in shell history when possible):
 ```bash
 # Public Socket.io base URL the browser will use in production (must match your deployed server).
 gh variable set VITE_SOCKET_URL --body 'https://realtime.example.com'
+
+# HTTPS origin of the GitHub Pages site (scheme + host, no path) — required for robots.txt / sitemap.xml in dist/.
+gh variable set VITE_PUBLIC_SITE_ORIGIN --body 'https://neumerance.github.io'
+
 # Optional — YouTube Data API key (browser-restricted key).
 # gh variable set VITE_YOUTUBE_API_KEY --body 'YOUR_KEY'
 ```
 
-The workflow reads **`VITE_SOCKET_URL`** from **Variables** or **Secrets** (`secrets || vars` pattern). For URLs that are not secret, prefer **Variables**.
+The workflow reads **`VITE_SOCKET_URL`**, **`VITE_PUBLIC_SITE_ORIGIN`**, and optional keys from **Variables** or **Secrets** (`secrets || vars` pattern). For URLs that are not secret, prefer **Variables**.
 
 ### Set repository variables (non-sensitive optional config)
 
@@ -134,6 +140,8 @@ Project sites use:
 For this project, **default** production builds (including CI) use Vite `base` **`/yoochog/`** and the router follows `import.meta.env.BASE_URL`, so assets and routes align with that prefix. (A **dedicated** host may set **`VITE_BASE_PATH=/` or another prefix**; nginx and join URLs must follow [`server-deployment.md`](server-deployment.md) — not this Pages-only path.) Example:
 
 **https://neumerance.github.io/yoochog/**
+
+Static crawl files from the same build live next to `index.html` under that prefix, e.g. **`https://neumerance.github.io/yoochog/robots.txt`** and **`https://neumerance.github.io/yoochog/sitemap.xml`**, with absolute `Sitemap:` / `<loc>` values derived from **`VITE_PUBLIC_SITE_ORIGIN`** and **`VITE_BASE_PATH`**.
 
 ## Deep links / SPA routing
 
