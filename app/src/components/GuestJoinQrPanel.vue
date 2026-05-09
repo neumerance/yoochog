@@ -18,7 +18,7 @@
         <p
           class="max-w-[min(100%,26rem)] font-semibold leading-snug text-red-600 text-[length:clamp(0.84rem,calc(0.36rem_+_1.86vmin_+_0.24vw),2.4rem)] dark:text-red-400"
         >
-          Queue It. Sing It. Share It.
+          Group karaoke — one screen, every voice
         </p>
       </div>
       <div

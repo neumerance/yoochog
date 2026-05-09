@@ -1,6 +1,6 @@
 # Yoochog (Vue app)
 
-**YouTube jukebox & group-karaoke** — one screen plays the queue; guests on phones add songs via the join page. Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 and Vite.
+**Group karaoke in the browser** — the host runs the sing queue on the big screen; guests on phones join with a link and add YouTube-backed tracks to the shared rotation. Frontend for [yoochog](https://github.com/neumerance/yoochog), built with Vue 3 and Vite.
 
 ## GitHub Pages (project site)
 
@@ -17,6 +17,18 @@ For this repository the path segment is **`yoochog`**. Example:
 **https://neumerance.github.io/yoochog/**
 
 **Default** production/preview builds set Vite’s [`base`](https://vite.dev/config/shared-options.html#base) to **`/yoochog/`** (GitHub Pages) unless you set **`VITE_BASE_PATH`** in `.env` / the environment. Use **`VITE_BASE_PATH=/`** (or another prefix) when serving from your own host so asset URLs and the router match nginx—see [`docs/server-deployment.md`](../docs/server-deployment.md). Vue Router uses `import.meta.env.BASE_URL`, so it stays aligned with the build.
+
+## Routes (SPA)
+
+| Path | Purpose |
+|------|---------|
+| **`/`** | Marketing homepage (karaoke-first positioning; CTAs to **`/host`**) |
+| **`/host`** | Host player — synced karaoke queue on the big screen |
+| **`/join/:sessionId`** | Guest join + enqueue flow |
+| **`/player`** | Redirects to **`/host`** (legacy bookmark) |
+| **`/client`** | Redirects to **`/host`**, merges existing query and sets **`migrated=client`** for a one-time notice |
+
+With **`VITE_BASE_PATH=/yoochog/`**, browser paths are **`/yoochog/`**, **`/yoochog/host`**, **`/yoochog/join/…`**, etc.
 
 ## Verify the subpath locally
 
@@ -86,7 +98,7 @@ Party messages (queue, chat, session admin) use **Socket.io** between the Vue ap
    in **`app/.env.local`**.
 2. **Or one command:** from the **repo root**, **`docker compose -f compose.dev.yaml up --build`** (see root [`README.md`](../README.md)) — the dev compose file sets the same `VITE_SOCKET_URL` for the Vite service.
 
-**Manual check:** Open **Host** (player) and **Guest** at **`/join/<sessionId>`** with the same session (QR / link). You should see **Connecting** then **Online** on both after the host is present. Use two tabs or profiles.
+**Manual check:** Open the marketing homepage at **`/`**, the host player at **`/host`**, and a guest tab at **`/join/<sessionId>`** with the same session (QR / link). You should see **Connecting** then **Online** on both host and guest after the host is present. Use two tabs or profiles.
 
 **Reconnect / background behavior:** See **[`docs/realtime-recovery.md`](../docs/realtime-recovery.md)** (Socket.io, backoff limits, tab visibility).
 

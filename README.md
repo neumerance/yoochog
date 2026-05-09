@@ -1,6 +1,6 @@
 # yoochog
 
-**Yoochog** is a **YouTube jukebox and group-karaoke** web app: the host runs a synced player on a **TV, laptop, or desktop**, and guests use a **join link** on their phones to **paste YouTube links** into a **shared queue** (see [Party queue (guest adds)](#party-queue-guest-adds) below). The app is a Vue 3 + Vite SPA under [`app/`](app/), published from this repo to **GitHub Pages**. Use this document to **clone and run locally**; see [`app/README.md`](app/README.md) for subpath checks, IDE setup, and more.
+**Yoochog** is a **group karaoke** web app: the host runs the room on a **TV, laptop, or desktop**, and guests use a **join link** on their phones to pick tracks (YouTube as the catalog) and share one **sing queue** with fair rotation (see [Party queue (guest adds)](#party-queue-guest-adds) below). The app is a Vue 3 + Vite SPA under [`app/`](app/). Use this document to **clone and run locally**; see [`app/README.md`](app/README.md) for routes, subpath checks, and IDE setup.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` serves the app at `/` (Vite dev server). **Guest jukebox sync** (phones talking to the host) needs **[`VITE_SOCKET_URL`](app/.env.example)** and the Socket.io process — see [Docker (web + socket)](#docker-web--realtime) or [`app/README.md`](app/README.md).
+`npm run dev` serves the app at `/` (Vite dev server). **Guest ↔ host realtime sync** needs **[`VITE_SOCKET_URL`](app/.env.example)** and the Socket.io process — see [Docker (web + socket)](#docker-web--realtime) or [`app/README.md`](app/README.md).
 
 ## Docker (web + realtime) — local / dev only
 
@@ -66,11 +66,15 @@ This repository does **not** use GitHub Actions as the “deploy to production s
 
 ### Join URL (guests)
 
-Canonical production guest URL:
+**Primary production** (dedicated host with **`VITE_BASE_PATH=/`**, e.g. **yoochoog.app**):
+
+**`https://yoochoog.app/join/<sessionId>`**
+
+**Alternate static surface** (default CI build with **`VITE_BASE_PATH=/yoochog/`**, GitHub Pages project site):
 
 **`https://neumerance.github.io/yoochog/join/<sessionId>`**
 
-Use the same pattern in tests and previews, with the dev server origin and path `/join/<sessionId>`. Any QR or share UI must produce this exact shape (see **`buildGuestJoinUrl`** in [`app/src/lib/join-url/buildGuestJoinUrl.ts`](app/src/lib/join-url/buildGuestJoinUrl.ts)); details and GitHub Pages behavior are in [`docs/github-pages.md`](docs/github-pages.md).
+Use the path shape that matches your deployed **`BASE_URL`**. QR and share features must build URLs with **`buildGuestJoinUrl`** / **`buildGuestJoinUrlFromEnv`** ([`app/src/lib/join-url/buildGuestJoinUrl.ts`](app/src/lib/join-url/buildGuestJoinUrl.ts)); details are in [`docs/github-pages.md`](docs/github-pages.md) and [`docs/server-deployment.md`](docs/server-deployment.md).
 
 ## Runtime configuration (Vite / GitHub Pages)
 

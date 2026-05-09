@@ -1,9 +1,9 @@
+/// <reference types="vitest/config" />
 import { fileURLToPath, URL } from 'node:url'
 
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
 const appRoot = fileURLToPath(new URL('.', import.meta.url))
 
@@ -37,11 +37,7 @@ export default defineConfig((configEnv) => {
 
   return {
   base,
-  plugins: [
-    vue(),
-    vueDevTools(),
-    tailwindcss(),
-  ],
+  plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -50,5 +46,8 @@ export default defineConfig((configEnv) => {
   server: {
     host: true,
     port: 5173,
+  },
+  test: {
+    environment: 'node',
   },
 }})

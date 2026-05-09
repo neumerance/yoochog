@@ -26,7 +26,8 @@ onUnmounted(() => {
       viewportLocked ? 'h-dvh max-h-dvh min-h-0 overflow-hidden' : 'min-h-screen',
     ]"
   >
-    <main
+    <!-- Layout wrapper only; marketing HomeView supplies <main id="main"> for landmarks. -->
+    <div
       :class="[
         'flex flex-1 flex-col min-h-0',
         viewportLocked ? 'overflow-hidden' : '',
@@ -38,6 +39,6 @@ onUnmounted(() => {
         </div>
       </template>
       <RouterView v-else />
-    </main>
+    </div>
   </div>
 </template>

@@ -137,23 +137,29 @@ For this project, **default** production builds (including CI) use Vite `base` *
 
 ## Deep links / SPA routing
 
-GitHub Pages only serves **static files**. There is no server that rewrites `/yoochog/player` to `index.html`, so a **direct open** or **refresh** on an in-app path can return GitHub’s “page not found” response even though the Vue app would know how to render that route if the shell had loaded first.
+GitHub Pages only serves **static files**. There is no server that rewrites `/yoochog/host` (or other in-app paths) to `index.html`, so a **direct open** or **refresh** on an in-app path can return GitHub’s “page not found” response even though the Vue app would know how to render that route if the shell had loaded first.
 
 ### What this repo does
 
-After each production build, the pipeline copies the built **`index.html`** to **`404.html`** in `app/dist/`. GitHub Pages serves that file for requests that do not match a real path, so the browser still receives the **same app shell** as the home page. [Vue Router](https://router.vuejs.org/) (history mode with `createWebHistory` and `BASE_URL` `/yoochog/`) then reads the URL and shows `/player`, `/join/<sessionId>`, and so on.
+After each production build, the pipeline copies the built **`index.html`** to **`404.html`** in `app/dist/`. GitHub Pages serves that file for requests that do not match a real path, so the browser still receives the **same app shell** as the home page. [Vue Router](https://router.vuejs.org/) (history mode with `createWebHistory` and `BASE_URL` `/yoochog/`) then reads the URL and shows **`/`** (marketing), **`/host`**, **`/join/<sessionId>`**, and so on.
 
-### Join URLs (canonical)
+### Join URLs
 
-Guest entry uses a **single canonical** path shape (history mode, no hash):
+Guest entry uses a fixed **path suffix** **`/join/<sessionId>`** after whatever **`BASE_URL`** the build uses (history mode, no hash).
+
+**This Pages deploy shape** (default **`VITE_BASE_PATH=/yoochog/`**):
 
 `https://neumerance.github.io/yoochog/join/<sessionId>`
 
+**Primary production example** (dedicated host with **`VITE_BASE_PATH=/`** — often **yoochoog.app**):
+
+`https://yoochoog.app/join/<sessionId>`
+
 - **`<sessionId>`** is the opaque party id (same id the host tab stores for sharing; UUID-shaped today).
-- **QR codes and copy-link features** must encode **exactly** this URL: same scheme, host, `/yoochog/` prefix, and path. Implementations should build the string with the shared helper [`buildGuestJoinUrl`](../app/src/lib/join-url/buildGuestJoinUrl.ts) so docs and product stay aligned.
+- **QR codes and copy-link features** must encode the deployed origin plus **`BASE_URL`** plus **`join/<sessionId>`** (no double slashes). Implementations should build the string with the shared helper [`buildGuestJoinUrl`](../app/src/lib/join-url/buildGuestJoinUrl.ts) so docs and product stay aligned.
 - Local dev uses base `/`, so the same route looks like `http://localhost:5173/join/<sessionId>`.
 
-The legacy **`/client`** route redirects to the home page; update bookmarks to `/join/<sessionId>` when sharing a party.
+The legacy **`/client`** route redirects to **`/host`** with **`migrated=client`** (bookmark preservation); guest sessions still use **`/join/<sessionId>`** when sharing a party.
 
 See [Creating a custom 404 page for your GitHub Pages site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site).
 
@@ -161,7 +167,7 @@ See [Creating a custom 404 page for your GitHub Pages site](https://docs.github.
 
 | | **`404.html` (same as `index.html`)** — **this repo** | **`createWebHashHistory()`** (not used here) |
 |--|--|--|
-| **URLs** | Clean paths like `/yoochog/player` | Fragment-based: `yoochog/#/player` (less pretty; share links look different) |
+| **URLs** | Clean paths like `/yoochog/host`, `/yoochog/join/<sessionId>` | Fragment-based: `yoochog/#/host` (less pretty; share links look different) |
 | **Hosting** | Relies on Pages’ custom 404 behavior for “missing” paths | Single `index.html` for all routes; no 404 copy needed on static hosts |
 | **Bookmarks / sharing** | Unchanged from current history-mode URLs | Would change URL shape; old bookmarks would need communication or redirects if you ever switched |
 | **Elsewhere** | If you move off Pages to a host that supports SPA fallback (e.g. nginx `try_files`), you configure that there instead of duplicating HTML | Same hash URLs work anywhere without server rewrites |

@@ -5,29 +5,36 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <!-- viewport-fit=cover lets env(safe-area-inset-*) be non-zero on notched devices; guest layouts pad with GuestShell / .guest-shell-padding -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Yoochog — Queue It. Sing It. Share It.</title>
-    <!-- Open Graph / Twitter: absolute URLs match GitHub Pages project site (see app/README.md). Update when deploying to another origin. -->
-    <meta name="description" content="Queue It. Sing It. Share It.">
-    <link rel="canonical" href="https://neumerance.github.io/yoochog/">
+    <title>Yoochog — Group karaoke for friends</title>
+    <!-- Canonical + absolute social URLs target primary production at https://yoochoog.app/ (VITE_BASE_PATH=/). Fork / GitHub Pages builds still ship these filenames under BASE_URL; see docs/github-pages.md. -->
+    <meta name="description" content="Host karaoke on the big screen; guests join on phones with a link or QR. Shared queue, fair rotation, tracks from YouTube. Run it in the browser—no accounts.">
+    <link rel="canonical" href="https://yoochoog.app/">
     <meta property="og:site_name" content="Yoochog">
-    <meta property="og:title" content="Yoochog — Queue It. Sing It. Share It.">
-    <meta property="og:description" content="Queue It. Sing It. Share It.">
+    <meta property="og:title" content="Yoochog — Group karaoke for friends">
+    <meta property="og:description" content="Host karaoke on the big screen; guests join on phones with a link or QR. Shared queue and fair rotation—tracks from YouTube.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://neumerance.github.io/yoochog/">
-    <meta property="og:image" content="https://neumerance.github.io/yoochog/og-image.png">
+    <meta property="og:url" content="https://yoochoog.app/">
+    <meta property="og:image" content="https://yoochoog.app/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="image/png">
-    <meta property="og:image:alt" content="Yoochog — Queue It. Sing It. Share It.">
+    <meta property="og:image:alt" content="Yoochog — group karaoke in the browser">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Yoochog — Queue It. Sing It. Share It.">
-    <meta name="twitter:description" content="Queue It. Sing It. Share It.">
-    <meta name="twitter:image" content="https://neumerance.github.io/yoochog/twitter-image.png">
+    <meta name="twitter:title" content="Yoochog — Group karaoke for friends">
+    <meta name="twitter:description" content="Host karaoke on the big screen; guests join on phones with a link or QR. Shared queue and fair rotation.">
+    <meta name="twitter:image" content="https://yoochoog.app/twitter-image.png">
     <meta name="twitter:image:width" content="1200">
     <meta name="twitter:image:height" content="600">
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <p>
+        <strong>Yoochog</strong> is group karaoke in your browser: the host runs the room from a TV or computer;
+        guests join on their phones to queue songs and take turns at the mic. Enable JavaScript to use the app,
+        or open your host’s join link once scripting is available.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
