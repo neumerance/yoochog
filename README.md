@@ -84,6 +84,11 @@ Use the path shape that matches your deployed **`BASE_URL`**. QR and share featu
 | **`robots.txt` / `sitemap.xml` canonical URLs** | `VITE_PUBLIC_SITE_ORIGIN` | **Required for production `npm run build`.** HTTPS site origin (**scheme + host**, no path)—e.g. **`https://neumerance.github.io`** (Pages) or **`https://yoochoog.app`** (root deploy). Must match where that build is served alongside **`VITE_BASE_PATH`**. See [`docs/github-pages.md`](docs/github-pages.md). |
 | **Party realtime (Socket.io)** | `VITE_SOCKET_URL` | **Required** for host + guest party flows. Public base URL of the Socket.io server (inlined at build). See [ADR 0006](docs/adr/0006-socketio-realtime.md) and [`docs/github-pages.md`](docs/github-pages.md). |
 | **YouTube titles** | `VITE_YOUTUBE_API_KEY` | Optional. |
+| **Google Tag Manager** | `VITE_GTM_CONTAINER_ID` | Public container id (e.g. `GTM-XXXX`). When unset or invalid, the app does **not** load GTM. Loaded only after the visitor accepts optional analytics in the browser; configure **GA4 inside GTM** (no `gtag.js` in app code). See [issue #99](https://github.com/neumerance/yoochog/issues/99). |
+| **Local GTM Preview** | `VITE_ANALYTICS_DEV` | Optional. Set to `true` with a valid `VITE_GTM_CONTAINER_ID` so `npm run dev` can load GTM after consent (Tag Assistant). Ignored in production builds. |
+| **GA4 in GTM** (reference) | `VITE_GA4_MEASUREMENT_ID` | Optional, **documentation / operator use only** — your `G-…` id for the GA4 Configuration tag in GTM. Not required at app runtime for GA4-via-GTM. |
+
+**Verifying tag delivery:** After deploy, open the site, accept analytics, then use [GTM Preview](https://support.google.com/tagmanager/answer/6107050) (Tag Assistant) against the same URL. In GA4, open **Admin → DebugView** for the property receiving events from your container ([GA4 DebugView](https://support.google.com/analytics/answer/7201382)). This app loads **GTM only** (no direct `gtag.js`); configure the GA4 tag inside GTM.
 
 **Do not commit secrets.** Do not add `.env` files or other files containing real credentials to this repository.
 

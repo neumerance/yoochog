@@ -36,6 +36,7 @@ jobs:
           VITE_SOCKET_URL: ${{ secrets.VITE_SOCKET_URL || vars.VITE_SOCKET_URL }}
           VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY || vars.VITE_YOUTUBE_API_KEY }}
           VITE_PUBLIC_SITE_ORIGIN: ${{ secrets.VITE_PUBLIC_SITE_ORIGIN || vars.VITE_PUBLIC_SITE_ORIGIN }}
+          VITE_GTM_CONTAINER_ID: ${{ vars.VITE_GTM_CONTAINER_ID }}
         run: |
           npm ci
           npm run build
