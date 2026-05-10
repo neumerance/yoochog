@@ -90,10 +90,16 @@ export function makeRobotsTxt(opts) {
   const { origin, basePath } = opts
   const lines = [
     'User-agent: facebookexternalhit',
-    'Allow: /',
+    'Disallow:',
     '',
     'User-agent: Facebot',
-    'Allow: /',
+    'Disallow:',
+    '',
+    'User-agent: meta-externalagent',
+    'Disallow:',
+    '',
+    'User-agent: meta-externalfetcher',
+    'Disallow:',
     '',
     'User-agent: *',
   ]

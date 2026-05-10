@@ -53,7 +53,11 @@ describe('makeRobotsTxt', () => {
     expect(ixFb).toBeGreaterThanOrEqual(0)
     expect(ixStar).toBeGreaterThan(ixFb)
     expect(robots).toContain('User-agent: Facebot')
-    expect(robots).toContain('Allow: /')
+    expect(robots).toContain('User-agent: meta-externalagent')
+    expect(robots).toContain('User-agent: meta-externalfetcher')
+    // Empty Disallow is the universally-honored "allow everything" form;
+    // some Meta robots-parsers ignore the Google-extension Allow: directive.
+    expect(robots).toMatch(/User-agent: facebookexternalhit\nDisallow:\n/)
   })
 
   it('matches GitHub Pages + neumerance host', () => {
