@@ -74,12 +74,14 @@ async function rasterizeForSlide({ src, w, h, overlay }) {
 
 async function jpegUnderMax(pngBuffer) {
   for (let q = 88; q >= 48; q -= 4) {
-    const buf = await sharp(pngBuffer).jpeg({ quality: q, mozjpeg: true }).toBuffer()
+    // Baseline JPEG for social crawlers: `mozjpeg: true` enables optimiseScans in libvips,
+    // which forces progressive JPEGs; Facebook often flags those as invalid/corrupted.
+    const buf = await sharp(pngBuffer).jpeg({ quality: q, progressive: false }).toBuffer()
     if (buf.length <= MAX_JPEG_BYTES) {
       return { buf, q }
     }
   }
-  const buf = await sharp(pngBuffer).jpeg({ quality: 46, mozjpeg: true }).toBuffer()
+  const buf = await sharp(pngBuffer).jpeg({ quality: 46, progressive: false }).toBuffer()
   return { buf, q: 46 }
 }
 
